@@ -11,6 +11,9 @@ requires-python = ">=3.11"
 license = { text = "Proprietary" }
 authors = [{ name = "Yanzhuang" }]
 dependencies = [
+    "duckdb>=1.4,<2",
+    "pandas>=2.2,<4",
+    "pyarrow>=19,<24",
     "pydantic-settings>=2.7,<3",
     "typer>=0.15,<1",
 ]

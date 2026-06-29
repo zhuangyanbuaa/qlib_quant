@@ -1213,6 +1213,8 @@ blocked_candidate_count
 
 **目标：** 先让重构可回滚、可测试。
 
+**状态（2026-06-28）：已完成。**
+
 **任务：**
 
 1. 初始化 Git 仓库。
@@ -1236,6 +1238,8 @@ quant --help
 
 **目标：** CSV 不再是主存储。
 
+**状态（2026-06-29）：已完成。**
+
 **任务：**
 
 1. 定义价格、宏观、新闻和事件 Pydantic schema。
@@ -1243,7 +1247,7 @@ quant --help
 3. 实现 DuckDB views。
 4. 编写 CSV 到 Parquet 迁移脚本。
 5. 对当前 1,577 个 CSV 做 schema 报告。
-6. 将异常文件写入 quarantine。
+6. 将异常文件或零散异常行写入 quarantine。
 7. 比较迁移前后行数、日期范围和价格统计。
 
 **验收：**
@@ -1251,6 +1255,15 @@ quant --help
 - 所有正常股票有统一 schema。
 - stale 股票被明确列出。
 - 任意股票日期范围可通过一条 DuckDB SQL 查询。
+
+**实施结果：**
+
+- 扫描 1,577 个 legacy 股票 CSV，共识别 6 种历史 schema。
+- 迁移 1,984,027 条有效 OHLCV 到按年月分区的 Parquet。
+- 单独隔离 139 条异常行，没有整只股票因零散坏行丢失。
+- 明确标记 75 个 stale 股票。
+- 1,577 个股票的去重行数和日期范围在迁移前后全部一致。
+- DuckDB `daily_prices` view 可按 `symbol, session_date_ny` 查询最新事实版本。
 
 ### Phase 2：重构价格和宏观采集
 
