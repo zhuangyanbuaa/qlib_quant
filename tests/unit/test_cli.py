@@ -12,6 +12,16 @@ def test_help_lists_foundation_commands() -> None:
     assert result.exit_code == 0
     assert "health" in result.stdout
     assert "show-config" in result.stdout
+    assert "data" in result.stdout
+
+
+def test_data_help_lists_phase_one_commands() -> None:
+    result = runner.invoke(app, ["data", "--help"])
+
+    assert result.exit_code == 0
+    assert "migrate-legacy" in result.stdout
+    assert "bootstrap-duckdb" in result.stdout
+    assert "price-range" in result.stdout
 
 
 def test_version() -> None:
