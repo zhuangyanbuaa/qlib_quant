@@ -22,6 +22,7 @@ def test_data_help_lists_phase_one_commands() -> None:
     assert "migrate-legacy" in result.stdout
     assert "bootstrap-duckdb" in result.stdout
     assert "price-range" in result.stdout
+    assert "update-prices" in result.stdout
 
 
 def test_version() -> None:

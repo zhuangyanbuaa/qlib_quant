@@ -10,8 +10,17 @@ from uuid import UUID
 import typer
 
 from quant_system import __version__
+from quant_system.ingestion.config import load_price_source_settings
+from quant_system.ingestion.prices import PriceUpdateService
+from quant_system.ingestion.reliability import (
+    DailyCallBudget,
+    ProviderGuard,
+    SlidingWindowRateLimiter,
+)
+from quant_system.ingestion.yahoo import YahooFinancePriceAdapter
 from quant_system.logging import configure_logging, get_logger
 from quant_system.migration.legacy_prices import migrate_legacy_prices
+from quant_system.quality.reports import PipelineStatus
 from quant_system.settings import PROJECT_ROOT, get_settings
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
@@ -146,6 +155,68 @@ def price_range(symbol: str) -> None:
             }
         )
     )
+
+
+@data_app.command("update-prices")
+def update_prices(
+    symbols: Annotated[
+        str | None,
+        typer.Option(
+            "--symbols",
+            help="Comma-separated symbols. Core symbols are always included.",
+        ),
+    ] = None,
+    all_stored: Annotated[
+        bool,
+        typer.Option("--all-stored", help="Update every symbol already in DuckDB."),
+    ] = False,
+    config_path: Annotated[
+        Path,
+        typer.Option(
+            "--config",
+            exists=True,
+            dir_okay=False,
+            help="Validated price-source YAML configuration.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "sources" / "prices.yaml",
+) -> None:
+    """Incrementally update completed daily bars and emit a quality report."""
+    if symbols and all_stored:
+        raise typer.BadParameter("use either --symbols or --all-stored, not both")
+    source_settings = load_price_source_settings(config_path)
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    database_path = settings.resolved_data_dir / "db" / "analytics.duckdb"
+
+    if all_stored:
+        with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
+            analytics.refresh_views()
+            requested = tuple(analytics.stored_symbols())
+    elif symbols:
+        requested = tuple(part.strip().upper() for part in symbols.split(",") if part.strip())
+    else:
+        requested = source_settings.default_symbols
+
+    provider = YahooFinancePriceAdapter(timeout_seconds=source_settings.timeout_seconds)
+    guard = ProviderGuard(
+        budget=DailyCallBudget(source_settings.daily_call_budget),
+        limiter=SlidingWindowRateLimiter(source_settings.calls_per_minute),
+        retry=source_settings.retry.to_policy(),
+    )
+    service = PriceUpdateService(
+        provider=provider,
+        guard=guard,
+        repository=repository,
+        database_path=database_path,
+        report_directory=settings.resolved_data_dir / "reports" / "quality",
+        config=source_settings.to_update_config(),
+    )
+    report, report_path = service.run(requested)
+    output = report.to_dict()
+    output["report_path"] = str(report_path)
+    typer.echo(json.dumps(output, indent=2, sort_keys=True))
+    if report.status is PipelineStatus.BLOCKED:
+        raise typer.Exit(code=2)
 
 
 def main() -> None:

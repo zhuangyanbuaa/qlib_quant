@@ -99,6 +99,28 @@ class DuckDBAnalytics:
             return None, None
         return result[0], result[1]
 
+    def stored_symbols(self) -> list[str]:
+        """Return all symbols currently represented in the curated view."""
+        rows = self.connection.execute(
+            "SELECT DISTINCT symbol FROM daily_prices ORDER BY symbol"
+        ).fetchall()
+        return [row[0] for row in rows]
+
+    def latest_sessions(self, symbols: tuple[str, ...]) -> dict[str, date]:
+        """Return the latest stored session for each requested symbol."""
+        if not symbols:
+            return {}
+        rows = self.connection.execute(
+            """
+            SELECT symbol, max(session_date_ny)
+            FROM daily_prices
+            WHERE symbol IN (SELECT unnest(?))
+            GROUP BY symbol
+            """,
+            [list(symbols)],
+        ).fetchall()
+        return {symbol: session for symbol, session in rows}
+
     def query_daily_prices(
         self,
         symbol: str,
