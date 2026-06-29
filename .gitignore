@@ -26,6 +26,7 @@ mlruns/
 models/
 reports/
 logs/
+legacy/*
 
 # Editors and operating systems
 .DS_Store
