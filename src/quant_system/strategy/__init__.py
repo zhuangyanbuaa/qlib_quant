@@ -1,0 +1,1 @@
+"""Rules-only trading strategies."""

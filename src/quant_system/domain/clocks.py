@@ -43,6 +43,14 @@ class NyseSessionClock:
             current = self.calendar.previous_session(current)
         return current.date()
 
+    def next_session(self, session: date) -> date:
+        """Return the next exchange session after a session label."""
+        return self.calendar.next_session(pd.Timestamp(session)).date()
+
+    def session_open_utc(self, session: date) -> datetime:
+        """Return the official UTC open for a session."""
+        return self.calendar.session_open(pd.Timestamp(session)).to_pydatetime()
+
     @staticmethod
     def exclusive_end(session: date) -> date:
         """Translate an inclusive target session to provider-exclusive end date."""

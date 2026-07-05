@@ -1,0 +1,30 @@
+strategy:
+  benchmark_symbol: QQQ
+  min_average_dollar_volume: 20000000
+  minimum_ma50_slope: -0.02
+  minimum_relative_return_60: 0.0
+  minimum_drawdown: 0.05
+  maximum_drawdown: 0.15
+  minimum_rsi: 30
+  maximum_rsi: 45
+  minimum_atr_drawdown: 1.0
+  maximum_atr_drawdown: 3.0
+  yellow_maximum_ma50_decline: 0.02
+execution:
+  holding_sessions: 5
+  stop_atr_multiple: 2.0
+  target_atr_multiple: 3.0
+  maximum_gap_up: 0.03
+  maximum_gap_down: 0.05
+  slippage_bps: 10
+  commission_bps: 2
+portfolio:
+  initial_cash: 100000
+  risk_per_trade: 0.005
+  reserve_cash_fraction: 0.40
+  maximum_position_fraction: 0.15
+  maximum_gross_exposure: 0.60
+  maximum_positions: 5
+  yellow_risk_multiplier: 0.50
+backtest:
+  universe_type: CURRENT_SNAPSHOT_FORWARD_ONLY

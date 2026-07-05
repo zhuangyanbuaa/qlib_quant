@@ -61,6 +61,28 @@ uv run quant data update-prices --symbols AAPL,MSFT,NVDA
 For the complete source, retry, stale-data, and failure-gate behavior, see
 [`docs/data-ingestion.md`](docs/data-ingestion.md).
 
+## Phase 3 rules and backtesting
+
+Scan a completed session with the exact strategy code used by backtests:
+
+```bash
+uv run quant strategy scan --symbols AAPL,MSFT,NVDA --date 2026-06-26
+```
+
+Run the cash-aware baseline and its fixed robustness grid:
+
+```bash
+uv run quant backtest run \
+  --symbols AAPL,MSFT,NVDA,AMD,AVGO \
+  --start 2022-01-03 \
+  --end 2026-06-26 \
+  --stress
+```
+
+The precise hypothesis, timing, fills, portfolio constraints, and known
+universe bias are documented in
+[`docs/strategy-spec.md`](docs/strategy-spec.md).
+
 Runtime datasets, model artifacts, reports, secrets, and virtual environments
 are intentionally excluded from Git. The current architecture and phased
 roadmap live in
