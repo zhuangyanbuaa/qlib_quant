@@ -13,6 +13,8 @@ def test_help_lists_foundation_commands() -> None:
     assert "health" in result.stdout
     assert "show-config" in result.stdout
     assert "data" in result.stdout
+    assert "strategy" in result.stdout
+    assert "backtest" in result.stdout
 
 
 def test_data_help_lists_phase_one_commands() -> None:

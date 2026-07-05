@@ -141,6 +141,34 @@ class DuckDBAnalytics:
             [symbol.upper(), start_date, start_date, end_date, end_date],
         ).fetchdf()
 
+    def query_price_history(
+        self,
+        symbols: tuple[str, ...],
+        *,
+        start_date: date,
+        end_date: date,
+    ) -> pd.DataFrame:
+        """Load deduplicated OHLCV history for feature construction."""
+        if not symbols:
+            return pd.DataFrame()
+        return self.connection.execute(
+            """
+            SELECT
+                symbol,
+                session_date_ny,
+                open,
+                high,
+                low,
+                close,
+                volume
+            FROM daily_prices
+            WHERE symbol IN (SELECT unnest(?))
+              AND session_date_ny BETWEEN ? AND ?
+            ORDER BY session_date_ny, symbol
+            """,
+            [list(symbols), start_date, end_date],
+        ).fetchdf()
+
     def close(self) -> None:
         self.connection.close()
 

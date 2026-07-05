@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID
@@ -10,6 +11,7 @@ from uuid import UUID
 import typer
 
 from quant_system import __version__
+from quant_system.backtest.workflow import run_backtest_workflow, scan_workflow
 from quant_system.ingestion.config import load_price_source_settings
 from quant_system.ingestion.prices import PriceUpdateService
 from quant_system.ingestion.reliability import (
@@ -24,6 +26,7 @@ from quant_system.quality.reports import PipelineStatus
 from quant_system.settings import PROJECT_ROOT, get_settings
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
+from quant_system.strategy.config import load_buy_the_dip_config
 
 app = typer.Typer(
     name="quant",
@@ -32,7 +35,11 @@ app = typer.Typer(
     add_completion=False,
 )
 data_app = typer.Typer(help="Manage local market-data storage.", no_args_is_help=True)
+strategy_app = typer.Typer(help="Generate rules-only strategy candidates.", no_args_is_help=True)
+backtest_app = typer.Typer(help="Run conservative portfolio backtests.", no_args_is_help=True)
 app.add_typer(data_app, name="data")
+app.add_typer(strategy_app, name="strategy")
+app.add_typer(backtest_app, name="backtest")
 
 
 def _version_callback(value: bool) -> None:
@@ -217,6 +224,88 @@ def update_prices(
     typer.echo(json.dumps(output, indent=2, sort_keys=True))
     if report.status is PipelineStatus.BLOCKED:
         raise typer.Exit(code=2)
+
+
+@strategy_app.command("scan")
+def strategy_scan(
+    symbols: Annotated[
+        str,
+        typer.Option("--symbols", help="Comma-separated symbols to scan."),
+    ],
+    as_of: Annotated[
+        datetime,
+        typer.Option("--date", help="Signal session in YYYY-MM-DD form."),
+    ],
+    config_path: Annotated[
+        Path,
+        typer.Option(
+            "--config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+) -> None:
+    """Scan one historical or current completed session."""
+    requested = _parse_symbols(symbols)
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    signals = scan_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        symbols=requested,
+        as_of=as_of.date(),
+        config=load_buy_the_dip_config(config_path),
+    )
+    typer.echo(json.dumps({"date": as_of.date().isoformat(), "signals": signals}, indent=2))
+
+
+@backtest_app.command("run")
+def backtest_run(
+    symbols: Annotated[
+        str,
+        typer.Option("--symbols", help="Comma-separated current-snapshot universe."),
+    ],
+    start: Annotated[datetime, typer.Option("--start", help="First signal session.")],
+    end: Annotated[datetime, typer.Option("--end", help="Last evaluation session.")],
+    stress: Annotated[
+        bool,
+        typer.Option("--stress", help="Run the fixed pessimistic robustness grid."),
+    ] = False,
+    config_path: Annotated[
+        Path,
+        typer.Option(
+            "--config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+) -> None:
+    """Run a cash-aware daily-bar portfolio backtest."""
+    requested = _parse_symbols(symbols)
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    summary, _artifacts = run_backtest_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        report_root=settings.resolved_data_dir / "reports" / "backtests",
+        symbols=requested,
+        start=start.date(),
+        end=end.date(),
+        config=load_buy_the_dip_config(config_path),
+        include_stress=stress,
+    )
+    typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+
+
+def _parse_symbols(value: str) -> tuple[str, ...]:
+    symbols = tuple(
+        dict.fromkeys(part.strip().upper() for part in value.split(",") if part.strip())
+    )
+    if not symbols:
+        raise typer.BadParameter("at least one symbol is required")
+    return symbols
 
 
 def main() -> None:
