@@ -1,0 +1,35 @@
+provider: yahoo_finance
+bootstrap_start: 2021-01-01
+core_symbols:
+  - SPY
+  - QQQ
+default_symbols:
+  - SPY
+  - QQQ
+  - ^IXIC
+  - ^VIX
+  - ^IRX
+  - XLK
+  - XLF
+  - XLV
+  - XLY
+  - XLP
+  - XLE
+  - XLI
+  - XLU
+  - XLB
+  - XLRE
+  - XLC
+overlap_sessions: 2
+stale_after_sessions: 1
+max_failure_fraction: 0.10
+batch_size: 25
+max_workers: 2
+timeout_seconds: 15
+calls_per_minute: 30
+daily_call_budget: 500
+retry:
+  attempts: 3
+  initial_backoff_seconds: 1
+  maximum_backoff_seconds: 8
+  jitter_seconds: 0.25

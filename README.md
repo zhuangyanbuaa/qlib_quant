@@ -50,6 +50,17 @@ uv run quant data price-range AAPL
 Storage ownership and timestamp semantics are defined in
 [`docs/data-contracts.md`](docs/data-contracts.md).
 
+## Phase 2 incremental updates
+
+Update selected symbols after the latest completed NYSE session:
+
+```bash
+uv run quant data update-prices --symbols AAPL,MSFT,NVDA
+```
+
+For the complete source, retry, stale-data, and failure-gate behavior, see
+[`docs/data-ingestion.md`](docs/data-ingestion.md).
+
 Runtime datasets, model artifacts, reports, secrets, and virtual environments
 are intentionally excluded from Git. The current architecture and phased
 roadmap live in
