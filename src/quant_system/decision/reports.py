@@ -53,6 +53,37 @@ def write_premarket_report(
     )
 
 
+def write_position_check_report(
+    *,
+    report: dict[str, Any],
+    rows: list[dict[str, Any]],
+    report_root: Path,
+    as_of: date,
+    run_id: UUID,
+) -> DailyReportArtifacts:
+    """Write JSON, CSV, and Markdown artifacts for a position exit check."""
+    directory = report_root / as_of.isoformat() / str(run_id)
+    directory.mkdir(parents=True, exist_ok=True)
+
+    json_path = directory / "positions.json"
+    csv_path = directory / "positions.csv"
+    markdown_path = directory / "positions.md"
+
+    json_path.write_text(
+        json.dumps(report, indent=2, sort_keys=True, default=str),
+        encoding="utf-8",
+    )
+    pd.DataFrame(rows).to_csv(csv_path, index=False)
+    markdown_path.write_text(_render_positions_markdown(report, rows), encoding="utf-8")
+
+    return DailyReportArtifacts(
+        directory=directory,
+        json_path=json_path,
+        csv_path=csv_path,
+        markdown_path=markdown_path,
+    )
+
+
 def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]]) -> str:
     metadata = report["metadata"]
     posture = report["portfolio_posture"]
@@ -112,3 +143,61 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
         ]
     )
     return "\n".join(lines)
+
+
+def _render_positions_markdown(report: dict[str, Any], rows: list[dict[str, Any]]) -> str:
+    metadata = report["metadata"]
+    counts = report["counts"]
+    lines = [
+        f"# Position Check — {metadata['as_of']}",
+        "",
+        f"- Generated UTC: `{metadata['generated_at_utc']}`",
+        f"- Market regime: `{metadata['market_regime']}`",
+        f"- Open positions: `{counts['open_position_count']}`",
+        f"- Exit / reduce / review count: `{counts['action_required_count']}`",
+        "",
+        "## Positions",
+        "",
+    ]
+    if not rows:
+        lines.extend(["No open manual positions are recorded.", ""])
+        return "\n".join(lines)
+
+    lines.extend(
+        [
+            "| Symbol | Qty | Entry | Close | PnL % | Stop | Target | Held | Action | Reason |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---|---|",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            "| {symbol} | {quantity} | {entry} | {close} | {pnl} | {stop} | "
+            "{target} | {held} | {action} | {reason} |".format(
+                symbol=row["symbol"],
+                quantity=row["quantity"],
+                entry=_money(row.get("average_entry_price")),
+                close=_money(row.get("current_close")),
+                pnl=_number(row.get("unrealized_return_pct")),
+                stop=_money(row.get("stop_price")),
+                target=_money(row.get("target_price")),
+                held=row["sessions_held"],
+                action=row["recommended_action"],
+                reason=row["primary_reason"],
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "These are decision-support checks only. Confirm orders manually in your broker.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _money(value: object) -> str:
+    return "-" if value is None else f"{float(value):.2f}"
+
+
+def _number(value: object) -> str:
+    return "-" if value is None else f"{float(value):.2f}"

@@ -17,6 +17,7 @@ def test_help_lists_foundation_commands() -> None:
     assert "backtest" in result.stdout
     assert "model" in result.stdout
     assert "decision" in result.stdout
+    assert "journal" in result.stdout
 
 
 def test_data_help_lists_phase_one_commands() -> None:
@@ -44,6 +45,16 @@ def test_decision_help_lists_phase_six_commands() -> None:
 
     assert result.exit_code == 0
     assert "premarket" in result.stdout
+    assert "positions" in result.stdout
+
+
+def test_journal_help_lists_phase_six_commands() -> None:
+    result = runner.invoke(app, ["journal", "--help"])
+
+    assert result.exit_code == 0
+    assert "add-fill" in result.stdout
+    assert "positions" in result.stdout
+    assert "decision" in result.stdout
 
 
 def test_version() -> None:
