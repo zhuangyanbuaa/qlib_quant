@@ -1,0 +1,873 @@
+version: '2026-07-26'
+universe_type: CURRENT_SNAPSHOT_FORWARD_ONLY
+description: Primary AI hardware and infrastructure scan universe generated from the expanded Futu raw candidate pool. Use
+  for live scanning and forward tests only; not an unbiased historical universe.
+selection_policy:
+  start_date_rule: Every member starts no earlier than the watchlist selection date.
+  minimum_size: 70
+  maximum_size: 100
+  benchmark_symbols:
+  - QQQ
+  - SPY
+  - SMH
+  - SOXX
+  - IGV
+  - DTCR
+  - XLU
+  source_basis:
+  - Generated from configs/universe/futu_candidates_raw.yaml on 2026-07-26.
+  - 'AI hardware and semiconductor exposure cross-checked against SMH-style holdings: https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/'
+  - 'Data-center and digital infrastructure theme cross-checked against Global X DTCR objective: https://www.globalxetfs.com/funds/dtcr/'
+  - 'Power/cooling theme cross-checked against Vertiv 2026 data-center AI infrastructure commentary: https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/'
+  - This is a current-snapshot forward-only universe; do not use it as an unbiased historical backtest universe.
+symbols:
+- symbol: AAOI
+  company_name: Applied Optoelectronics
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: ACLS
+  company_name: Axcelis Technologies, Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Ion implant equipment exposure for semiconductor capex.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: ACMR
+  company_name: ACM Research
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: AEHR
+  company_name: Aehr Test Systems
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: AEIS
+  company_name: Advanced Energy Industries, Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Precision power systems for semiconductor and industrial equipment.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: ALAB
+  company_name: Astera Labs
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: AMAT
+  company_name: Applied Materials, Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: AMD
+  company_name: Advanced Micro Devices, Inc.
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: mega
+  benchmark_etf: SMH
+- symbol: AMKR
+  company_name: Amkor Technology, Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: AMSC
+  company_name: 美国超导
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: ANET
+  company_name: Arista Networks
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: APH
+  company_name: Amphenol Corporation
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: APLD
+  company_name: Applied Digital
+  sector: Information Technology
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: ARM
+  company_name: Arm Holdings plc
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: ASML
+  company_name: ASML Holding N.V.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: mega
+  benchmark_etf: SMH
+- symbol: ASX
+  company_name: ASE Technology Holding Co., Ltd.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: AVGO
+  company_name: Broadcom Inc.
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: mega
+  benchmark_etf: SMH
+- symbol: AXTI
+  company_name: AXT Inc
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: BE
+  company_name: Bloom Energy
+  sector: Utilities
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: CARR
+  company_name: Carrier Global Corporation
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: HVAC and cooling infrastructure exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: CEG
+  company_name: Constellation Energy
+  sector: Utilities
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: CIEN
+  company_name: Ciena Corporation
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: COHR
+  company_name: Coherent Corp.
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: CRDO
+  company_name: Credo Technology
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: DELL
+  company_name: Dell Technologies Inc.
+  sector: Information Technology
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: DLR
+  company_name: Digital Realty Trust, Inc.
+  sector: Real Estate
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: EME
+  company_name: EMCOR Group, Inc.
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Mechanical and electrical contracting exposure for complex facilities.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: ENTG
+  company_name: 英特格
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: EOSE
+  company_name: Eos Energy
+  sector: Utilities
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: EQIX
+  company_name: Equinix, Inc.
+  sector: Real Estate
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: ETN
+  company_name: Eaton Corporation plc
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: FIX
+  company_name: Comfort Systems USA, Inc.
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: HVAC and mechanical contracting exposure for data centers.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: FLNC
+  company_name: Fluence Energy
+  sector: Utilities
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: FN
+  company_name: Fabrinet
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: FORM
+  company_name: FormFactor
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: FPS
+  company_name: Forgent Power Solutions
+  sector: Information Technology
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: GEV
+  company_name: GE Vernova Inc.
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: GLW
+  company_name: Corning Incorporated
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: HPE
+  company_name: Hewlett Packard Enterprise Company
+  sector: Information Technology
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: HUBB
+  company_name: Hubbell Incorporated
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Electrical products for grid and facility buildout.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: ICHR
+  company_name: Ichor Holdings
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: INTC
+  company_name: Intel Corporation
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: IPGP
+  company_name: IPG Photonics Corporation
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: KLAC
+  company_name: KLA Corporation
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: KLIC
+  company_name: Kulicke and Soffa Industries, Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: LASR
+  company_name: nLIGHT
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: LITE
+  company_name: Lumentum
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: LPTH
+  company_name: LightPath Technologies
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: LRCX
+  company_name: Lam Research Corporation
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: LWLG
+  company_name: Lightwave Logic
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: MKSI
+  company_name: MKS Inc.
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: MOD
+  company_name: Modine Manufacturing Company
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: MRVL
+  company_name: Marvell Technology, Inc.
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: MTSI
+  company_name: MACOM Technology Solutions
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: MU
+  company_name: Micron Technology, Inc.
+  sector: Information Technology
+  theme: memory_storage
+  subtheme: memory_storage_for_ai_servers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Memory or storage exposure for AI servers and data centers.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: NBIS
+  company_name: NEBIUS
+  sector: Information Technology
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: NEE
+  company_name: NextEra Energy, Inc.
+  sector: Utilities
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: NTAP
+  company_name: NetApp, Inc.
+  sector: Information Technology
+  theme: memory_storage
+  subtheme: memory_storage_for_ai_servers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Memory or storage exposure for AI servers and data centers.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: NVDA
+  company_name: NVIDIA Corporation
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: mega
+  benchmark_etf: SMH
+- symbol: NVMI
+  company_name: Nova
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: NVT
+  company_name: nVent Electric
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: OKLO
+  company_name: Oklo Inc
+  sector: Utilities
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: PENG
+  company_name: Penguin Solutions
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: POWL
+  company_name: Powell Industries
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: PWR
+  company_name: Quanta Services, Inc.
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: QCOM
+  company_name: QUALCOMM Incorporated
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: SIMO
+  company_name: 慧荣科技
+  sector: Information Technology
+  theme: memory_storage
+  subtheme: memory_storage_for_ai_servers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Memory or storage exposure for AI servers and data centers.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: SMCI
+  company_name: Super Micro Computer, Inc.
+  sector: Information Technology
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: SMR
+  company_name: NuScale Power
+  sector: Utilities
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: SMTC
+  company_name: Semtech Corporation
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: SNDK
+  company_name: Sandisk Corporation
+  sector: Information Technology
+  theme: memory_storage
+  subtheme: memory_storage_for_ai_servers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Memory or storage exposure for AI servers and data centers.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: STRL
+  company_name: Sterling Infrastructure, Inc.
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Site preparation and infrastructure contractor exposure for data-center construction.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: STX
+  company_name: Seagate Technology Holdings plc
+  sector: Information Technology
+  theme: memory_storage
+  subtheme: memory_storage_for_ai_servers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Memory or storage exposure for AI servers and data centers.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: TEL
+  company_name: 泰科电子
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: TER
+  company_name: Teradyne, Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: TSM
+  company_name: Taiwan Semiconductor Manufacturing Company Limited
+  sector: Information Technology
+  theme: ai_chips
+  subtheme: accelerators_custom_silicon_foundry
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  liquidity_tier: mega
+  benchmark_etf: SMH
+- symbol: TT
+  company_name: Trane Technologies plc
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Thermal management and cooling exposure.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: TTMI
+  company_name: TTM Technologies, Inc.
+  sector: Information Technology
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: UCTT
+  company_name: Ultra Clean Holdings, Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: equipment_memory_packaging_test
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: VIAV
+  company_name: Viavi Solutions
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: optical_connectivity_and_data_center_networking
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Optical, connector, or data-center networking exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: VRT
+  company_name: Vertiv Holdings Co
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: VST
+  company_name: Vistra Corp.
+  sector: Utilities
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  liquidity_tier: high
+  benchmark_etf: DTCR
+- symbol: WCC
+  company_name: WESCO International, Inc.
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_grid_cooling_and_facility_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Electrical distribution and supply-chain exposure for data centers.
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: WDC
+  company_name: Western Digital Corporation
+  sector: Information Technology
+  theme: memory_storage
+  subtheme: memory_storage_for_ai_servers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Memory or storage exposure for AI servers and data centers.
+  liquidity_tier: high
+  benchmark_etf: SMH
+- symbol: WYFI
+  company_name: WhiteFiber, Inc.
+  sector: Information Technology
+  theme: data_center_compute
+  subtheme: servers_colocation_and_compute_infrastructure
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  liquidity_tier: medium
+  benchmark_etf: DTCR

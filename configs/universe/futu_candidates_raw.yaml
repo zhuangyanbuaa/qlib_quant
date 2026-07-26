@@ -1,0 +1,3403 @@
+version: '2026-07-26'
+universe_type: RAW_RESEARCH_CANDIDATES
+description: Raw research candidate pool built from local Futu CSV exports plus Codex supplemental AI hardware/infrastructure
+  and defensive hedge candidates. This file is not a trade recommendation and is not an unbiased historical universe.
+source_directory: /Users/yanzhuang/Downloads/futu
+symbols:
+- symbol: AAOI
+  company_name: Applied Optoelectronics
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 通讯设备
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: AAPL
+  company_name: 苹果
+  source_files:
+  - list_AI
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 消费电子产品
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: ABBV
+  company_name: AbbVie Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare defensive candidate; XLV top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: ABNB
+  company_name: 爱彼迎
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 旅游服务
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: ABT
+  company_name: 雅培
+  source_files:
+  - 健康
+  futu_industries:
+  - 医疗设备
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: ACLS
+  company_name: Axcelis Technologies, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Ion implant equipment exposure for semiconductor capex.
+  added_by: codex
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: ACMR
+  company_name: ACM Research
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: ADI
+  company_name: 亚德诺
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AEHR
+  company_name: Aehr Test Systems
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AEIS
+  company_name: Advanced Energy Industries, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Precision power systems for semiconductor and industrial equipment.
+  added_by: codex
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AEP
+  company_name: American Electric Power Company, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_utilities
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Utility defensive candidate; XLU holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: AKAM
+  company_name: Akamai Technologies, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Edge compute and security satellite candidate.
+  added_by: codex
+  source_urls:
+  - https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=CIBR
+- symbol: ALAB
+  company_name: Astera Labs
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: ALGM
+  company_name: Allegro Microsystems
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: ALMU
+  company_name: Aeluma Inc
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AMAT
+  company_name: 应用材料
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AMBA
+  company_name: 安霸
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AMD
+  company_name: 美国超微公司
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AMGN
+  company_name: Amgen Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare defensive candidate; XLV holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: AMKR
+  company_name: 艾马克技术
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AMPG
+  company_name: AmpliTech Group
+  source_files:
+  - 传统芯片
+  futu_industries:
+  - 通讯设备
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AMSC
+  company_name: 美国超导
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 专用工业机械
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: AMZN
+  company_name: 亚马逊
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 互联网零售
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: ANET
+  company_name: Arista Networks
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 计算机硬件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: AOSL
+  company_name: Alpha and Omega Semiconductor Limited
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Power semiconductor exposure; review liquidity before core promotion.
+  added_by: codex
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: APH
+  company_name: 安费诺
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  - 服务器液冷数据中心
+  futu_industries:
+  - 电子元件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: APLD
+  company_name: Applied Digital
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 信息技术服务
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: APO
+  company_name: 阿波罗全球管理
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 资产管理
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: ARM
+  company_name: Arm Holdings
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: ASML
+  company_name: 阿斯麦
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: ASTS
+  company_name: AST SpaceMobile
+  source_files:
+  - 太空
+  futu_industries:
+  - 通讯设备
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: Space/speculative technology exposure; not core AI hardware.
+  source_urls: []
+- symbol: ASX
+  company_name: 日月光半导体
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: ATEYY
+  company_name: 爱德万测试(ADR)
+  source_files:
+  - 半导体设备与封测
+  futu_industries: []
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: AVGO
+  company_name: 博通
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: AXP
+  company_name: 美国运通
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 信贷
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: AXTI
+  company_name: AXT Inc
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: BABA
+  company_name: 阿里巴巴
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网零售
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: BAC
+  company_name: 美国银行
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 多元化银行
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: BE
+  company_name: Bloom Energy
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 电气设备及零件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: BKNG
+  company_name: Booking Holdings
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 旅游服务
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: BLK
+  company_name: 贝莱德
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 资产管理
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: BRK-B
+  company_name: 伯克希尔-B
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 多元化保险
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: BWXT
+  company_name: BWX Technologies, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: satellite
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Nuclear technology supply-chain exposure for long-duration power demand.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: BX
+  company_name: 黑石
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 资产管理
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: C
+  company_name: 花旗集团
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 多元化银行
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial diversifier candidate from Futu; keep outside AI alpha training.
+  source_urls: []
+- symbol: CARR
+  company_name: Carrier Global Corporation
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: HVAC and cooling infrastructure exposure.
+  added_by: codex
+  source_urls:
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: CB
+  company_name: 安达保险
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 财产和意外伤害保险
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: CCJ
+  company_name: Cameco
+  source_files:
+  - list_AI
+  futu_industries:
+  - 铀
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: CDNS
+  company_name: 铿腾电子
+  source_files:
+  - list_AI
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: CEG
+  company_name: Constellation Energy
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 独立电力生产商
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: CIEN
+  company_name: Ciena
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 通讯设备
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: CIFR
+  company_name: Cipher Digital
+  source_files:
+  - 电力核能电网
+  futu_industries:
+  - 信息技术服务
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Speculative power/compute/crypto-adjacent infrastructure; keep outside core model until reviewed.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: CL
+  company_name: Colgate-Palmolive Company
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_staples
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Consumer staples defensive candidate; XLP holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-consumer-staples-select-sector-spdr-etf-xlp
+- symbol: COHR
+  company_name: Coherent
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 科技仪器
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: COIN
+  company_name: Coinbase
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 金融数据与证券交易所
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: High-beta fintech/crypto exposure; not a defensive hedge.
+  source_urls: []
+- symbol: CORZ
+  company_name: Core Scientific
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 软件基础设施
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Speculative power/compute/crypto-adjacent infrastructure; keep outside core model until reviewed.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: COST
+  company_name: Costco Wholesale Corporation
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_staples
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Consumer staples defensive candidate; XLP top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-consumer-staples-select-sector-spdr-etf-xlp
+- symbol: CRDO
+  company_name: Credo Technology
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: CRM
+  company_name: 赛富时
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: CRUS
+  company_name: 凌云半导体
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: CRWD
+  company_name: CrowdStrike
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 软件基础设施
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Cybersecurity or edge security exposure; useful satellite, not core AI hardware.
+  source_urls:
+  - https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=CIBR
+- symbol: CRWV
+  company_name: CoreWeave
+  source_files:
+  - list_AI
+  futu_industries:
+  - 软件基础设施
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: CSCO
+  company_name: Cisco Systems, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Networking/security infrastructure satellite candidate.
+  added_by: codex
+  source_urls:
+  - https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=CIBR
+- symbol: D
+  company_name: Dominion Energy, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_utilities
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Utility defensive candidate; XLU holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: DASH
+  company_name: DoorDash
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网零售
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: DELL
+  company_name: 戴尔科技
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 计算机硬件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: DIS
+  company_name: 迪士尼
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 娱乐
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: DLR
+  company_name: 数字房地产信托公司
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 专业REITs
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: DRAM
+  company_name: Roundhill Memory ETF
+  source_files:
+  - 存储
+  futu_industries: []
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Ticker needs manual identifier/ETF validation before use.
+  source_urls: []
+- symbol: DUK
+  company_name: Duke Energy Corporation
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_utilities
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Utility defensive candidate; XLU top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: DUOL
+  company_name: 多邻国
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: EME
+  company_name: EMCOR Group, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Mechanical and electrical contracting exposure for complex facilities.
+  added_by: codex
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: ENTG
+  company_name: 英特格
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: EOSE
+  company_name: Eos Energy
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 电气设备及零件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: EQIX
+  company_name: 易昆尼克斯
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 专业REITs
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: ETN
+  company_name: 伊顿
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 专用工业机械
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: EUV
+  company_name: Corgi Lithography & Semiconductor Photonics ETF
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries: []
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Ticker needs manual identifier/ETF validation before use.
+  source_urls: []
+- symbol: EXPE
+  company_name: Expedia
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 旅游服务
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: FFIV
+  company_name: F5, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Application delivery and security infrastructure candidate.
+  added_by: codex
+  source_urls:
+  - https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=CIBR
+- symbol: FIX
+  company_name: Comfort Systems USA, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: HVAC and mechanical contracting exposure for data centers.
+  added_by: codex
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: FLNC
+  company_name: Fluence Energy
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 可再生能源公用事业
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: FN
+  company_name: Fabrinet
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 电子元件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: FORM
+  company_name: FormFactor
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: FPS
+  company_name: Forgent Power Solutions
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 电气设备及零件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: FSLR
+  company_name: First Solar, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Power supply-chain candidate adjacent to data-center load growth.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: FTNT
+  company_name: Fortinet, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Network security platform; CIBR top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=CIBR
+- symbol: FUTU
+  company_name: 富途控股
+  source_files:
+  - 金融&资管&加密
+  futu_industries:
+  - 资本市场
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: High-beta fintech/crypto exposure; not a defensive hedge.
+  source_urls: []
+- symbol: GEV
+  company_name: GE Vernova
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 专用工业机械
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: GFS
+  company_name: GlobalFoundries
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: GLW
+  company_name: 康宁
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 电子元件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: GNRC
+  company_name: Generac Holdings Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Backup power and distributed energy exposure.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: GOOG
+  company_name: 谷歌-C
+  source_files:
+  - LLM云计算
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: GOOGL
+  company_name: 谷歌-A
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: GS
+  company_name: 高盛
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 资本市场
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: HIMS
+  company_name: Hims & Hers Health
+  source_files:
+  - 健康
+  futu_industries:
+  - 专业与通用药品制造商
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: HLIT
+  company_name: 谐波
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 通讯设备
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: HOOD
+  company_name: Robinhood
+  source_files:
+  - 金融&资管&加密
+  futu_industries:
+  - 资本市场
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: High-beta fintech/crypto exposure; not a defensive hedge.
+  source_urls: []
+- symbol: HPE
+  company_name: 慧与科技
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 通讯设备
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: HUBB
+  company_name: Hubbell Incorporated
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Electrical products for grid and facility buildout.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: ICHR
+  company_name: Ichor Holdings
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: INDI
+  company_name: indie Semiconductor
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: INTC
+  company_name: 英特尔
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: INTU
+  company_name: 财捷
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: IPGP
+  company_name: IPG光电
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: IREN
+  company_name: IREN Ltd
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 资本市场
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Speculative power/compute/crypto-adjacent infrastructure; keep outside core model until reviewed.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: ISRG
+  company_name: 直觉外科公司
+  source_files:
+  - 健康
+  futu_industries:
+  - 医疗设备和用品
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: JD
+  company_name: 京东
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网零售
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: JNJ
+  company_name: Johnson & Johnson
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare defensive candidate; XLV top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: JPM
+  company_name: 摩根大通
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 多元化银行
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: KKR
+  company_name: KKR & Co
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 资产管理
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: KLAC
+  company_name: 科磊
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: KLIC
+  company_name: 库力索法半导体
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: KO
+  company_name: The Coca-Cola Company
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_staples
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Consumer staples defensive candidate; XLP top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-consumer-staples-select-sector-spdr-etf-xlp
+- symbol: LASR
+  company_name: nLIGHT
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: LI
+  company_name: 理想汽车
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 汽车制造
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: LIST2152
+  company_name: 减肥药概念
+  source_files:
+  - 健康
+  futu_industries: []
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Ticker needs manual identifier/ETF validation before use.
+  source_urls: []
+- symbol: LITE
+  company_name: Lumentum
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 通讯设备
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: LLY
+  company_name: 礼来
+  source_files:
+  - 健康
+  futu_industries:
+  - 一般药品制造商
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: LPTH
+  company_name: LightPath Technologies
+  source_files:
+  - 光通信与光模块
+  futu_industries:
+  - 电子元件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: LRCX
+  company_name: 泛林集团
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: LSCC
+  company_name: Lattice Semiconductor Corporation
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: keep_as_satellite
+  reason: Low-power FPGA and edge AI semiconductor exposure.
+  added_by: codex
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: LWLG
+  company_name: Lightwave Logic
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 特殊化工用品
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: MA
+  company_name: 万事达
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 信贷
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: MARS
+  company_name: Roundhill Space & Technology ETF
+  source_files:
+  - 太空
+  futu_industries: []
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Ticker needs manual identifier/ETF validation before use.
+  source_urls: []
+- symbol: MCHP
+  company_name: 微芯科技
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: MDB
+  company_name: MongoDB, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Developer data platform satellite candidate.
+  added_by: codex
+  source_urls: []
+- symbol: MDLZ
+  company_name: Mondelez International, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_staples
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Consumer staples defensive candidate; XLP holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-consumer-staples-select-sector-spdr-etf-xlp
+- symbol: MELI
+  company_name: MercadoLibre
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网零售
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: META
+  company_name: Meta Platforms
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: MKSI
+  company_name: MKS仪器
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 科技仪器
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: MOD
+  company_name: 摩丁制造
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 汽车零件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: MPWR
+  company_name: Monolithic Power Systems
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: MRK
+  company_name: Merck & Co., Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare defensive candidate; XLV top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: MRVL
+  company_name: 迈威尔科技
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: MS
+  company_name: 摩根士丹利
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 资本市场
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: MSFT
+  company_name: 微软
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 软件基础设施
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: MSTR
+  company_name: Strategy
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: High-beta fintech/crypto exposure; not a defensive hedge.
+  source_urls: []
+- symbol: MTSI
+  company_name: MACOM Technology Solutions
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: MU
+  company_name: 美光科技
+  source_files:
+  - list_AI
+  - 存储
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Memory or storage exposure for AI servers and data centers.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: MXL
+  company_name: MaxLinear
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: NASA
+  company_name: Tema Space Innovators ETF
+  source_files:
+  - 太空
+  futu_industries: []
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Ticker needs manual identifier/ETF validation before use.
+  source_urls: []
+- symbol: NBIS
+  company_name: NEBIUS
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: NEE
+  company_name: 新纪元能源
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 受监管电力
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: NET
+  company_name: Cloudflare, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Edge cloud and security platform satellite candidate.
+  added_by: codex
+  source_urls:
+  - https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=CIBR
+- symbol: NFLX
+  company_name: 奈飞
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 娱乐
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: NOW
+  company_name: ServiceNow
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: NRG
+  company_name: NRG Energy, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_utilities
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Utility/power generation diversifier.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: NTAP
+  company_name: 美国网存
+  source_files:
+  - list_AI
+  - 存储
+  futu_industries:
+  - 软件基础设施
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Memory or storage exposure for AI servers and data centers.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: NVDA
+  company_name: 英伟达
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: NVMI
+  company_name: Nova
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: NVT
+  company_name: nVent Electric
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 电气设备及零件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: NVTS
+  company_name: 纳微半导体
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: NXPI
+  company_name: 恩智浦
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: OKLO
+  company_name: Oklo Inc
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 独立电力生产商
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: OKTA
+  company_name: Okta, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Identity security satellite candidate.
+  added_by: codex
+  source_urls:
+  - https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=CIBR
+- symbol: 'ON'
+  company_name: 安森美半导体
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: OPEN
+  company_name: Opendoor Technologies
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 房地产服务
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: ORCL
+  company_name: 甲骨文
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 软件基础设施
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: PANW
+  company_name: Palo Alto Networks, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Cybersecurity platform; CIBR top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=CIBR
+- symbol: PDD
+  company_name: 拼多多
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网零售
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: PENG
+  company_name: Penguin Solutions
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 信息技术服务
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: PEP
+  company_name: PepsiCo, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_staples
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Consumer staples defensive candidate; XLP top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-consumer-staples-select-sector-spdr-etf-xlp
+- symbol: PG
+  company_name: Procter & Gamble Company
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_staples
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Consumer staples defensive candidate; XLP top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-consumer-staples-select-sector-spdr-etf-xlp
+- symbol: PGR
+  company_name: 前进保险
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 财产和意外伤害保险
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: PINS
+  company_name: Pinterest
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: PLTR
+  company_name: Palantir
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 软件基础设施
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: POWL
+  company_name: Powell Industries
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 电气设备及零件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: PWR
+  company_name: 广达服务
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 建筑工程
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: QCOM
+  company_name: 高通
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: QRVO
+  company_name: Qorvo
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: QS
+  company_name: QuantumScape
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 汽车零件
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: RDDT
+  company_name: Reddit
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: RDW
+  company_name: Redwire
+  source_files:
+  - 太空
+  futu_industries:
+  - 航空航天与国防
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: Space/speculative technology exposure; not core AI hardware.
+  source_urls: []
+- symbol: RKLB
+  company_name: Rocket Lab
+  source_files:
+  - 太空
+  futu_industries:
+  - 航空航天与国防
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: Space/speculative technology exposure; not core AI hardware.
+  source_urls: []
+- symbol: RMBS
+  company_name: Rambus
+  source_files:
+  - list_AI
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: ROK
+  company_name: Rockwell Automation, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Industrial automation exposure for semiconductor and infrastructure buildout.
+  added_by: codex
+  source_urls: []
+- symbol: SAP
+  company_name: SAP SE
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: SATL
+  company_name: Satellogic
+  source_files:
+  - 太空
+  futu_industries:
+  - 航空航天与国防
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: Space/speculative technology exposure; not core AI hardware.
+  source_urls: []
+- symbol: SBGSY
+  company_name: SCHNEIDER ELECTRIC SE UNSPON ADR EA REPR 0.20 ORD SHS
+  source_files:
+  - 电力核能电网
+  futu_industries: []
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: SHOP
+  company_name: Shopify
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: SIDU
+  company_name: Sidus Space
+  source_files:
+  - 太空
+  futu_industries:
+  - 航空航天与国防
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: Space/speculative technology exposure; not core AI hardware.
+  source_urls: []
+- symbol: SIMO
+  company_name: 慧荣科技
+  source_files:
+  - list_AI
+  - 存储
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Memory or storage exposure for AI servers and data centers.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: SITM
+  company_name: SiTime Corporation
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: keep_as_satellite
+  reason: Precision timing silicon used in data-center and networking hardware.
+  added_by: codex
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: SKHY
+  company_name: SK海力士
+  source_files:
+  - 存储
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Ticker needs manual identifier/ETF validation before use.
+  source_urls: []
+- symbol: SLAB
+  company_name: 芯科实验室
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: SMCI
+  company_name: 超微电脑
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 计算机硬件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: SMR
+  company_name: NuScale Power
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 专用工业机械
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: SMTC
+  company_name: 先科电子
+  source_files:
+  - list_AI
+  - 传统芯片
+  - 光通信与光模块
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: SNAP
+  company_name: Snap Inc
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: SNDK
+  company_name: 闪迪
+  source_files:
+  - list_AI
+  - 存储
+  futu_industries:
+  - 计算机硬件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Memory or storage exposure for AI servers and data centers.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: SNOW
+  company_name: Snowflake Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Data cloud and AI data platform satellite candidate.
+  added_by: codex
+  source_urls: []
+- symbol: SNPS
+  company_name: 新思科技
+  source_files:
+  - list_AI
+  futu_industries:
+  - 软件基础设施
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: SO
+  company_name: The Southern Company
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_utilities
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Utility defensive candidate; XLU top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: SOFI
+  company_name: SoFi Technologies
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 信贷
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: High-beta fintech/crypto exposure; not a defensive hedge.
+  source_urls: []
+- symbol: SOUN
+  company_name: SoundHound AI
+  source_files:
+  - LLM云计算
+  - list_AI
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: AI software, cloud, data, or application platform exposure.
+  source_urls: []
+- symbol: SPCX
+  company_name: SpaceX
+  source_files:
+  - 太空
+  futu_industries:
+  - 航空航天与国防
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Ticker needs manual identifier/ETF validation before use.
+  source_urls: []
+- symbol: SPIR
+  company_name: Spire Global
+  source_files:
+  - 太空
+  futu_industries:
+  - 专业商务服务
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: none
+  suggested_action: watch_only
+  reason: Space/speculative technology exposure; not core AI hardware.
+  source_urls: []
+- symbol: SPOT
+  company_name: Spotify Technology
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: STM
+  company_name: 意法半导体
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: STRL
+  company_name: Sterling Infrastructure, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Site preparation and infrastructure contractor exposure for data-center construction.
+  added_by: codex
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: STX
+  company_name: 希捷科技
+  source_files:
+  - list_AI
+  - 存储
+  futu_industries:
+  - 计算机硬件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Memory or storage exposure for AI servers and data centers.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: SWKS
+  company_name: 思佳讯
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: SYNA
+  company_name: Synaptics
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: TEL
+  company_name: 泰科电子
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 电子元件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: TER
+  company_name: 泰瑞达
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: TM
+  company_name: 丰田汽车
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 汽车制造
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: TMO
+  company_name: Thermo Fisher Scientific Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare tools defensive candidate; XLV holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: TRV
+  company_name: 旅行者财产险集团
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 财产和意外伤害保险
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: TSEM
+  company_name: Tower半导体
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: TSLA
+  company_name: 特斯拉
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 汽车制造
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: TSM
+  company_name: 台积电
+  source_files:
+  - list_AI
+  - 核心算力与芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: core_ai_hardware
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Core AI compute, accelerator, custom silicon, or foundry exposure.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: TT
+  company_name: Trane Technologies plc
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Thermal management and cooling exposure.
+  added_by: codex
+  source_urls:
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: TTMI
+  company_name: TTM科技
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 电子元件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: TWLO
+  company_name: Twilio
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 软件基础设施
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: TXN
+  company_name: 德州仪器
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: UBER
+  company_name: 优步
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 应用软件
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: UCTT
+  company_name: 超科林半导体
+  source_files:
+  - list_AI
+  - 半导体设备与封测
+  futu_industries:
+  - 半导体设备与材料
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Semiconductor equipment, test, packaging, or supply-chain enabler.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: UNH
+  company_name: 联合健康
+  source_files:
+  - 健康
+  futu_industries:
+  - 医疗计划
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: URI
+  company_name: United Rentals, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Equipment rental exposure to infrastructure construction cycles.
+  added_by: codex
+  source_urls: []
+- symbol: UUUU
+  company_name: Energy Fuels
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 铀
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Speculative power/compute/crypto-adjacent infrastructure; keep outside core model until reviewed.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: V
+  company_name: Visa
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 信贷
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: VIAV
+  company_name: Viavi Solutions
+  source_files:
+  - list_AI
+  - 光通信与光模块
+  futu_industries:
+  - 通讯设备
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Optical, connector, or data-center networking exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: VICR
+  company_name: Vicor电子
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 电子元件
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: VKTX
+  company_name: Viking Therapeutics
+  source_files:
+  - 健康
+  futu_industries:
+  - 生物技术
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: VRT
+  company_name: Vertiv Holdings
+  source_files:
+  - list_AI
+  - 服务器液冷数据中心
+  futu_industries:
+  - 电气设备及零件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: VSH
+  company_name: 威世科技
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: VST
+  company_name: Vistra Energy
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 独立电力生产商
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Power, grid, nuclear, or electrical infrastructure exposure tied to AI data-center load growth.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: VZ
+  company_name: Verizon Communications Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_utilities
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Telecom/utility-like defensive candidate.
+  added_by: codex
+  source_urls: []
+- symbol: WCC
+  company_name: WESCO International, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: indirect
+  suggested_action: promote_to_ai_watchlist
+  reason: Electrical distribution and supply-chain exposure for data centers.
+  added_by: codex
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: WDC
+  company_name: 西部数据
+  source_files:
+  - list_AI
+  - 存储
+  futu_industries:
+  - 计算机硬件
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_hardware
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Memory or storage exposure for AI servers and data centers.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: WFC
+  company_name: 富国银行
+  source_files:
+  - 消费电子&互联网&新能源车
+  - 金融&资管&加密
+  futu_industries:
+  - 多元化银行
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_financials
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  source_urls: []
+- symbol: WMT
+  company_name: Walmart Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_staples
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Consumer staples defensive candidate; XLP top holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-consumer-staples-select-sector-spdr-etf-xlp
+- symbol: WOLF
+  company_name: Wolfspeed
+  source_files:
+  - list_AI
+  - 传统芯片
+  futu_industries:
+  - 半导体
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: ai_hardware
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Traditional semiconductor candidate from Futu; review liquidity and AI linkage.
+  source_urls:
+  - https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/
+- symbol: WULF
+  company_name: TeraWulf
+  source_files:
+  - list_AI
+  - 电力核能电网
+  futu_industries:
+  - 资本市场
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Speculative power/compute/crypto-adjacent infrastructure; keep outside core model until reviewed.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+- symbol: WYFI
+  company_name: WhiteFiber
+  source_files:
+  - 服务器液冷数据中心
+  futu_industries:
+  - 信息技术服务
+  added_by: futu
+  watchlist_role: infra_enabler
+  candidate_bucket: ai_infrastructure
+  ai_exposure: direct
+  suggested_action: promote_to_ai_watchlist
+  reason: Server, colocation, cooling, or data-center infrastructure exposure.
+  source_urls:
+  - https://www.globalxetfs.com/funds/dtcr/
+  - https://www.vertiv.com/en-cn/about/news-and-events/news-releases/vertiv-expects-powering-up-for-ai-digital-twins-and-adaptive-liquid-cooling-to-shape-data-center-design-and-operations/
+- symbol: XBI
+  company_name: 标普生物科技ETF-SPDR
+  source_files:
+  - 健康
+  futu_industries: []
+  added_by: futu
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_healthcare
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv
+- symbol: XEL
+  company_name: Xcel Energy Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: hedge_overlay
+  candidate_bucket: defensive_utilities
+  ai_exposure: hedge
+  suggested_action: use_as_hedge_overlay
+  reason: Utility defensive candidate; XLU holding.
+  added_by: codex
+  source_urls:
+  - https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu
+- symbol: XPEV
+  company_name: 小鹏集团
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 汽车制造
+  added_by: futu
+  watchlist_role: satellite
+  candidate_bucket: speculative_satellite
+  ai_exposure: indirect
+  suggested_action: watch_only
+  reason: Consumer/platform or ADR satellite exposure; review before adding to AI hardware scan.
+  source_urls: []
+- symbol: Z
+  company_name: Zillow-C
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: ZG
+  company_name: Zillow-A
+  source_files:
+  - 消费电子&互联网&新能源车
+  futu_industries:
+  - 互联网内容与信息
+  added_by: futu
+  watchlist_role: watch_only
+  candidate_bucket: exclude_or_review
+  ai_exposure: none
+  suggested_action: exclude_or_manual_review
+  reason: Raw Futu candidate needs manual theme, liquidity, and identifier review.
+  source_urls: []
+- symbol: ZS
+  company_name: Zscaler, Inc.
+  source_files:
+  - codex_supplemental
+  futu_industries: []
+  watchlist_role: ai_platform_software
+  candidate_bucket: ai_software
+  ai_exposure: indirect
+  suggested_action: keep_as_satellite
+  reason: Zero-trust security satellite candidate.
+  added_by: codex
+  source_urls:
+  - https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=CIBR
