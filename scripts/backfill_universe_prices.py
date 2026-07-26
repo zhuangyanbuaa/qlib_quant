@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -18,12 +19,26 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from quant_system.domain.clocks import NyseSessionClock
-from quant_system.ingestion.config import load_price_source_settings
-from quant_system.settings import PROJECT_ROOT
-from quant_system.storage.duckdb import DuckDBAnalytics
-from quant_system.storage.parquet import ParquetRepository
-from quant_system.universe.config import (
+SCRIPT_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = SCRIPT_PROJECT_ROOT / "src"
+VENV_PYTHON = SCRIPT_PROJECT_ROOT / ".venv" / "bin" / "python"
+VENV_ROOT = SCRIPT_PROJECT_ROOT / ".venv"
+if (
+    VENV_PYTHON.exists()
+    and Path(sys.prefix).resolve() != VENV_ROOT.resolve()
+    and os.environ.get("QUANT_BACKFILL_REEXEC") != "1"
+):
+    env = os.environ.copy()
+    env["QUANT_BACKFILL_REEXEC"] = "1"
+    os.execve(str(VENV_PYTHON), [str(VENV_PYTHON), *sys.argv], env)
+sys.path.insert(0, str(SRC_ROOT))
+
+from quant_system.domain.clocks import NyseSessionClock  # noqa: E402
+from quant_system.ingestion.config import load_price_source_settings  # noqa: E402
+from quant_system.settings import PROJECT_ROOT  # noqa: E402
+from quant_system.storage.duckdb import DuckDBAnalytics  # noqa: E402
+from quant_system.storage.parquet import ParquetRepository  # noqa: E402
+from quant_system.universe.config import (  # noqa: E402
     load_raw_candidate_pool_config,
     load_watchlist_config,
 )
@@ -239,9 +254,17 @@ def run_chunks(
             "executed": execute,
         }
         if execute:
+            env = os.environ.copy()
+            current_pythonpath = env.get("PYTHONPATH")
+            env["PYTHONPATH"] = (
+                str(SRC_ROOT)
+                if not current_pythonpath
+                else f"{SRC_ROOT}{os.pathsep}{current_pythonpath}"
+            )
             completed = subprocess.run(
                 command,
                 cwd=PROJECT_ROOT,
+                env=env,
                 text=True,
                 capture_output=True,
                 check=False,
