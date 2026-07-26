@@ -28,6 +28,8 @@ from quant_system.ingestion.sec import SecCompanyEventAdapter
 from quant_system.ingestion.yahoo import YahooFinancePriceAdapter
 from quant_system.logging import configure_logging, get_logger
 from quant_system.migration.legacy_prices import migrate_legacy_prices
+from quant_system.models.config import load_ridge_baseline_settings
+from quant_system.models.workflow import run_ridge_baseline_workflow
 from quant_system.quality.reports import PipelineStatus
 from quant_system.sentiment.classifier import FinbertSentimentScorer, RuleBasedSentimentScorer
 from quant_system.sentiment.mapping import AliasResolver
@@ -46,9 +48,11 @@ app = typer.Typer(
 data_app = typer.Typer(help="Manage local market-data storage.", no_args_is_help=True)
 strategy_app = typer.Typer(help="Generate rules-only strategy candidates.", no_args_is_help=True)
 backtest_app = typer.Typer(help="Run conservative portfolio backtests.", no_args_is_help=True)
+model_app = typer.Typer(help="Train and evaluate ranking baselines.", no_args_is_help=True)
 app.add_typer(data_app, name="data")
 app.add_typer(strategy_app, name="strategy")
 app.add_typer(backtest_app, name="backtest")
+app.add_typer(model_app, name="model")
 
 
 def _version_callback(value: bool) -> None:
@@ -486,6 +490,50 @@ def backtest_run(
         include_stress=stress,
     )
     typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+
+
+@model_app.command("ridge-baseline")
+def model_ridge_baseline(
+    symbols: Annotated[
+        str,
+        typer.Option("--symbols", help="Comma-separated current-snapshot universe."),
+    ],
+    start: Annotated[datetime, typer.Option("--start", help="First signal session.")],
+    end: Annotated[datetime, typer.Option("--end", help="Last evaluation session.")],
+    strategy_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--strategy-config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+    model_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--model-config",
+            exists=True,
+            dir_okay=False,
+            help="Ridge baseline model YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "models" / "ridge_baseline.yaml",
+) -> None:
+    """Run purged walk-forward Ridge validation on rules-approved candidates."""
+    requested = _parse_symbols(symbols)
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    result = run_ridge_baseline_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        report_root=settings.resolved_data_dir / "reports" / "models",
+        symbols=requested,
+        start=start.date(),
+        end=end.date(),
+        strategy_config=load_buy_the_dip_config(strategy_config_path),
+        model_settings=load_ridge_baseline_settings(model_config_path),
+    )
+    typer.echo(json.dumps(result.summary, indent=2, sort_keys=True))
 
 
 def _parse_symbols(value: str) -> tuple[str, ...]:

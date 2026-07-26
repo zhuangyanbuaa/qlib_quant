@@ -1,0 +1,21 @@
+dataset:
+  holding_sessions: [5]
+  feature_columns:
+    - drawdown_from_high20
+    - rsi14
+    - atr20
+    - adx14
+    - avg_dollar_volume20
+    - relative_return60
+    - ma50_slope20
+walk_forward:
+  train_sessions: 504
+  validation_sessions: 63
+  step_sessions: 63
+  hold_period: 5
+  feature_lookback_days: 200
+  minimum_train_rows: 30
+  minimum_validation_rows: 5
+ridge:
+  alpha: 10.0
+  top_fraction: 0.2
