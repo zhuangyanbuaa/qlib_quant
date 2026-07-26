@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     app_env: Literal["development", "test", "production"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     data_dir: Path = Path("data")
+    alpha_vantage_api_key: str | None = None
+    sec_user_agent: str = "qlib_quant/0.1 contact@example.com"
 
     @property
     def resolved_data_dir(self) -> Path:
@@ -37,6 +39,8 @@ class Settings(BaseSettings):
             "app_env": self.app_env,
             "data_dir": str(self.resolved_data_dir),
             "log_level": self.log_level,
+            "alpha_vantage_api_key": "***" if self.alpha_vantage_api_key else "",
+            "sec_user_agent_configured": str(bool(self.sec_user_agent)),
         }
 
 

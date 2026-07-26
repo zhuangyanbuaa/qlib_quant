@@ -18,6 +18,8 @@ def test_public_config_exposes_only_runtime_values() -> None:
 
     assert settings.public_config() == {
         "app_env": "development",
+        "alpha_vantage_api_key": "",
         "data_dir": str(PROJECT_ROOT / "data"),
         "log_level": "INFO",
+        "sec_user_agent_configured": "True",
     }

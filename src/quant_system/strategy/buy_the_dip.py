@@ -10,6 +10,7 @@ import pandas as pd
 from quant_system.domain.clocks import NyseSessionClock
 from quant_system.domain.enums import MarketRegime
 from quant_system.domain.trading import CandidateSignal
+from quant_system.sentiment.risk import NewsRiskAssessment
 from quant_system.strategy.config import RulesConfig
 from quant_system.strategy.market_regime import classify_market_regime
 
@@ -31,6 +32,7 @@ class BuyTheDipStrategy:
         features: pd.DataFrame,
         *,
         as_of: date | None = None,
+        news_risk: dict[str, NewsRiskAssessment] | None = None,
     ) -> list[CandidateSignal]:
         """Return close-confirmed signals, optionally restricted to one date."""
         frame = self.annotate(features)
@@ -39,7 +41,12 @@ class BuyTheDipStrategy:
             candidates = candidates.loc[
                 candidates["session_date_ny"].dt.date == as_of
             ]
-        signals = [self._to_signal(row) for _, row in candidates.iterrows()]
+        signals = []
+        for _, row in candidates.iterrows():
+            assessment = news_risk.get(row["symbol"]) if news_risk else None
+            if assessment and assessment.is_veto:
+                continue
+            signals.append(self._to_signal(row, news_risk=assessment))
         return sorted(
             signals,
             key=lambda signal: (
@@ -114,9 +121,25 @@ class BuyTheDipStrategy:
         )
         return frame
 
-    def _to_signal(self, row: pd.Series) -> CandidateSignal:
+    def _to_signal(
+        self,
+        row: pd.Series,
+        *,
+        news_risk: NewsRiskAssessment | None = None,
+    ) -> CandidateSignal:
         signal_session = row["session_date_ny"].date()
         next_session = self.clock.next_session(signal_session)
+        news_references = ()
+        news_risk_level = "LOW"
+        reasons = ["dip_yesterday", "daily_confirmation", "market_regime_open"]
+        if news_risk:
+            news_risk_level = news_risk.severity.value
+            news_references = (
+                *news_risk.article_references,
+                *news_risk.event_references,
+            )
+            if news_risk.reasons:
+                reasons.extend(f"news:{reason}" for reason in news_risk.reasons)
         return CandidateSignal(
             signal_id=uuid5(
                 NAMESPACE_URL,
@@ -132,5 +155,7 @@ class BuyTheDipStrategy:
             signal_close=float(row["close"]),
             atr20=float(row["atr20"]),
             market_regime=MarketRegime(row["market_regime"]),
-            reasons=("dip_yesterday", "daily_confirmation", "market_regime_open"),
+            reasons=tuple(reasons),
+            news_risk=news_risk_level,
+            news_references=news_references,
         )

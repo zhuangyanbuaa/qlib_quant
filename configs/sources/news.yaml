@@ -1,0 +1,129 @@
+alpha_vantage:
+  enabled: true
+  calls_per_minute: 5
+  daily_call_budget: 25
+  timeout_seconds: 20
+  batch_size: 10
+  limit_per_call: 50
+  topics:
+    - technology
+    - earnings
+    - financial_markets
+  retry:
+    attempts: 3
+    initial_backoff_seconds: 1
+    maximum_backoff_seconds: 8
+    jitter_seconds: 0.25
+
+sec:
+  enabled: true
+  calls_per_second: 5
+  daily_call_budget: 200
+  timeout_seconds: 20
+  forms:
+    - 8-K
+    - 10-Q
+    - 10-K
+    - S-1
+    - S-3
+    - 424B5
+  retry:
+    attempts: 3
+    initial_backoff_seconds: 1
+    maximum_backoff_seconds: 8
+    jitter_seconds: 0.25
+
+sentiment:
+  scorer: rule_based
+  finbert:
+    model_name: ProsusAI/finbert
+    model_revision: main
+    device: auto
+    batch_size: 16
+    max_articles_per_run: 500
+
+risk:
+  lookback_hours: 72
+  high_severity_veto: true
+
+companies:
+  - symbol: AAPL
+    cik: "0000320193"
+    sector: technology_hardware
+    aliases: [Apple]
+  - symbol: MSFT
+    cik: "0000789019"
+    sector: software
+    aliases: [Microsoft]
+  - symbol: NVDA
+    cik: "0001045810"
+    sector: semiconductors
+    aliases: [Nvidia, NVIDIA]
+  - symbol: AMD
+    cik: "0000002488"
+    sector: semiconductors
+    aliases: [Advanced Micro Devices]
+  - symbol: AVGO
+    cik: "0001730168"
+    sector: semiconductors
+    aliases: [Broadcom]
+  - symbol: AMZN
+    cik: "0001018724"
+    sector: cloud
+    aliases: [Amazon]
+  - symbol: META
+    cik: "0001326801"
+    sector: internet
+    aliases: [Meta Platforms, Facebook]
+  - symbol: GOOGL
+    cik: "0001652044"
+    sector: internet
+    aliases: [Alphabet, Google]
+  - symbol: TSM
+    cik: "0001046179"
+    sector: semiconductors
+    aliases: [Taiwan Semiconductor]
+  - symbol: ASML
+    cik: "0000937966"
+    sector: semiconductors
+    aliases: [ASML Holding]
+  - symbol: AMAT
+    cik: "0000006951"
+    sector: semiconductor_equipment
+    aliases: [Applied Materials]
+  - symbol: LRCX
+    cik: "0000707549"
+    sector: semiconductor_equipment
+    aliases: [Lam Research]
+  - symbol: KLAC
+    cik: "0000319201"
+    sector: semiconductor_equipment
+    aliases: [KLA]
+  - symbol: MU
+    cik: "0000723125"
+    sector: semiconductors
+    aliases: [Micron]
+  - symbol: MRVL
+    cik: "0001835632"
+    sector: semiconductors
+    aliases: [Marvell]
+  - symbol: ANET
+    cik: "0001596532"
+    sector: networking
+    aliases: [Arista Networks]
+  - symbol: DELL
+    cik: "0001571996"
+    sector: servers
+    aliases: [Dell Technologies]
+  - symbol: SMCI
+    cik: "0001375365"
+    sector: servers
+    aliases: [Super Micro Computer, Supermicro]
+  - symbol: VRT
+    cik: "0001674101"
+    sector: data_center_infrastructure
+    aliases: [Vertiv]
+  - symbol: ORCL
+    cik: "0001341439"
+    sector: cloud
+    aliases: [Oracle]

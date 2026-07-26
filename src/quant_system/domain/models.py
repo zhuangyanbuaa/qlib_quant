@@ -17,6 +17,8 @@ from pydantic import (
     model_validator,
 )
 
+from quant_system.domain.enums import EventSeverity, NewsEventType
+
 Symbol = Annotated[
     str,
     StringConstraints(strip_whitespace=True, to_upper=True, min_length=1, max_length=32),
@@ -116,9 +118,18 @@ class NewsArticle(IngestionMetadata):
     title: NonEmptyString
     summary: str = ""
     url: HttpUrl
+    source_domain: str = ""
+    canonical_url: str = ""
+    dedupe_key: NonEmptyString = "unknown"
+    semantic_key: NonEmptyString = "unknown"
     language: NonEmptyString = "en"
     raw_tickers: tuple[str, ...] = ()
     raw_topics: tuple[str, ...] = ()
+    matched_symbols: tuple[str, ...] = ()
+    event_type: NewsEventType = NewsEventType.OTHER
+    severity: EventSeverity = EventSeverity.LOW
+    sentiment_label: NonEmptyString = "neutral"
+    sentiment_score: Annotated[float, Field(ge=-1, le=1, allow_inf_nan=False)] = 0.0
 
     @model_validator(mode="after")
     def published_before_available(self) -> NewsArticle:
@@ -130,6 +141,7 @@ class NewsArticle(IngestionMetadata):
 class CompanyEvent(IngestionMetadata):
     """A timestamped SEC or company event."""
 
+    event_id: NonEmptyString = "unknown"
     cik: NonEmptyString
     symbol: Symbol
     form_type: NonEmptyString
@@ -137,6 +149,8 @@ class CompanyEvent(IngestionMetadata):
     filed_at_utc: AwareDatetime
     accepted_at_utc: AwareDatetime
     filing_url: HttpUrl
+    event_type: NewsEventType = NewsEventType.SEC_FILING
+    severity: EventSeverity = EventSeverity.MEDIUM
 
     @model_validator(mode="after")
     def validate_event_times(self) -> CompanyEvent:
