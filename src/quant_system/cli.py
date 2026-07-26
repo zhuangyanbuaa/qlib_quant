@@ -28,8 +28,14 @@ from quant_system.ingestion.sec import SecCompanyEventAdapter
 from quant_system.ingestion.yahoo import YahooFinancePriceAdapter
 from quant_system.logging import configure_logging, get_logger
 from quant_system.migration.legacy_prices import migrate_legacy_prices
-from quant_system.models.config import load_ridge_baseline_settings
-from quant_system.models.workflow import run_ridge_baseline_workflow
+from quant_system.models.config import (
+    load_ranking_baseline_settings,
+    load_ridge_baseline_settings,
+)
+from quant_system.models.workflow import (
+    run_ranking_baseline_workflow,
+    run_ridge_baseline_workflow,
+)
 from quant_system.quality.reports import PipelineStatus
 from quant_system.sentiment.classifier import FinbertSentimentScorer, RuleBasedSentimentScorer
 from quant_system.sentiment.mapping import AliasResolver
@@ -532,6 +538,51 @@ def model_ridge_baseline(
         end=end.date(),
         strategy_config=load_buy_the_dip_config(strategy_config_path),
         model_settings=load_ridge_baseline_settings(model_config_path),
+    )
+    typer.echo(json.dumps(result.summary, indent=2, sort_keys=True))
+
+
+@model_app.command("ranking-baseline")
+def model_ranking_baseline(
+    symbols: Annotated[
+        str,
+        typer.Option("--symbols", help="Comma-separated current-snapshot universe."),
+    ],
+    start: Annotated[datetime, typer.Option("--start", help="First signal session.")],
+    end: Annotated[datetime, typer.Option("--end", help="Last evaluation session.")],
+    strategy_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--strategy-config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+    model_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--model-config",
+            exists=True,
+            dir_okay=False,
+            help="Ridge + LightGBM ranking baseline YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "models" / "ranking_baseline.yaml",
+) -> None:
+    """Compare rules-only candidates, Ridge, and conservative LightGBM."""
+    requested = _parse_symbols(symbols)
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    result = run_ranking_baseline_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        operations_database_path=settings.resolved_data_dir / "db" / "operations.sqlite",
+        report_root=settings.resolved_data_dir / "reports" / "models",
+        symbols=requested,
+        start=start.date(),
+        end=end.date(),
+        strategy_config=load_buy_the_dip_config(strategy_config_path),
+        model_settings=load_ranking_baseline_settings(model_config_path),
     )
     typer.echo(json.dumps(result.summary, indent=2, sort_keys=True))
 

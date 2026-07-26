@@ -1790,10 +1790,10 @@ quant --help
 
 当前状态（2026-07-26）：
 
-- Phase 0–4 已完成第一版。
-- `dev` 已包含 Phase 0–3。
-- `feat/phase4` 已完成新闻风险流水线，等待 review/merge。
-- 下一阶段应从 Phase 5 开始，但只能在 Phase 4 merge 后进行。
+- Phase 0–5 已完成第一版。
+- `dev` 已包含 Phase 0–5A–5C。
+- `feat/phase5-lightgbm` 已完成保守 LightGBM、OOF 比较、校准、特征稳定性和 SQLite model registry，等待 review/merge。
+- 下一阶段应从 Phase 6 开始，但只能在 Phase 5 完整 merge 后进行。
 
 Phase 5 开始前的 gate：
 
@@ -1804,4 +1804,4 @@ quant strategy scan --symbols AAPL,MSFT,NVDA,AMD,QQQ --date <latest-completed-se
 quant data news-risk --symbols AAPL,MSFT,NVDA --cutoff <signal-cutoff-utc>
 ```
 
-Phase 5 的最小目标不是“训练出更强模型”，而是先建立可信的 label、purged walk-forward、Ridge baseline 和模型注册格式。LightGBM 只有在 OOF/OOS 稳定优于无模型规则 baseline 时才允许进入每日报告。
+Phase 5 的最小目标不是“训练出更强模型”，而是先建立可信的 label、purged walk-forward、Ridge baseline、保守 LightGBM、OOF 比较和模型注册格式。LightGBM 只有在 OOF/OOS 稳定优于无模型规则 baseline 时才允许进入每日报告；当前小样本 smoke 明确返回 `NOT_ELIGIBLE_NO_OOF`，不得晋级。
