@@ -15,6 +15,7 @@ def test_help_lists_foundation_commands() -> None:
     assert "data" in result.stdout
     assert "strategy" in result.stdout
     assert "backtest" in result.stdout
+    assert "model" in result.stdout
 
 
 def test_data_help_lists_phase_one_commands() -> None:
@@ -27,6 +28,13 @@ def test_data_help_lists_phase_one_commands() -> None:
     assert "update-prices" in result.stdout
     assert "update-news" in result.stdout
     assert "news-risk" in result.stdout
+
+
+def test_model_help_lists_phase_five_commands() -> None:
+    result = runner.invoke(app, ["model", "--help"])
+
+    assert result.exit_code == 0
+    assert "ridge-baseline" in result.stdout
 
 
 def test_version() -> None:

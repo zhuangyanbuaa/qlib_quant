@@ -23,7 +23,7 @@ venv/
 data/*
 !data/.gitkeep
 mlruns/
-models/
+/models/
 reports/
 logs/
 legacy/*
