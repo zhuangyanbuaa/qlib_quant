@@ -13,6 +13,7 @@ from quant_system.backtest.metrics import calculate_metrics
 from quant_system.backtest.reports import BacktestArtifacts, write_backtest_report
 from quant_system.backtest.stress import run_stress_grid
 from quant_system.features.technical import build_technical_features
+from quant_system.sentiment.risk import NewsRiskAssessment, assess_news_risk
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.strategy.buy_the_dip import BuyTheDipStrategy
@@ -121,6 +122,8 @@ def scan_workflow(
     symbols: tuple[str, ...],
     as_of: date,
     config: BuyTheDipConfig,
+    include_news_risk: bool = False,
+    news_lookback_hours: int = 72,
 ) -> list[dict[str, object]]:
     """Generate one-date candidates through the exact backtest strategy code."""
     features = load_feature_history(
@@ -131,5 +134,31 @@ def scan_workflow(
         start=as_of,
         end=as_of,
     )
-    signals = BuyTheDipStrategy(config.strategy).generate_signals(features, as_of=as_of)
+    news_risk: dict[str, NewsRiskAssessment] | None = None
+    if include_news_risk:
+        from quant_system.domain.clocks import NyseSessionClock
+
+        cutoff = NyseSessionClock().available_at_utc(as_of)
+        with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
+            analytics.refresh_views()
+            news_risk = assess_news_risk(
+                symbols=symbols,
+                articles=analytics.query_news_articles(
+                    symbols,
+                    cutoff_utc=cutoff,
+                    lookback_hours=news_lookback_hours,
+                ),
+                events=analytics.query_company_events(
+                    symbols,
+                    cutoff_utc=cutoff,
+                    lookback_hours=news_lookback_hours,
+                ),
+                cutoff_utc=cutoff,
+                lookback_hours=news_lookback_hours,
+            )
+    signals = BuyTheDipStrategy(config.strategy).generate_signals(
+        features,
+        as_of=as_of,
+        news_risk=news_risk,
+    )
     return [signal.model_dump(mode="json") for signal in signals]

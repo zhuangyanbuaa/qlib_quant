@@ -3,7 +3,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from quant_system.domain.enums import MarketRegime
+from quant_system.domain.enums import EventSeverity, MarketRegime
+from quant_system.sentiment.risk import NewsRiskAssessment
 from quant_system.strategy.buy_the_dip import BuyTheDipStrategy
 from quant_system.strategy.config import load_buy_the_dip_config
 
@@ -74,3 +75,51 @@ def test_red_market_blocks_candidate() -> None:
     signals = BuyTheDipStrategy(config.strategy).generate_signals(features)
 
     assert signals == []
+
+
+def test_high_severity_news_veto_blocks_candidate() -> None:
+    config = load_buy_the_dip_config(Path("configs/strategy/buy_the_dip.yaml"))
+    risk = NewsRiskAssessment(
+        symbol="AAPL",
+        severity=EventSeverity.HIGH,
+        article_references=(
+            {
+                "article_id": "a1",
+                "url": "https://example.com/a1",
+                "title": "AAPL faces SEC charges",
+            },
+        ),
+        reasons=("high_severity_news",),
+    )
+
+    signals = BuyTheDipStrategy(config.strategy).generate_signals(
+        feature_rows(),
+        news_risk={"AAPL": risk},
+    )
+
+    assert signals == []
+
+
+def test_medium_news_risk_is_attached_but_not_vetoed() -> None:
+    config = load_buy_the_dip_config(Path("configs/strategy/buy_the_dip.yaml"))
+    risk = NewsRiskAssessment(
+        symbol="AAPL",
+        severity=EventSeverity.MEDIUM,
+        article_references=(
+            {
+                "article_id": "a1",
+                "url": "https://example.com/a1",
+                "title": "AAPL receives downgrade",
+            },
+        ),
+        reasons=("medium_severity_event",),
+    )
+
+    signals = BuyTheDipStrategy(config.strategy).generate_signals(
+        feature_rows(),
+        news_risk={"AAPL": risk},
+    )
+
+    assert len(signals) == 1
+    assert signals[0].news_risk == "MEDIUM"
+    assert signals[0].news_references[0]["article_id"] == "a1"

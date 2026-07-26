@@ -10,7 +10,8 @@ inputs.
 |---|---|---|---|---|
 | Raw daily prices | Partitioned Parquet | Price ingestion or migration | DuckDB, quality checks, Qlib exporter | Append only |
 | Raw macro observations | Partitioned Parquet | Macro adapters | DuckDB, feature builders | Append only |
-| Raw news and SEC events | Partitioned Parquet | News and SEC adapters | Sentiment and event pipelines | Append only |
+| Raw news articles | Partitioned Parquet | News adapters | DuckDB, sentiment/risk, strategy scan | Append only |
+| Raw SEC/company events | Partitioned Parquet | SEC/company-event adapters | DuckDB, sentiment/risk, strategy scan | Append only |
 | Curated features and labels | Partitioned Parquet | Feature pipeline | Backtest, ranker, reports | Rebuild by version |
 | Analytical views | DuckDB | Storage bootstrap | Research and reporting | Rebuild; never authoritative |
 | Runs, plans, manual orders and fills | SQLite | Operations modules | Reports and journal | Transactional updates |
@@ -37,6 +38,38 @@ Every persisted row includes:
 - ingestion run ID;
 - stale status and quality flags;
 - an explicit adjusted-price flag.
+
+## News and SEC event contract
+
+News and event rows are external facts and follow the same ingestion metadata
+contract as prices. Raw Parquet is never rewritten.
+
+Raw news lives under:
+
+```text
+data/raw/news/year=*/month=*/*.parquet
+```
+
+The DuckDB `news_articles` view deduplicates by `dedupe_key`, keeping the latest
+fetch when the same URL/title appears in multiple ingestion runs. Every news row
+keeps the canonical URL, URL dedupe key, semantic key, raw provider
+tickers/topics, matched canonical symbols, event type, severity, sentiment label,
+sentiment score, and raw source URL.
+
+Raw SEC/company events live under:
+
+```text
+data/raw/company_events/year=*/month=*/*.parquet
+```
+
+The DuckDB `company_events` view deduplicates by `event_id`, derived from CIK,
+accession number, and form type. SEC events become visible at
+`accepted_at_utc`; Alpha Vantage news becomes visible at provider
+`published_at_utc`.
+
+Historical risk queries must use `available_at_utc <= cutoff_utc`. High-severity
+events may veto a candidate only when the emitted signal can link back to the
+raw article URL or SEC filing URL.
 
 ## Legacy migration
 

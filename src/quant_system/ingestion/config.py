@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from quant_system.ingestion.prices import PriceUpdateConfig
 from quant_system.ingestion.reliability import RetryPolicy
+from quant_system.sentiment.mapping import CompanyMapping
 
 
 class RetrySettings(BaseModel):
@@ -63,3 +64,86 @@ def load_price_source_settings(path: Path) -> PriceSourceSettings:
     if not isinstance(payload, dict):
         raise ValueError(f"price source config must be a mapping: {path}")
     return PriceSourceSettings.model_validate(payload)
+
+
+class AlphaVantageNewsSettings(BaseModel):
+    """Alpha Vantage NEWS_SENTIMENT limits and request shape."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    enabled: bool = True
+    calls_per_minute: int = Field(default=5, ge=1)
+    daily_call_budget: int = Field(default=25, ge=1)
+    timeout_seconds: float = Field(default=20, gt=0)
+    batch_size: int = Field(default=10, ge=1)
+    limit_per_call: int = Field(default=50, ge=1, le=1000)
+    topics: tuple[str, ...] = ()
+    retry: RetrySettings = RetrySettings()
+
+
+class SecEventSettings(BaseModel):
+    """SEC submissions API limits and form filters."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    enabled: bool = True
+    calls_per_second: int = Field(default=5, ge=1, le=10)
+    daily_call_budget: int = Field(default=200, ge=1)
+    timeout_seconds: float = Field(default=20, gt=0)
+    forms: tuple[str, ...] = ("8-K", "10-Q", "10-K")
+    retry: RetrySettings = RetrySettings()
+
+    @property
+    def calls_per_minute(self) -> int:
+        return self.calls_per_second * 60
+
+
+class FinbertSettings(BaseModel):
+    """Pinned optional FinBERT runtime settings."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    model_name: str = "ProsusAI/finbert"
+    model_revision: str = "main"
+    device: Literal["auto", "cpu", "mps"] = "auto"
+    batch_size: int = Field(default=16, ge=1)
+    max_articles_per_run: int = Field(default=500, ge=1)
+
+
+class SentimentSettings(BaseModel):
+    """Sentiment scoring configuration."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scorer: Literal["rule_based", "finbert"] = "rule_based"
+    finbert: FinbertSettings = FinbertSettings()
+
+
+class NewsRiskSettings(BaseModel):
+    """Risk aggregation and veto settings."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    lookback_hours: int = Field(default=72, ge=1)
+    high_severity_veto: bool = True
+
+
+class NewsSourceSettings(BaseModel):
+    """Validated Phase 4 news and SEC source configuration."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    alpha_vantage: AlphaVantageNewsSettings = AlphaVantageNewsSettings()
+    sec: SecEventSettings = SecEventSettings()
+    sentiment: SentimentSettings = SentimentSettings()
+    risk: NewsRiskSettings = NewsRiskSettings()
+    companies: tuple[CompanyMapping, ...]
+
+
+def load_news_source_settings(path: Path) -> NewsSourceSettings:
+    """Load a strict news-source config; unknown keys fail fast."""
+    with path.open(encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"news source config must be a mapping: {path}")
+    return NewsSourceSettings.model_validate(payload)

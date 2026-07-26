@@ -25,6 +25,8 @@ def test_data_help_lists_phase_one_commands() -> None:
     assert "bootstrap-duckdb" in result.stdout
     assert "price-range" in result.stdout
     assert "update-prices" in result.stdout
+    assert "update-news" in result.stdout
+    assert "news-risk" in result.stdout
 
 
 def test_version() -> None:

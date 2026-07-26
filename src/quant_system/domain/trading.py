@@ -26,6 +26,8 @@ class CandidateSignal(StrictModel):
     atr20: PositiveFloat
     market_regime: MarketRegime
     reasons: tuple[str, ...]
+    news_risk: str = "LOW"
+    news_references: tuple[dict[str, object], ...] = ()
 
     @model_validator(mode="after")
     def validate_timeline(self) -> CandidateSignal:
