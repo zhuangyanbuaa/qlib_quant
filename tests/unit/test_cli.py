@@ -16,6 +16,7 @@ def test_help_lists_foundation_commands() -> None:
     assert "strategy" in result.stdout
     assert "backtest" in result.stdout
     assert "model" in result.stdout
+    assert "decision" in result.stdout
 
 
 def test_data_help_lists_phase_one_commands() -> None:
@@ -36,6 +37,13 @@ def test_model_help_lists_phase_five_commands() -> None:
     assert result.exit_code == 0
     assert "ridge-baseline" in result.stdout
     assert "ranking-baseline" in result.stdout
+
+
+def test_decision_help_lists_phase_six_commands() -> None:
+    result = runner.invoke(app, ["decision", "--help"])
+
+    assert result.exit_code == 0
+    assert "premarket" in result.stdout
 
 
 def test_version() -> None:
