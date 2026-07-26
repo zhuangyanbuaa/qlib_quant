@@ -1,0 +1,17 @@
+version: "2026-07-26"
+benchmarks:
+  - symbol: QQQ
+    role: broad_growth
+    reason: Nasdaq-100 growth and AI platform benchmark.
+  - symbol: SPY
+    role: broad_market
+    reason: S&P 500 broad market benchmark.
+  - symbol: SMH
+    role: semiconductor_concentrated
+    reason: Concentrated semiconductor and AI accelerator benchmark.
+  - symbol: SOXX
+    role: semiconductor_broad
+    reason: Broader U.S.-listed semiconductor industry benchmark.
+  - symbol: IGV
+    role: software
+    reason: Expanded technology software benchmark.

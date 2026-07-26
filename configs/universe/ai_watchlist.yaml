@@ -1,0 +1,958 @@
+version: "2026-07-26"
+universe_type: CURRENT_SNAPSHOT_FORWARD_ONLY
+description: >
+  AI infrastructure research watchlist selected on 2026-07-26. Use for live
+  scanning and forward tests only; do not treat this current-snapshot list as an
+  unbiased historical universe.
+selection_policy:
+  start_date_rule: "Every member starts no earlier than the watchlist selection date."
+  minimum_size: 30
+  maximum_size: 100
+  benchmark_symbols: [QQQ, SPY, SMH, SOXX, IGV]
+  source_basis:
+    - "Local legacy Parquet coverage check on 2026-07-26."
+    - "Semiconductor exposure cross-checked against SMH/SOXX-style holdings: https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/ and https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf"
+    - "Data-center and digital infrastructure theme cross-checked against Global X DTCR objective: https://www.globalxetfs.com/funds/dtcr/"
+    - "Power/cooling theme cross-checked against Vertiv 2026 data-center AI infrastructure commentary: https://investors.vertiv.com/news/news-details/2026/Vertiv-Expects-Powering-Up-for-AI-Digital-Twins-and-Adaptive-Liquid-Cooling-to-Shape-Data-Center-Design-and-Operations/default.aspx"
+    - "Cybersecurity theme cross-checked against current cybersecurity ETF/theme research including PANW, CRWD, FTNT, ZS, and OKTA: https://investingnews.com/daily/tech-investing/cybersecurity-investing/cybersecurity-etfs/"
+symbols:
+  - symbol: NVDA
+    company_name: NVIDIA Corporation
+    sector: Information Technology
+    theme: ai_chips
+    subtheme: gpu_accelerators
+    start_date: 2026-07-26
+    end_date:
+    reason: Dominant AI accelerator and GPU platform supplier.
+    liquidity_tier: mega
+    benchmark_etf: SMH
+  - symbol: AMD
+    company_name: Advanced Micro Devices, Inc.
+    sector: Information Technology
+    theme: ai_chips
+    subtheme: gpu_cpu_accelerators
+    start_date: 2026-07-26
+    end_date:
+    reason: AI accelerator, CPU, and data-center compute supplier.
+    liquidity_tier: mega
+    benchmark_etf: SOXX
+  - symbol: AVGO
+    company_name: Broadcom Inc.
+    sector: Information Technology
+    theme: ai_chips
+    subtheme: custom_asic_networking
+    start_date: 2026-07-26
+    end_date:
+    reason: Custom AI ASIC, networking silicon, and infrastructure software exposure.
+    liquidity_tier: mega
+    benchmark_etf: SMH
+  - symbol: MRVL
+    company_name: Marvell Technology, Inc.
+    sector: Information Technology
+    theme: ai_chips
+    subtheme: custom_asic_networking
+    start_date: 2026-07-26
+    end_date:
+    reason: Data-center custom silicon, DSP, and networking exposure.
+    liquidity_tier: high
+    benchmark_etf: SMH
+  - symbol: QCOM
+    company_name: QUALCOMM Incorporated
+    sector: Information Technology
+    theme: ai_chips
+    subtheme: edge_ai
+    start_date: 2026-07-26
+    end_date:
+    reason: Edge AI, mobile compute, and connected-device silicon exposure.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: ARM
+    company_name: Arm Holdings plc
+    sector: Information Technology
+    theme: ai_chips
+    subtheme: cpu_ip
+    start_date: 2026-07-26
+    end_date:
+    reason: CPU architecture IP used across cloud, edge, and embedded AI systems.
+    liquidity_tier: high
+    benchmark_etf: SMH
+  - symbol: INTC
+    company_name: Intel Corporation
+    sector: Information Technology
+    theme: ai_chips
+    subtheme: cpu_foundry_accelerators
+    start_date: 2026-07-26
+    end_date:
+    reason: CPU, accelerator, and foundry turnaround exposure.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: MU
+    company_name: Micron Technology, Inc.
+    sector: Information Technology
+    theme: memory_storage
+    subtheme: hbm_dram_nand
+    start_date: 2026-07-26
+    end_date:
+    reason: AI server memory and high-bandwidth memory exposure.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: TXN
+    company_name: Texas Instruments Incorporated
+    sector: Information Technology
+    theme: analog_power
+    subtheme: analog_embedded
+    start_date: 2026-07-26
+    end_date:
+    reason: Analog and embedded chips used across industrial and power systems.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: ADI
+    company_name: Analog Devices, Inc.
+    sector: Information Technology
+    theme: analog_power
+    subtheme: analog_mixed_signal
+    start_date: 2026-07-26
+    end_date:
+    reason: Mixed-signal and power-management exposure across industrial infrastructure.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: MCHP
+    company_name: Microchip Technology Incorporated
+    sector: Information Technology
+    theme: analog_power
+    subtheme: microcontrollers
+    start_date: 2026-07-26
+    end_date:
+    reason: Microcontroller and embedded control exposure for edge and industrial systems.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: MPWR
+    company_name: Monolithic Power Systems, Inc.
+    sector: Information Technology
+    theme: analog_power
+    subtheme: power_management
+    start_date: 2026-07-26
+    end_date:
+    reason: Power management chips for high-density compute infrastructure.
+    liquidity_tier: high
+    benchmark_etf: SMH
+  - symbol: "ON"
+    company_name: ON Semiconductor Corporation
+    sector: Information Technology
+    theme: analog_power
+    subtheme: power_semiconductors
+    start_date: 2026-07-26
+    end_date:
+    reason: Power and sensing semiconductors for electrification and edge systems.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: NXPI
+    company_name: NXP Semiconductors N.V.
+    sector: Information Technology
+    theme: edge_ai
+    subtheme: embedded_processors
+    start_date: 2026-07-26
+    end_date:
+    reason: Embedded processors and secure connectivity for edge AI systems.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: ALAB
+    company_name: Astera Labs, Inc.
+    sector: Information Technology
+    theme: ai_chips
+    subtheme: connectivity_silicon
+    start_date: 2026-07-26
+    end_date:
+    reason: AI server connectivity silicon and high-speed interconnect exposure.
+    liquidity_tier: medium
+    benchmark_etf: SMH
+  - symbol: LSCC
+    company_name: Lattice Semiconductor Corporation
+    sector: Information Technology
+    theme: edge_ai
+    subtheme: fpga
+    start_date: 2026-07-26
+    end_date:
+    reason: Low-power FPGA exposure for edge and embedded AI.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: MTSI
+    company_name: MACOM Technology Solutions Holdings, Inc.
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: rf_optical_semiconductors
+    start_date: 2026-07-26
+    end_date:
+    reason: Optical, RF, and high-speed semiconductor exposure.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: AMBA
+    company_name: Ambarella, Inc.
+    sector: Information Technology
+    theme: edge_ai
+    subtheme: vision_ai
+    start_date: 2026-07-26
+    end_date:
+    reason: Edge AI vision processors and automotive/IoT AI exposure.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: TSM
+    company_name: Taiwan Semiconductor Manufacturing Company Limited
+    sector: Information Technology
+    theme: semiconductor_manufacturing
+    subtheme: foundry
+    start_date: 2026-07-26
+    end_date:
+    reason: Leading advanced-node foundry for AI compute supply chains.
+    liquidity_tier: mega
+    benchmark_etf: SMH
+  - symbol: ASX
+    company_name: ASE Technology Holding Co., Ltd.
+    sector: Information Technology
+    theme: semiconductor_manufacturing
+    subtheme: packaging_testing
+    start_date: 2026-07-26
+    end_date:
+    reason: Advanced packaging and testing exposure.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: AMKR
+    company_name: Amkor Technology, Inc.
+    sector: Information Technology
+    theme: semiconductor_manufacturing
+    subtheme: packaging_testing
+    start_date: 2026-07-26
+    end_date:
+    reason: Outsourced semiconductor assembly and advanced packaging exposure.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: AOSL
+    company_name: Alpha and Omega Semiconductor Limited
+    sector: Information Technology
+    theme: analog_power
+    subtheme: power_semiconductors
+    start_date: 2026-07-26
+    end_date:
+    reason: Power semiconductor exposure for compute and industrial power systems.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: POWI
+    company_name: Power Integrations, Inc.
+    sector: Information Technology
+    theme: analog_power
+    subtheme: power_conversion
+    start_date: 2026-07-26
+    end_date:
+    reason: Power conversion semiconductor exposure.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: SITM
+    company_name: SiTime Corporation
+    sector: Information Technology
+    theme: ai_chips
+    subtheme: timing_silicon
+    start_date: 2026-07-26
+    end_date:
+    reason: Precision timing silicon for data-center and networking hardware.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: WDC
+    company_name: Western Digital Corporation
+    sector: Information Technology
+    theme: memory_storage
+    subtheme: storage
+    start_date: 2026-07-26
+    end_date:
+    reason: Data-center storage and NAND-cycle exposure.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: STX
+    company_name: Seagate Technology Holdings plc
+    sector: Information Technology
+    theme: memory_storage
+    subtheme: storage
+    start_date: 2026-07-26
+    end_date:
+    reason: Data-center hard-drive and storage capacity exposure.
+    liquidity_tier: high
+    benchmark_etf: QQQ
+  - symbol: SNDK
+    company_name: Sandisk Corporation
+    sector: Information Technology
+    theme: memory_storage
+    subtheme: flash_storage
+    start_date: 2026-07-26
+    end_date:
+    reason: Flash storage exposure after recent public-market history.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: ASML
+    company_name: ASML Holding N.V.
+    sector: Information Technology
+    theme: semiconductor_equipment
+    subtheme: lithography
+    start_date: 2026-07-26
+    end_date:
+    reason: Critical lithography equipment for advanced AI chips.
+    liquidity_tier: mega
+    benchmark_etf: SMH
+  - symbol: AMAT
+    company_name: Applied Materials, Inc.
+    sector: Information Technology
+    theme: semiconductor_equipment
+    subtheme: wafer_fab_equipment
+    start_date: 2026-07-26
+    end_date:
+    reason: Broad wafer fabrication equipment exposure.
+    liquidity_tier: high
+    benchmark_etf: SMH
+  - symbol: LRCX
+    company_name: Lam Research Corporation
+    sector: Information Technology
+    theme: semiconductor_equipment
+    subtheme: etch_deposition
+    start_date: 2026-07-26
+    end_date:
+    reason: Etch and deposition equipment exposure for advanced chips.
+    liquidity_tier: high
+    benchmark_etf: SMH
+  - symbol: KLAC
+    company_name: KLA Corporation
+    sector: Information Technology
+    theme: semiconductor_equipment
+    subtheme: process_control
+    start_date: 2026-07-26
+    end_date:
+    reason: Process control and yield-management equipment exposure.
+    liquidity_tier: high
+    benchmark_etf: SMH
+  - symbol: TER
+    company_name: Teradyne, Inc.
+    sector: Information Technology
+    theme: semiconductor_equipment
+    subtheme: test_equipment
+    start_date: 2026-07-26
+    end_date:
+    reason: Semiconductor test equipment and automation exposure.
+    liquidity_tier: high
+    benchmark_etf: SOXX
+  - symbol: CDNS
+    company_name: Cadence Design Systems, Inc.
+    sector: Information Technology
+    theme: eda_design_software
+    subtheme: chip_design_software
+    start_date: 2026-07-26
+    end_date:
+    reason: Electronic design automation software for AI chip design.
+    liquidity_tier: high
+    benchmark_etf: SMH
+  - symbol: SNPS
+    company_name: Synopsys, Inc.
+    sector: Information Technology
+    theme: eda_design_software
+    subtheme: chip_design_software
+    start_date: 2026-07-26
+    end_date:
+    reason: EDA, IP, and verification software for AI silicon design.
+    liquidity_tier: high
+    benchmark_etf: SMH
+  - symbol: ACLS
+    company_name: Axcelis Technologies, Inc.
+    sector: Information Technology
+    theme: semiconductor_equipment
+    subtheme: ion_implant
+    start_date: 2026-07-26
+    end_date:
+    reason: Ion implant equipment exposure to semiconductor capex cycles.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: ACMR
+    company_name: ACM Research, Inc.
+    sector: Information Technology
+    theme: semiconductor_equipment
+    subtheme: wafer_cleaning
+    start_date: 2026-07-26
+    end_date:
+    reason: Wafer cleaning equipment exposure.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: AEIS
+    company_name: Advanced Energy Industries, Inc.
+    sector: Information Technology
+    theme: semiconductor_equipment
+    subtheme: precision_power
+    start_date: 2026-07-26
+    end_date:
+    reason: Precision power systems for semiconductor and industrial equipment.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: MSFT
+    company_name: Microsoft Corporation
+    sector: Information Technology
+    theme: cloud_ai_platforms
+    subtheme: hyperscaler
+    start_date: 2026-07-26
+    end_date:
+    reason: Azure cloud, AI platform, and enterprise software exposure.
+    liquidity_tier: mega
+    benchmark_etf: QQQ
+  - symbol: AMZN
+    company_name: Amazon.com, Inc.
+    sector: Consumer Discretionary
+    theme: cloud_ai_platforms
+    subtheme: hyperscaler
+    start_date: 2026-07-26
+    end_date:
+    reason: AWS cloud and AI infrastructure capex exposure.
+    liquidity_tier: mega
+    benchmark_etf: QQQ
+  - symbol: GOOGL
+    company_name: Alphabet Inc.
+    sector: Communication Services
+    theme: cloud_ai_platforms
+    subtheme: hyperscaler
+    start_date: 2026-07-26
+    end_date:
+    reason: Google Cloud, TPU, search, and AI platform exposure.
+    liquidity_tier: mega
+    benchmark_etf: QQQ
+  - symbol: META
+    company_name: Meta Platforms, Inc.
+    sector: Communication Services
+    theme: cloud_ai_platforms
+    subtheme: ai_applications
+    start_date: 2026-07-26
+    end_date:
+    reason: Large-scale AI infrastructure and consumer AI applications.
+    liquidity_tier: mega
+    benchmark_etf: QQQ
+  - symbol: ORCL
+    company_name: Oracle Corporation
+    sector: Information Technology
+    theme: cloud_ai_platforms
+    subtheme: cloud_infrastructure
+    start_date: 2026-07-26
+    end_date:
+    reason: Cloud infrastructure and AI database/workload exposure.
+    liquidity_tier: high
+    benchmark_etf: QQQ
+  - symbol: IBM
+    company_name: International Business Machines Corporation
+    sector: Information Technology
+    theme: cloud_ai_platforms
+    subtheme: enterprise_ai
+    start_date: 2026-07-26
+    end_date:
+    reason: Enterprise AI, hybrid cloud, and infrastructure software exposure.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: NOW
+    company_name: ServiceNow, Inc.
+    sector: Information Technology
+    theme: ai_software
+    subtheme: workflow_automation
+    start_date: 2026-07-26
+    end_date:
+    reason: Enterprise workflow automation and AI application exposure.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: CRM
+    company_name: Salesforce, Inc.
+    sector: Information Technology
+    theme: ai_software
+    subtheme: enterprise_applications
+    start_date: 2026-07-26
+    end_date:
+    reason: Enterprise application and AI assistant exposure.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: PLTR
+    company_name: Palantir Technologies Inc.
+    sector: Information Technology
+    theme: ai_software
+    subtheme: analytics_platform
+    start_date: 2026-07-26
+    end_date:
+    reason: AI analytics and government/commercial data platform exposure.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: APP
+    company_name: AppLovin Corporation
+    sector: Information Technology
+    theme: ai_software
+    subtheme: advertising_ai
+    start_date: 2026-07-26
+    end_date:
+    reason: AI-driven advertising and application monetization platform.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: SNOW
+    company_name: Snowflake Inc.
+    sector: Information Technology
+    theme: ai_software
+    subtheme: data_cloud
+    start_date: 2026-07-26
+    end_date:
+    reason: Data cloud and AI data modernization exposure; requires local data backfill.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: DDOG
+    company_name: Datadog, Inc.
+    sector: Information Technology
+    theme: ai_software
+    subtheme: observability
+    start_date: 2026-07-26
+    end_date:
+    reason: Cloud observability and AI operations exposure.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: NET
+    company_name: Cloudflare, Inc.
+    sector: Information Technology
+    theme: ai_software
+    subtheme: edge_cloud_security
+    start_date: 2026-07-26
+    end_date:
+    reason: Edge cloud, developer, and security platform exposure; requires local data backfill.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: MDB
+    company_name: MongoDB, Inc.
+    sector: Information Technology
+    theme: ai_software
+    subtheme: developer_data_platform
+    start_date: 2026-07-26
+    end_date:
+    reason: Developer data platform exposure for AI applications; requires local data backfill.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: ANET
+    company_name: Arista Networks, Inc.
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: data_center_networking
+    start_date: 2026-07-26
+    end_date:
+    reason: High-speed data-center networking exposure.
+    liquidity_tier: high
+    benchmark_etf: QQQ
+  - symbol: CSCO
+    company_name: Cisco Systems, Inc.
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: enterprise_networking
+    start_date: 2026-07-26
+    end_date:
+    reason: Networking, security, and infrastructure exposure.
+    liquidity_tier: high
+    benchmark_etf: QQQ
+  - symbol: CIEN
+    company_name: Ciena Corporation
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: optical_networking
+    start_date: 2026-07-26
+    end_date:
+    reason: Optical networking exposure for AI data traffic growth.
+    liquidity_tier: medium
+    benchmark_etf: QQQ
+  - symbol: COHR
+    company_name: Coherent Corp.
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: optical_components
+    start_date: 2026-07-26
+    end_date:
+    reason: Optical components and transceiver exposure.
+    liquidity_tier: medium
+    benchmark_etf: QQQ
+  - symbol: LITE
+    company_name: Lumentum Holdings Inc.
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: optical_components
+    start_date: 2026-07-26
+    end_date:
+    reason: Optical component exposure for hyperscaler AI networking.
+    liquidity_tier: medium
+    benchmark_etf: QQQ
+  - symbol: FFIV
+    company_name: F5, Inc.
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: application_delivery_security
+    start_date: 2026-07-26
+    end_date:
+    reason: Application delivery and security infrastructure exposure.
+    liquidity_tier: medium
+    benchmark_etf: QQQ
+  - symbol: HPE
+    company_name: Hewlett Packard Enterprise Company
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: enterprise_ai_infrastructure
+    start_date: 2026-07-26
+    end_date:
+    reason: Enterprise AI servers, networking, and hybrid infrastructure exposure.
+    liquidity_tier: high
+    benchmark_etf: QQQ
+  - symbol: AKAM
+    company_name: Akamai Technologies, Inc.
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: edge_cloud_security
+    start_date: 2026-07-26
+    end_date:
+    reason: Edge compute, delivery, and security infrastructure exposure.
+    liquidity_tier: medium
+    benchmark_etf: IGV
+  - symbol: GLW
+    company_name: Corning Incorporated
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: fiber_connectivity
+    start_date: 2026-07-26
+    end_date:
+    reason: Fiber and optical materials exposure for data-center connectivity.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: SMTC
+    company_name: Semtech Corporation
+    sector: Information Technology
+    theme: networking_optical
+    subtheme: signal_processing
+    start_date: 2026-07-26
+    end_date:
+    reason: Signal integrity and connectivity semiconductor exposure.
+    liquidity_tier: medium
+    benchmark_etf: SOXX
+  - symbol: VRT
+    company_name: Vertiv Holdings Co
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: power_cooling_systems
+    start_date: 2026-07-26
+    end_date:
+    reason: Critical digital infrastructure power and cooling supplier.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: ETN
+    company_name: Eaton Corporation plc
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: power_management
+    start_date: 2026-07-26
+    end_date:
+    reason: Electrical power management exposure for data-center buildout.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: PWR
+    company_name: Quanta Services, Inc.
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: grid_infrastructure
+    start_date: 2026-07-26
+    end_date:
+    reason: Grid and power infrastructure contractor exposure.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: EME
+    company_name: EMCOR Group, Inc.
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: mechanical_electrical_contracting
+    start_date: 2026-07-26
+    end_date:
+    reason: Electrical and mechanical contracting exposure for complex facilities.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: FIX
+    company_name: Comfort Systems USA, Inc.
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: hvac_mechanical_contracting
+    start_date: 2026-07-26
+    end_date:
+    reason: HVAC and mechanical contracting exposure for data-center facilities.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: GEV
+    company_name: GE Vernova Inc.
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: grid_power_generation
+    start_date: 2026-07-26
+    end_date:
+    reason: Grid, power, and electrification exposure for AI power demand.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: NVT
+    company_name: nVent Electric plc
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: electrical_enclosures
+    start_date: 2026-07-26
+    end_date:
+    reason: Electrical connection and enclosure exposure for infrastructure buildout.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: TT
+    company_name: Trane Technologies plc
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: thermal_management
+    start_date: 2026-07-26
+    end_date:
+    reason: Cooling and thermal management exposure.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: CARR
+    company_name: Carrier Global Corporation
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: hvac
+    start_date: 2026-07-26
+    end_date:
+    reason: HVAC and cooling infrastructure exposure.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: IR
+    company_name: Ingersoll Rand Inc.
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: industrial_systems
+    start_date: 2026-07-26
+    end_date:
+    reason: Industrial systems exposure adjacent to infrastructure buildout.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: GNRC
+    company_name: Generac Holdings Inc.
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: backup_power
+    start_date: 2026-07-26
+    end_date:
+    reason: Backup power and distributed energy exposure.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: EQIX
+    company_name: Equinix, Inc.
+    sector: Real Estate
+    theme: data_center_reits
+    subtheme: colocation
+    start_date: 2026-07-26
+    end_date:
+    reason: Global data-center colocation REIT exposure.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: DLR
+    company_name: Digital Realty Trust, Inc.
+    sector: Real Estate
+    theme: data_center_reits
+    subtheme: colocation_hyperscale
+    start_date: 2026-07-26
+    end_date:
+    reason: Data-center REIT and hyperscale demand exposure.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: AMT
+    company_name: American Tower Corporation
+    sector: Real Estate
+    theme: digital_infrastructure
+    subtheme: towers_edge
+    start_date: 2026-07-26
+    end_date:
+    reason: Communications tower and edge infrastructure exposure.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: APLD
+    company_name: Applied Digital Corporation
+    sector: Information Technology
+    theme: data_center_compute
+    subtheme: ai_cloud_infrastructure
+    start_date: 2026-07-26
+    end_date:
+    reason: AI cloud and data-center infrastructure exposure.
+    liquidity_tier: medium
+    benchmark_etf: QQQ
+  - symbol: SMCI
+    company_name: Super Micro Computer, Inc.
+    sector: Information Technology
+    theme: data_center_compute
+    subtheme: ai_servers
+    start_date: 2026-07-26
+    end_date:
+    reason: AI server and rack-scale system exposure.
+    liquidity_tier: high
+    benchmark_etf: QQQ
+  - symbol: DELL
+    company_name: Dell Technologies Inc.
+    sector: Information Technology
+    theme: data_center_compute
+    subtheme: ai_servers_storage
+    start_date: 2026-07-26
+    end_date:
+    reason: AI server, storage, and enterprise infrastructure exposure.
+    liquidity_tier: high
+    benchmark_etf: QQQ
+  - symbol: BWXT
+    company_name: BWX Technologies, Inc.
+    sector: Industrials
+    theme: ai_power
+    subtheme: nuclear_supply_chain
+    start_date: 2026-07-26
+    end_date:
+    reason: Nuclear technology exposure relevant to long-duration AI power demand.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: CEG
+    company_name: Constellation Energy Corporation
+    sector: Utilities
+    theme: ai_power
+    subtheme: nuclear_power
+    start_date: 2026-07-26
+    end_date:
+    reason: Nuclear and clean power exposure for data-center demand.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: VST
+    company_name: Vistra Corp.
+    sector: Utilities
+    theme: ai_power
+    subtheme: power_generation
+    start_date: 2026-07-26
+    end_date:
+    reason: Power generation exposure for load growth from data centers.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: STRL
+    company_name: Sterling Infrastructure, Inc.
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: site_preparation_infrastructure
+    start_date: 2026-07-26
+    end_date:
+    reason: Site preparation and infrastructure exposure for data-center construction.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: WCC
+    company_name: WESCO International, Inc.
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: electrical_distribution
+    start_date: 2026-07-26
+    end_date:
+    reason: Electrical distribution and supply-chain exposure.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: MOD
+    company_name: Modine Manufacturing Company
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: thermal_management
+    start_date: 2026-07-26
+    end_date:
+    reason: Thermal management and cooling exposure.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: HUBB
+    company_name: Hubbell Incorporated
+    sector: Industrials
+    theme: data_center_power_cooling
+    subtheme: electrical_products
+    start_date: 2026-07-26
+    end_date:
+    reason: Electrical products exposure for grid and facility buildout.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: ROK
+    company_name: Rockwell Automation, Inc.
+    sector: Industrials
+    theme: industrial_automation
+    subtheme: factory_automation
+    start_date: 2026-07-26
+    end_date:
+    reason: Automation exposure for semiconductor and infrastructure buildout.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: URI
+    company_name: United Rentals, Inc.
+    sector: Industrials
+    theme: industrial_infrastructure
+    subtheme: construction_equipment
+    start_date: 2026-07-26
+    end_date:
+    reason: Equipment rental exposure to infrastructure construction cycles.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: FSLR
+    company_name: First Solar, Inc.
+    sector: Information Technology
+    theme: ai_power
+    subtheme: solar_power_supply_chain
+    start_date: 2026-07-26
+    end_date:
+    reason: Power supply-chain exposure adjacent to data-center load growth.
+    liquidity_tier: high
+    benchmark_etf: SPY
+  - symbol: NRG
+    company_name: NRG Energy, Inc.
+    sector: Utilities
+    theme: ai_power
+    subtheme: power_generation_retail
+    start_date: 2026-07-26
+    end_date:
+    reason: Power generation and retail energy exposure for load growth.
+    liquidity_tier: medium
+    benchmark_etf: SPY
+  - symbol: PANW
+    company_name: Palo Alto Networks, Inc.
+    sector: Information Technology
+    theme: cybersecurity
+    subtheme: platform_security
+    start_date: 2026-07-26
+    end_date:
+    reason: Security platform exposure as AI increases enterprise attack surface.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: CRWD
+    company_name: CrowdStrike Holdings, Inc.
+    sector: Information Technology
+    theme: cybersecurity
+    subtheme: endpoint_cloud_security
+    start_date: 2026-07-26
+    end_date:
+    reason: Cloud endpoint and AI security operations exposure.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: FTNT
+    company_name: Fortinet, Inc.
+    sector: Information Technology
+    theme: cybersecurity
+    subtheme: network_security
+    start_date: 2026-07-26
+    end_date:
+    reason: Network security and secure infrastructure exposure.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: ZS
+    company_name: Zscaler, Inc.
+    sector: Information Technology
+    theme: cybersecurity
+    subtheme: zero_trust_security
+    start_date: 2026-07-26
+    end_date:
+    reason: Zero-trust security exposure; requires local data backfill.
+    liquidity_tier: high
+    benchmark_etf: IGV
+  - symbol: OKTA
+    company_name: Okta, Inc.
+    sector: Information Technology
+    theme: cybersecurity
+    subtheme: identity_security
+    start_date: 2026-07-26
+    end_date:
+    reason: Identity security exposure for enterprise AI and cloud workloads.
+    liquidity_tier: medium
+    benchmark_etf: IGV
