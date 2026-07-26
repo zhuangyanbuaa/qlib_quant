@@ -1,6 +1,6 @@
 # Data contracts
 
-This document defines storage ownership for Phase 1. Raw facts are immutable;
+This document defines storage ownership for the quant system. Raw facts are immutable;
 all analytical and operational stores must be rebuildable from their declared
 inputs.
 
@@ -17,9 +17,13 @@ inputs.
 | Runs, plans, manual orders and fills | SQLite | Operations modules | Reports and journal | Transactional updates |
 | Qlib bin | Generated cache | Qlib adapter | Qlib workflows | Delete and rebuild |
 | CSV/HTML/Markdown reports | Export artifact | Reporting modules | Human user | Regenerate |
+| Backtest artifacts | Export artifact | Backtest reporting | Human, model comparison | Regenerate by run ID |
+| Walk-forward metrics and OOF predictions | Export artifact, then registry summary | Model workflow | Reports, model registry | Rebuild by data/config/code version |
 
 Modules must not write through another module's storage adapter. In particular,
 research queries may read DuckDB but must not use it to mutate raw Parquet.
+SQLite records operational facts and model registry summaries only; it must not
+become a cache for historical market facts or backtest internals.
 
 ## Daily-price contract
 

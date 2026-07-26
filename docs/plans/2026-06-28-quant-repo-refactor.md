@@ -1,7 +1,5 @@
 # Qlib 日频交易研究与决策系统重构实施计划
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** 将当前由若干实验脚本组成的 Qlib 项目重构为一个可重复、可回测、可每日运行、面向手动下单的日频 Buy-the-Dip 研究与决策辅助系统。
 
 **Architecture:** 使用 Parquet 保存不可变历史数据，DuckDB 提供分析查询和训练集构建，SQLite 保存运行状态、信号、人工决策和持仓日志。规则引擎负责产生可解释的 Buy-the-Dip 候选，新闻与市场情绪负责风险过滤，LightGBM 只负责横截面排序；预训练模型只作为可替换的辅助特征或第二意见。
@@ -198,6 +196,41 @@
 - 可以随 schema 和 Qlib 版本重建。
 - 更容易验证 Qlib 输入与研究数据一致。
 
+### ADR-008：每个阶段必须保留可运行的端到端主路径
+
+**决定：**
+
+- 每个 Phase 完成时必须能从本地数据执行一条最小可用路径。
+- 任何新组件不能让既有主路径失效；ML、新闻、Chronos 等模块必须可关闭。
+- 阶段验收优先 smoke test 和数据契约测试，再增加功能覆盖。
+
+**原因：**
+
+- 该系统包含多个数据源、模型和运行时，最大风险不是单点技术失败，而是范围蔓延后“代码很多但整体跑不通”。
+- 个人交易系统的第一价值是每天稳定给出可解释候选，而不是一次性堆满所有数据源。
+
+**端到端 smoke 最小路径：**
+
+```text
+价格数据 → Raw Parquet → DuckDB → 技术特征 → 规则扫描 → 候选/空候选 JSON
+```
+
+Phase 0/1 之后即使没有 ML、新闻和情绪，也必须能用 5 个核心标的跑通这个路径。后续每个 Phase 都要在同一条路径上增加一个可关闭的能力。
+
+### ADR-009：外部数据源必须有版本锁、预算和可替换 adapter
+
+**决定：**
+
+- yfinance 只作为价格 adapter 的一个实现，不能成为无法替换的隐式依赖。
+- 依赖版本必须由锁文件固定；升级 yfinance、Alpha Vantage 或 SEC adapter 行为时必须更新 `source_version`，并跑已知日期 golden test。
+- 新闻和 SEC 采集必须声明 rate limit、daily call budget、retry/backoff 和 fallback 行为。
+
+**原因：**
+
+- yfinance 是非官方数据接口，可能受 Yahoo 前端和限流变化影响。
+- Alpha Vantage 免费和付费账户都有调用频率与总量约束。
+- 数据源失败不应污染 raw 事实层，也不应静默生成交易建议。
+
 ---
 
 ## 5. 目标总体架构
@@ -373,7 +406,7 @@ qlib_local/
     │   ├── prices/year=YYYY/month=MM/*.parquet
     │   ├── intraday_5m/year=YYYY/month=MM/*.parquet
     │   ├── news/year=YYYY/month=MM/*.parquet
-    │   ├── sec/year=YYYY/month=MM/*.parquet
+    │   ├── company_events/year=YYYY/month=MM/*.parquet
     │   ├── macro/*.parquet
     │   └── sentiment_indices/*.parquet
     ├── curated/
@@ -420,16 +453,19 @@ adjusted, split_factor, dividend
 新闻字段：
 
 ```text
-article_id, published_at_utc, fetched_at_utc,
-source, title, summary, url, language,
-raw_tickers, raw_topics
+article_id, published_at_utc,
+title, summary, url, source_domain,
+canonical_url, dedupe_key, semantic_key,
+language, raw_tickers, raw_topics, matched_symbols,
+event_type, severity, sentiment_label, sentiment_score
 ```
 
 SEC 事件字段：
 
 ```text
-cik, symbol, form_type, accession_number,
-filed_at_utc, accepted_at_utc, filing_url
+event_id, cik, symbol, form_type, accession_number,
+filed_at_utc, accepted_at_utc, filing_url,
+event_type, severity
 ```
 
 ### 7.2 Curated 层
@@ -478,6 +514,28 @@ config_versions
 - 实际退出。
 
 否则无法评估策略问题、执行问题和人工覆盖问题分别贡献了多少收益。
+
+### 7.4 存储边界决策矩阵
+
+任何新模块写数据前必须先选择唯一系统 of record。禁止因为查询方便把事实数据写进 DuckDB，也禁止把运行状态写进 Parquet。
+
+| 数据类型 | 写入位置 | 负责写入模块 | 只读消费者 | 禁止事项 |
+|---|---|---|---|---|
+| Raw 价格、新闻、SEC、宏观事实 | `data/raw/**/*.parquet` | `ingestion/*`、migration | DuckDB、quality、features、strategy | 不更新、不覆盖、不手工修 Parquet |
+| Curated 特征、标签、情绪日聚合 | `data/curated/**/*.parquet` | `features/*`、`models/datasets.py` | backtest、ranker、reports | 不作为人工交易日志 |
+| DuckDB views/cache | `data/db/analytics.duckdb` | `storage/duckdb.py` rebuild | research、scan、backtest、reports | 不作为系统 of record |
+| Qlib bin cache | `data/qlib/` | `qlib_adapter/exporter.py` | Qlib workflow | 不手工编辑；可删除重建 |
+| pipeline runs、人工决策、订单、成交、持仓 | `data/db/operations.sqlite` | `decision/*`、`journal/*` | reports、weekly review | 不写入 Parquet raw |
+| backtest summary、trades、equity、stress grid | `data/reports/backtests/<run_id>/` | `backtest/reports.py` | human、model comparison | 不混入 SQLite 交易事实 |
+| walk-forward fold metrics、OOF predictions | `data/reports/models/<run_id>/`；晋级后登记 SQLite registry | `models/*` | model registry、reports | 不覆盖 raw/curated 输入 |
+| runtime logs、quality reports | `data/reports/quality/`、logs | pipeline/quality modules | human、automation | 不作为策略输入，除非显式 curated |
+
+### 7.5 数据源版本锁与 golden checks
+
+- `pyproject.toml` 可以声明兼容范围，但实际生产运行必须以锁文件中的解析版本为准。
+- yfinance adapter 每次升级依赖或变更 `auto_adjust/actions/repair` 等关键参数，都必须更新 adapter `source_version`。
+- 集成测试应保存少量已知日期 OHLCV fixture，验证 close、volume、split/dividend 处理和 schema 不漂移。
+- 长期可引入 Polygon.io、Interactive Brokers 或其他商业价格 API 作为 primary/fallback；但新增 provider 必须先实现同一 provider-neutral contract。
 
 ---
 
@@ -633,6 +691,15 @@ limit = previous_close - 0.3 * ATR20
 position_size = risk_budget / abs(entry_price - stop_price)
 ```
 
+组合层约束优先级高于单票公式：
+
+- 默认保留现金缓冲，例如 40% reserve cash。
+- 总持仓市值不得超过配置的 gross exposure 上限。
+- 单票市值不得超过配置的 max position fraction。
+- 多个候选同时触发时，先按规则分数和后续模型排名排序，再在现金和风险预算内截断。
+- 若可用现金不足以维持 reserve cash，系统只能给出 `WATCH` 或 `SKIP_CASH_LIMIT`，不得假设未来卖出或盘中退出释放资金。
+- 回测执行器不能用同日盘中或收盘卖出所得去资助同日开盘买入。
+
 ---
 
 ## 10. 新闻与情绪系统
@@ -645,6 +712,21 @@ position_size = risk_budget / abs(entry_price - stop_price)
 2. SEC EDGAR：重大公司事件和真实公告时间。
 3. 公司 Investor Relations RSS/网页：一手新闻稿。
 4. Yahoo/yfinance news：仅作补充。
+
+第一阶段必须在 `configs/sources/news.yaml` 中声明：
+
+```yaml
+alpha_vantage:
+  calls_per_minute: 5
+  daily_call_budget: 25
+  batch_size: 10
+  limit_per_call: 50
+sec:
+  calls_per_second: 5
+  daily_call_budget: 200
+```
+
+免费额度下不允许按 100 个 ticker 逐只、多次拉取新闻。默认应按小批量 ticker 和时间窗口合并请求；超出 daily budget 时返回 `DEGRADED` 或 `BLOCKED`，不得用无限 `sleep` 掩盖预算不足。若暂时没有第二新闻源，fallback 策略必须明确写成“无可用 fallback，只保留已抓取事实并降级运行”。
 
 第二阶段：
 
@@ -790,6 +872,10 @@ sentiment_score = P(positive) - P(negative)
 - 不直接预测价格。
 - 固定模型版本和 tokenizer。
 - 保存模型 ID、哈希和推理时间。
+- 默认 scorer 可以是 deterministic rule-based fallback；FinBERT 不得成为每日流程硬依赖。
+- FinBERT 必须 lazy loading，第一次真实推理时才加载模型权重。
+- 本地推理配置必须声明 `device: auto|cpu|mps`、`batch_size`、`max_articles_per_run`。
+- CPU/MPS 推理耗时必须进入运行报告；超过预算时降级为 rule-based 或 sentiment unavailable。
 
 参考：
 
@@ -881,7 +967,17 @@ Test: 6 个月
 每 3 或 6 个月滚动
 ```
 
-训练与验证之间对最大持有期设置 embargo，避免标签重叠。
+训练与验证之间必须设置 embargo，避免标签和特征窗口重叠。Embargo 不只覆盖最大持有期，还要覆盖最大特征 lookback：
+
+```text
+last_train_label_end <= first_validation_date - (hold_period + feature_lookback_days)
+```
+
+`backtest/walk_forward.py` 必须包含断言或测试，遍历每个 fold 确认：
+
+- 任意训练样本的 label end 不晚于验证集最早日期之前的 embargo cutoff。
+- 任意验证样本的 feature window 不读取验证 cutoff 之后的数据。
+- 若某个 fold 样本不足，返回明确的 `INSUFFICIENT_SAMPLE`，不得自动缩短 embargo。
 
 ### 12.4 压力测试
 
@@ -1179,9 +1275,11 @@ blocked_candidate_count
 ### 17.2 集成测试
 
 - yfinance 响应转换为固定 schema。
+- yfinance 已知日期 OHLCV golden fixture 校验 close、volume、split/dividend 语义。
 - SEC 响应转换。
 - Alpha Vantage 新闻转换。
 - Parquet 写入与 DuckDB 查询。
+- DuckDB 与 Qlib 对同一 fixture 的核心技术指标计算保持一致，允许极小浮点误差。
 - curated 数据导出 Qlib。
 - 从 fixture 数据完成一次策略扫描。
 
@@ -1204,6 +1302,7 @@ blocked_candidate_count
 - 验证信号日和最早成交日分离。
 - 验证未来不足时不生成 T+N 收益。
 - 验证 walk-forward 训练集与测试集标签不重叠。
+- 验证 embargo 同时覆盖 `hold_period + feature_lookback_days`。
 
 ---
 
@@ -1334,6 +1433,8 @@ quant --help
 
 **目标：** 建立 point-in-time 新闻风险系统。
 
+**状态（2026-07-26）：已完成第一版。**
+
 **任务：**
 
 1. 实现 Alpha Vantage 新闻 adapter。
@@ -1351,6 +1452,17 @@ quant --help
 - 重复转载不会重复计数。
 - 每个否决都能追溯到原始新闻或 SEC 链接。
 
+**实施结果：**
+
+- 新增 `configs/sources/news.yaml`，集中声明 Alpha Vantage、SEC、sentiment、risk 和 ticker/CIK/alias 映射。
+- Alpha Vantage `NEWS_SENTIMENT` adapter 支持 ticker batch、UTC time window、limit、topics、retry 和调用预算。
+- SEC submissions adapter 使用 `data.sec.gov/submissions/CIK##########.json`，要求真实 contact `User-Agent`，并低于 SEC fair-access 上限。
+- Raw news 和 company events 以 append-only Parquet 保存，DuckDB 只建立可重建 dedup views。
+- URL canonicalization、URL/title dedupe key 和 semantic fingerprint 都可测试。
+- FinBERT 作为可选 lazy-load scorer；默认 rule-based scorer 保持每日流程可运行。
+- `strategy scan` 可应用 high-severity 新闻/SEC veto；medium risk 只附加可追溯上下文。
+- 新增 `quant data update-news` 和 `quant data news-risk`，每次运行输出 JSON 质量报告。
+
 ### Phase 5：LightGBM 排序
 
 **目标：** 模型只改善排序，不改变策略定义。
@@ -1358,19 +1470,21 @@ quant --help
 **任务：**
 
 1. 定义未来相对收益标签。
-2. 构建 purged walk-forward dataset。
+2. 构建 purged walk-forward dataset，embargo 必须覆盖 `hold_period + feature_lookback_days`。
 3. 建立 Ridge baseline。
 4. 使用保守 LightGBM 参数。
 5. 输出 OOF 排名和特征稳定性。
 6. 使用 OOF 结果做校准。
 7. 比较规则、Ridge 和 LightGBM。
 8. 建立 model registry。
+9. 添加 walk-forward fold 断言和测试，防止训练标签或特征窗口越过验证 cutoff。
 
 **验收：**
 
 - LightGBM OOS 结果优于规则 baseline 才启用。
 - 删除模型后系统仍可每天运行。
 - 模型得分不被误称为真实胜率。
+- 任一 fold 的 embargo 检查失败时训练必须中止。
 
 ### Phase 6：每日决策与人工日志
 
@@ -1380,16 +1494,18 @@ quant --help
 
 1. 实现 20:00 盘前计划。
 2. 实现开盘前增量刷新。
-3. 实现 T+30/T+60 快照门禁。
+3. 实现 T+30/T+60 快照门禁，但默认只做 `KEEP/REDUCE/DEFER/CANCEL`，不要求用户每天深夜重新主动选股。
 4. 输出 HTML/CSV/Markdown。
 5. 实现 SQLite 人工决策和成交记录。
 6. 实现持仓、退出和滑点跟踪。
 7. 建立 forward paper trading。
+8. 支持盘前生成可人工录入券商的条件单计划，例如触价限价、止损和 OCO 草案；系统不自动下单。
 
 **验收：**
 
 - 用户可在 5–10 分钟内完成当日决策。
 - 每笔实际交易都能链接到系统建议和人工决定。
+- 20:00 盘前报告质量足够高，开盘后门禁主要用于取消异常，而不是重新构造交易计划。
 
 ### Phase 7：自动化和运行手册
 
@@ -1403,12 +1519,14 @@ quant --help
 4. 添加失败重试和通知。
 5. 创建 Codex 周度回顾 automation。
 6. 编写 `daily-runbook.md`。
+7. 编写 quarantine 恢复流程：人工审查、修正源文件、重新迁移或重新采集；禁止直接编辑 quarantine 内文件。
 
 **验收：**
 
 - 交易日自动运行，节假日跳过。
 - 夏令时切换无需修改配置。
 - 失败任务有明确通知，不生成误导性报告。
+- 被隔离数据有明确恢复路径和审计记录。
 
 ### Phase 8：可选预训练时间序列模型
 
@@ -1516,15 +1634,24 @@ quant --help
 
 ### Task 8：新闻与 FinBERT
 
+**状态：** Phase 4 第一版已完成，后续只在需要板块/市场情绪聚合或真实 FinBERT 推理时扩展。
+
 **Files:**
 
+- Create: `configs/sources/news.yaml`
+- Create: `docs/news-sentiment.md`
+- Create: `src/quant_system/ingestion/alpha_vantage.py`
 - Create: `src/quant_system/ingestion/news.py`
 - Create: `src/quant_system/ingestion/sec.py`
-- Create: `src/quant_system/sentiment/finbert.py`
-- Create: `src/quant_system/sentiment/deduplication.py`
-- Create: `src/quant_system/sentiment/aggregation.py`
-- Create: `tests/unit/test_sentiment.py`
-- Create: `tests/golden/test_news_cutoff.py`
+- Create: `src/quant_system/sentiment/classifier.py`
+- Create: `src/quant_system/sentiment/dedupe.py`
+- Create: `src/quant_system/sentiment/mapping.py`
+- Create: `src/quant_system/sentiment/risk.py`
+- Create: `tests/unit/test_alpha_vantage_adapter.py`
+- Create: `tests/unit/test_sec_adapter.py`
+- Create: `tests/unit/test_sentiment_risk.py`
+- Create: `tests/unit/test_news_update_service.py`
+- Create: `tests/integration/test_news_storage.py`
 
 ### Task 9：每日报告
 
@@ -1588,7 +1715,7 @@ quant --help
 
 不要从 FinBERT、Chronos 或重新调 LightGBM 开始。
 
-正确顺序：
+原始正确顺序：
 
 1. Git、测试和 package 骨架。
 2. Parquet、DuckDB 和 schema。
@@ -1611,12 +1738,20 @@ quant --help
 
 ## 22. 下一步
 
-建议下一次实施从 Phase 0 和 Phase 1 开始，只完成：
+当前状态（2026-07-26）：
 
-- 初始化工程基础。
-- 定义统一 schema。
-- 将现有 CSV 安全迁移到 Parquet。
-- 创建 DuckDB 查询层。
-- 保留所有现有脚本和数据，不改变当前交易逻辑。
+- Phase 0–4 已完成第一版。
+- `dev` 已包含 Phase 0–3。
+- `feat/phase4` 已完成新闻风险流水线，等待 review/merge。
+- 下一阶段应从 Phase 5 开始，但只能在 Phase 4 merge 后进行。
 
-完成后再进入策略和回测重构。这样可以把风险控制在最小范围，并为后续所有工作建立稳定地基。
+Phase 5 开始前的 gate：
+
+```bash
+pytest
+ruff check src tests
+quant strategy scan --symbols AAPL,MSFT,NVDA,AMD,QQQ --date <latest-completed-session> --news-risk
+quant data news-risk --symbols AAPL,MSFT,NVDA --cutoff <signal-cutoff-utc>
+```
+
+Phase 5 的最小目标不是“训练出更强模型”，而是先建立可信的 label、purged walk-forward、Ridge baseline 和模型注册格式。LightGBM 只有在 OOF/OOS 稳定优于无模型规则 baseline 时才允许进入每日报告。
