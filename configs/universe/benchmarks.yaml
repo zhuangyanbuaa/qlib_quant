@@ -15,3 +15,18 @@ benchmarks:
   - symbol: IGV
     role: software
     reason: Expanded technology software benchmark.
+  - symbol: DTCR
+    role: data_center_digital_infrastructure
+    reason: Data center and digital infrastructure benchmark.
+  - symbol: XLP
+    role: defensive_consumer_staples
+    reason: Consumer staples defensive overlay benchmark.
+  - symbol: XLV
+    role: defensive_healthcare
+    reason: Healthcare defensive overlay benchmark.
+  - symbol: XLU
+    role: defensive_utilities
+    reason: Utilities and power defensive overlay benchmark.
+  - symbol: XLF
+    role: defensive_financials
+    reason: Financials diversifier overlay benchmark.

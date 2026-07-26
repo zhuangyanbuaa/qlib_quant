@@ -1,0 +1,451 @@
+version: '2026-07-26'
+universe_type: HEDGE_OVERLAY
+description: Defensive and diversifying overlay universe. Use for risk posture hints and manual review; do not train the AI
+  hardware alpha model on this pool.
+selection_policy:
+  start_date_rule: Every member starts no earlier than the overlay selection date.
+  minimum_size: 20
+  maximum_size: 60
+  benchmark_symbols:
+  - SPY
+  - XLP
+  - XLV
+  - XLU
+  - XLF
+  source_basis:
+  - Generated from configs/universe/futu_candidates_raw.yaml on 2026-07-26.
+  - Defensive overlay candidates are not part of the AI hardware alpha training universe.
+  - 'Consumer staples reference: https://www.ssga.com/us/en/intermediary/etfs/state-street-consumer-staples-select-sector-spdr-etf-xlp'
+  - 'Healthcare reference: https://www.ssga.com/us/en/intermediary/etfs/state-street-health-care-select-sector-spdr-etf-xlv'
+  - 'Utilities reference: https://www.ssga.com/us/en/intermediary/etfs/state-street-utilities-select-sector-spdr-etf-xlu'
+symbols:
+- symbol: ABBV
+  company_name: AbbVie Inc.
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare defensive candidate; XLV top holding.
+  liquidity_tier: high
+  benchmark_etf: XLV
+- symbol: ABT
+  company_name: Abbott Laboratories
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLV
+- symbol: AEP
+  company_name: American Electric Power Company, Inc.
+  sector: Utilities
+  theme: defensive_utilities
+  subtheme: regulated_utilities_and_power
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Utility defensive candidate; XLU holding.
+  liquidity_tier: high
+  benchmark_etf: XLU
+- symbol: AMGN
+  company_name: Amgen Inc.
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare defensive candidate; XLV holding.
+  liquidity_tier: high
+  benchmark_etf: XLV
+- symbol: APO
+  company_name: 阿波罗全球管理
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: medium
+  benchmark_etf: XLF
+- symbol: AXP
+  company_name: 美国运通
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: BAC
+  company_name: Bank of America Corporation
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: BLK
+  company_name: BlackRock, Inc.
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: BRK-B
+  company_name: Berkshire Hathaway Inc.
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: BX
+  company_name: Blackstone Inc.
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: C
+  company_name: 花旗集团
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial diversifier candidate from Futu; keep outside AI alpha training.
+  liquidity_tier: medium
+  benchmark_etf: XLF
+- symbol: CB
+  company_name: Chubb Limited
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: CL
+  company_name: Colgate-Palmolive Company
+  sector: Consumer Staples
+  theme: defensive_staples
+  subtheme: consumer_staples_quality
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Consumer staples defensive candidate; XLP holding.
+  liquidity_tier: medium
+  benchmark_etf: XLP
+- symbol: COST
+  company_name: Costco Wholesale Corporation
+  sector: Consumer Staples
+  theme: defensive_staples
+  subtheme: consumer_staples_quality
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Consumer staples defensive candidate; XLP top holding.
+  liquidity_tier: high
+  benchmark_etf: XLP
+- symbol: D
+  company_name: Dominion Energy, Inc.
+  sector: Utilities
+  theme: defensive_utilities
+  subtheme: regulated_utilities_and_power
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Utility defensive candidate; XLU holding.
+  liquidity_tier: medium
+  benchmark_etf: XLU
+- symbol: DUK
+  company_name: Duke Energy Corporation
+  sector: Utilities
+  theme: defensive_utilities
+  subtheme: regulated_utilities_and_power
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Utility defensive candidate; XLU top holding.
+  liquidity_tier: high
+  benchmark_etf: XLU
+- symbol: GS
+  company_name: The Goldman Sachs Group, Inc.
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: HIMS
+  company_name: Hims & Hers Health
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  liquidity_tier: medium
+  benchmark_etf: XLV
+- symbol: ISRG
+  company_name: 直觉外科公司
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  liquidity_tier: medium
+  benchmark_etf: XLV
+- symbol: JNJ
+  company_name: Johnson & Johnson
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare defensive candidate; XLV top holding.
+  liquidity_tier: high
+  benchmark_etf: XLV
+- symbol: JPM
+  company_name: JPMorgan Chase & Co.
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: KKR
+  company_name: KKR & Co
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: medium
+  benchmark_etf: XLF
+- symbol: KO
+  company_name: The Coca-Cola Company
+  sector: Consumer Staples
+  theme: defensive_staples
+  subtheme: consumer_staples_quality
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Consumer staples defensive candidate; XLP top holding.
+  liquidity_tier: high
+  benchmark_etf: XLP
+- symbol: LLY
+  company_name: Eli Lilly and Company
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLV
+- symbol: MA
+  company_name: Mastercard Incorporated
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: MDLZ
+  company_name: Mondelez International, Inc.
+  sector: Consumer Staples
+  theme: defensive_staples
+  subtheme: consumer_staples_quality
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Consumer staples defensive candidate; XLP holding.
+  liquidity_tier: medium
+  benchmark_etf: XLP
+- symbol: MRK
+  company_name: Merck & Co., Inc.
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare defensive candidate; XLV top holding.
+  liquidity_tier: high
+  benchmark_etf: XLV
+- symbol: MS
+  company_name: Morgan Stanley
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: NRG
+  company_name: NRG Energy, Inc.
+  sector: Utilities
+  theme: defensive_utilities
+  subtheme: regulated_utilities_and_power
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Utility/power generation diversifier.
+  liquidity_tier: medium
+  benchmark_etf: XLU
+- symbol: PEP
+  company_name: PepsiCo, Inc.
+  sector: Consumer Staples
+  theme: defensive_staples
+  subtheme: consumer_staples_quality
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Consumer staples defensive candidate; XLP top holding.
+  liquidity_tier: high
+  benchmark_etf: XLP
+- symbol: PG
+  company_name: Procter & Gamble Company
+  sector: Consumer Staples
+  theme: defensive_staples
+  subtheme: consumer_staples_quality
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Consumer staples defensive candidate; XLP top holding.
+  liquidity_tier: high
+  benchmark_etf: XLP
+- symbol: PGR
+  company_name: Progressive Corporation
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: SO
+  company_name: The Southern Company
+  sector: Utilities
+  theme: defensive_utilities
+  subtheme: regulated_utilities_and_power
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Utility defensive candidate; XLU top holding.
+  liquidity_tier: high
+  benchmark_etf: XLU
+- symbol: TMO
+  company_name: Thermo Fisher Scientific Inc.
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare tools defensive candidate; XLV holding.
+  liquidity_tier: high
+  benchmark_etf: XLV
+- symbol: TRV
+  company_name: The Travelers Companies, Inc.
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: UNH
+  company_name: UnitedHealth Group Incorporated
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLV
+- symbol: V
+  company_name: Visa Inc.
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: VKTX
+  company_name: Viking Therapeutics
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  liquidity_tier: medium
+  benchmark_etf: XLV
+- symbol: VZ
+  company_name: Verizon Communications Inc.
+  sector: Utilities
+  theme: defensive_utilities
+  subtheme: regulated_utilities_and_power
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Telecom/utility-like defensive candidate.
+  liquidity_tier: high
+  benchmark_etf: XLU
+- symbol: WFC
+  company_name: Wells Fargo & Company
+  sector: Financials
+  theme: defensive_financials
+  subtheme: insurance_banks_payments_asset_managers
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Financial, insurance, or payments diversifier; do not train with AI hardware alpha.
+  liquidity_tier: high
+  benchmark_etf: XLF
+- symbol: WMT
+  company_name: Walmart Inc.
+  sector: Consumer Staples
+  theme: defensive_staples
+  subtheme: consumer_staples_quality
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Consumer staples defensive candidate; XLP top holding.
+  liquidity_tier: high
+  benchmark_etf: XLP
+- symbol: XBI
+  company_name: 标普生物科技ETF-SPDR
+  sector: Health Care
+  theme: defensive_healthcare
+  subtheme: healthcare_quality_and_low_beta
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Healthcare or biotech defensive/diversifier candidate; do not train with AI hardware alpha.
+  liquidity_tier: medium
+  benchmark_etf: XLV
+- symbol: XEL
+  company_name: Xcel Energy Inc.
+  sector: Utilities
+  theme: defensive_utilities
+  subtheme: regulated_utilities_and_power
+  start_date: '2026-07-26'
+  end_date: null
+  reason: Utility defensive candidate; XLU holding.
+  liquidity_tier: medium
+  benchmark_etf: XLU
