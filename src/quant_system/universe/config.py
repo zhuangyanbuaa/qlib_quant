@@ -114,6 +114,71 @@ class WatchlistConfig(BaseModel):
         return self.selection_policy.benchmark_symbols
 
 
+class RawCandidateConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    symbol: str
+    company_name: str
+    source_files: tuple[str, ...] = ()
+    futu_industries: tuple[str, ...] = ()
+    watchlist_role: Literal[
+        "core_ai_hardware",
+        "infra_enabler",
+        "ai_platform_software",
+        "hedge_overlay",
+        "satellite",
+        "watch_only",
+    ]
+    candidate_bucket: Literal[
+        "ai_hardware",
+        "ai_infrastructure",
+        "ai_software",
+        "defensive_healthcare",
+        "defensive_staples",
+        "defensive_utilities",
+        "defensive_financials",
+        "speculative_satellite",
+        "exclude_or_review",
+    ]
+    ai_exposure: Literal["direct", "indirect", "hedge", "none"]
+    suggested_action: Literal[
+        "promote_to_ai_watchlist",
+        "keep_as_satellite",
+        "use_as_hedge_overlay",
+        "watch_only",
+        "exclude_or_manual_review",
+    ]
+    reason: str
+    added_by: Literal["futu", "codex"]
+    source_urls: tuple[str, ...] = ()
+
+    @field_validator("symbol")
+    @classmethod
+    def normalize_symbol(cls, value: str) -> str:
+        return value.upper().replace(".", "-")
+
+
+class RawCandidatePoolConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: str
+    universe_type: Literal["RAW_RESEARCH_CANDIDATES"]
+    description: str
+    source_directory: str
+    symbols: tuple[RawCandidateConfig, ...]
+
+    @model_validator(mode="after")
+    def symbols_are_unique(self) -> RawCandidatePoolConfig:
+        symbols = [member.symbol for member in self.symbols]
+        if len(symbols) != len(set(symbols)):
+            raise ValueError("raw candidate symbols must be unique")
+        return self
+
+    @property
+    def member_symbols(self) -> tuple[str, ...]:
+        return tuple(member.symbol for member in self.symbols)
+
+
 def load_benchmark_config(path: Path) -> BenchmarkUniverseConfig:
     with path.open(encoding="utf-8") as handle:
         payload = yaml.safe_load(handle)
@@ -128,3 +193,11 @@ def load_watchlist_config(path: Path) -> WatchlistConfig:
     if not isinstance(payload, dict):
         raise ValueError(f"watchlist config must be a mapping: {path}")
     return WatchlistConfig.model_validate(payload)
+
+
+def load_raw_candidate_pool_config(path: Path) -> RawCandidatePoolConfig:
+    with path.open(encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"raw candidate pool config must be a mapping: {path}")
+    return RawCandidatePoolConfig.model_validate(payload)
