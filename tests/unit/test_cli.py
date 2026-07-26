@@ -35,6 +35,7 @@ def test_model_help_lists_phase_five_commands() -> None:
 
     assert result.exit_code == 0
     assert "ridge-baseline" in result.stdout
+    assert "ranking-baseline" in result.stdout
 
 
 def test_version() -> None:
