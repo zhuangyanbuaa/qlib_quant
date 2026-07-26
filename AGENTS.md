@@ -20,6 +20,12 @@ These constraints apply to every implementation in this repository.
 - A missing or stale critical price source must block recommendations.
 - Provider adapter behavior or dependency-version changes require updated
   `source_version` metadata and tests against fixed fixtures.
+- External provider failures must not trigger unbounded retries or higher
+  concurrency; use configured rate limits, backoff, and call budgets.
+- Without reliable intraday point-in-time data, T+30/T+60 gates are forward-only
+  or conservatively treated as no-fill in daily-bar backtests.
+- Scheduling must anchor on exchange calendars and IANA timezones, never fixed
+  Tokyo clock times.
 - Walk-forward validation must use purging/embargo tests; training labels or
   feature windows must never overlap validation/test cutoffs.
 - Never commit runtime data, model weights, reports, credentials, or local

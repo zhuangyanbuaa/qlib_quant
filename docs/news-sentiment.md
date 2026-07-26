@@ -74,3 +74,9 @@ The default scorer is deterministic and local. FinBERT is configured with a
 pinned model name and revision, but is lazy-loaded only when
 `sentiment.scorer: finbert` is selected and optional model dependencies are
 installed.
+
+Before FinBERT is enabled in a time-sensitive daily workflow, add an
+article-level inference cache keyed by `article_id` or `dedupe_key` plus model
+revision. Premarket and open-gate runs must have a timeout circuit breaker; on
+timeout the report should mark `sentiment_status: DEGRADED` and use the
+deterministic event/keyword scorer instead of blocking hard-rule scans.
