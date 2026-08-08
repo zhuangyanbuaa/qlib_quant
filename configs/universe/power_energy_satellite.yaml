@@ -1,0 +1,48 @@
+version: '2026-08-09'
+universe_type: POWER_ENERGY_SATELLITE
+description: Separate uranium, nuclear-power, and electrical infrastructure satellite layer for AI data-center power-adjacent
+  monitoring.
+selection_policy:
+  start_date_rule: Every member starts no earlier than the thematic selection date.
+  minimum_size: 3
+  maximum_size: 20
+  benchmark_symbols:
+  - QQQ
+  - SPY
+  - XLU
+  source_basis:
+  - Generated from remaining Futu raw uranium and electrical-infrastructure candidates on 2026-08-09.
+  - Kept outside core AI because price behavior may be dominated by energy, uranium, policy, and ADR-specific factors.
+  - Forward-only thematic satellite universe; use for separate scanning and observation only.
+symbols:
+- symbol: CCJ
+  company_name: Cameco
+  sector: Utilities
+  theme: uranium_nuclear_power
+  subtheme: uranium_and_nuclear_fuel_cycle
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Raw Futu candidate needs manual theme, liquidity, and identifier review.'
+  liquidity_tier: medium
+  benchmark_etf: XLU
+- symbol: SBGSY
+  company_name: SCHNEIDER ELECTRIC SE UNSPON ADR EA REPR 0.20 ORD SHS
+  sector: Utilities
+  theme: electrical_infrastructure_adr_review
+  subtheme: grid_power_equipment_adr_review
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Raw Futu candidate needs manual theme, liquidity, and identifier review.'
+  liquidity_tier: medium
+  benchmark_etf: XLU
+- symbol: UUUU
+  company_name: Energy Fuels
+  sector: Utilities
+  theme: uranium_nuclear_power
+  subtheme: uranium_and_nuclear_fuel_cycle
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Speculative power/compute/crypto-adjacent infrastructure; keep outside core
+    model until reviewed.'
+  liquidity_tier: medium
+  benchmark_etf: XLU

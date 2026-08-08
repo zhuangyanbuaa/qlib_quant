@@ -1,0 +1,96 @@
+version: '2026-08-09'
+universe_type: SPACE_SATELLITE
+description: Separate space, satellite communications, launch, and space ETF review layer. Use for speculative thematic observation
+  outside AI hardware.
+selection_policy:
+  start_date_rule: Every member starts no earlier than the thematic selection date.
+  minimum_size: 5
+  maximum_size: 30
+  benchmark_symbols:
+  - QQQ
+  - SPY
+  source_basis:
+  - Generated from remaining Futu raw space and aerospace candidates on 2026-08-09.
+  - Includes direct space/satellite equities plus raw ETF identifiers that require data-provider validation.
+  - Forward-only speculative satellite universe; not part of the core AI hardware strategy.
+symbols:
+- symbol: ASTS
+  company_name: AST SpaceMobile
+  sector: Industrials
+  theme: space_satellite_technology
+  subtheme: space_equities
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Space/speculative technology exposure; not core AI hardware.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: MARS
+  company_name: Roundhill Space & Technology ETF
+  sector: Industrials
+  theme: space_satellite_technology
+  subtheme: space_etf_identifier_review
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Ticker needs manual identifier/ETF validation before use.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: NASA
+  company_name: Tema Space Innovators ETF
+  sector: Industrials
+  theme: space_satellite_technology
+  subtheme: space_etf_identifier_review
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Ticker needs manual identifier/ETF validation before use.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: RDW
+  company_name: Redwire
+  sector: Industrials
+  theme: space_satellite_technology
+  subtheme: space_equities
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Space/speculative technology exposure; not core AI hardware.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: RKLB
+  company_name: Rocket Lab
+  sector: Industrials
+  theme: space_satellite_technology
+  subtheme: space_equities
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Space/speculative technology exposure; not core AI hardware.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: SATL
+  company_name: Satellogic
+  sector: Industrials
+  theme: space_satellite_technology
+  subtheme: space_equities
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Space/speculative technology exposure; not core AI hardware.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: SIDU
+  company_name: Sidus Space
+  sector: Industrials
+  theme: space_satellite_technology
+  subtheme: space_equities
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Space/speculative technology exposure; not core AI hardware.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: SPIR
+  company_name: Spire Global
+  sector: Industrials
+  theme: space_satellite_technology
+  subtheme: space_equities
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Space/speculative technology exposure; not core AI hardware.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ

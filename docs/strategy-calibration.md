@@ -99,6 +99,29 @@ context from the core AI, satellite, and hedge-overlay universes together. This
 keeps broad-market and rotation diagnostics anchored while preventing satellite
 names from diluting the core AI breadth metrics.
 
+Additional thematic satellite layers capture the rest of the Futu raw pool
+without mixing them into the AI hardware scan:
+
+```text
+configs/universe/internet_platform_watchlist.yaml
+configs/universe/space_satellite_watchlist.yaml
+configs/universe/crypto_compute_watchlist.yaml
+configs/universe/power_energy_satellite.yaml
+configs/universe/raw_review_watchlist.yaml
+```
+
+Run them with the same satellite command by passing the target file:
+
+```bash
+quant decision satellite \
+  --satellite-universe configs/universe/space_satellite_watchlist.yaml \
+  --date 2026-08-07
+```
+
+These layers are for separate observation. They help answer “is risk broadening
+into internet platforms, space, crypto-compute, or power/energy?” without
+turning the core AI hardware process into a generic high-beta technology scan.
+
 ## Important boundary
 
 The current AI watchlist is `CURRENT_SNAPSHOT_FORWARD_ONLY`. Rotation diagnostics

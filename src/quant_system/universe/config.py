@@ -85,6 +85,11 @@ class WatchlistConfig(BaseModel):
     universe_type: Literal[
         "CURRENT_SNAPSHOT_FORWARD_ONLY",
         "AI_SATELLITE",
+        "INTERNET_PLATFORM_SATELLITE",
+        "SPACE_SATELLITE",
+        "CRYPTO_COMPUTE_SATELLITE",
+        "POWER_ENERGY_SATELLITE",
+        "RAW_REVIEW",
         "HEDGE_OVERLAY",
     ]
     description: str

@@ -6,6 +6,14 @@ from quant_system.universe.config import (
     load_watchlist_config,
 )
 
+THEMATIC_SATELLITE_PATHS = (
+    Path("configs/universe/internet_platform_watchlist.yaml"),
+    Path("configs/universe/space_satellite_watchlist.yaml"),
+    Path("configs/universe/crypto_compute_watchlist.yaml"),
+    Path("configs/universe/power_energy_satellite.yaml"),
+    Path("configs/universe/raw_review_watchlist.yaml"),
+)
+
 
 def test_ai_watchlist_is_forward_only_and_has_required_size() -> None:
     watchlist = load_watchlist_config(Path("configs/universe/ai_watchlist.yaml"))
@@ -44,6 +52,43 @@ def test_ai_satellite_watchlist_is_separate_forward_only_layer() -> None:
     assert {member.benchmark_etf for member in satellite.symbols}.issubset(declared)
     assert set(satellite.member_symbols).isdisjoint(set(ai_watchlist.member_symbols))
     assert set(satellite.member_symbols).isdisjoint(set(hedge_overlay.member_symbols))
+
+
+def test_thematic_satellite_watchlists_cover_remaining_raw_candidates() -> None:
+    pool = load_raw_candidate_pool_config(Path("configs/universe/futu_candidates_raw.yaml"))
+    ai_watchlist = load_watchlist_config(Path("configs/universe/ai_watchlist.yaml"))
+    ai_satellite = load_watchlist_config(Path("configs/universe/ai_satellite_watchlist.yaml"))
+    hedge_overlay = load_watchlist_config(Path("configs/universe/hedge_overlay.yaml"))
+    benchmarks = load_benchmark_config(Path("configs/universe/benchmarks.yaml"))
+    declared = {benchmark.symbol for benchmark in benchmarks.benchmarks}
+
+    thematic_symbols: set[str] = set()
+    thematic_types: set[str] = set()
+    for path in THEMATIC_SATELLITE_PATHS:
+        watchlist = load_watchlist_config(path)
+        thematic_symbols.update(watchlist.member_symbols)
+        thematic_types.add(watchlist.universe_type)
+        assert set(watchlist.benchmark_symbols).issubset(declared)
+        assert {member.benchmark_etf for member in watchlist.symbols}.issubset(declared)
+
+    assert thematic_types == {
+        "INTERNET_PLATFORM_SATELLITE",
+        "SPACE_SATELLITE",
+        "CRYPTO_COMPUTE_SATELLITE",
+        "POWER_ENERGY_SATELLITE",
+        "RAW_REVIEW",
+    }
+    formal_symbols = (
+        set(ai_watchlist.member_symbols)
+        | set(ai_satellite.member_symbols)
+        | set(hedge_overlay.member_symbols)
+        | thematic_symbols
+        | declared
+    )
+    assert set(pool.member_symbols).issubset(formal_symbols)
+    assert thematic_symbols.isdisjoint(set(ai_watchlist.member_symbols))
+    assert thematic_symbols.isdisjoint(set(ai_satellite.member_symbols))
+    assert thematic_symbols.isdisjoint(set(hedge_overlay.member_symbols))
 
 
 def test_hedge_overlay_is_separate_from_ai_alpha_watchlist() -> None:

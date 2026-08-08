@@ -55,7 +55,7 @@ def load_rotation_members(paths: tuple[Path, ...]) -> tuple[RotationMember, ...]
 def _universe_role(universe_type: str) -> str:
     if universe_type == "HEDGE_OVERLAY":
         return "hedge_overlay"
-    if universe_type == "AI_SATELLITE":
+    if universe_type.endswith("_SATELLITE") or universe_type == "RAW_REVIEW":
         return "ai_satellite"
     return "ai_alpha"
 

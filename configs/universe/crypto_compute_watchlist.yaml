@@ -1,0 +1,109 @@
+version: '2026-08-09'
+universe_type: CRYPTO_COMPUTE_SATELLITE
+description: Separate crypto, bitcoin-mining, HPC compute-adjacent, and high-beta fintech satellite layer.
+selection_policy:
+  start_date_rule: Every member starts no earlier than the thematic selection date.
+  minimum_size: 5
+  maximum_size: 30
+  benchmark_symbols:
+  - QQQ
+  - SPY
+  source_basis:
+  - Generated from remaining Futu raw crypto, compute-adjacent, and high-beta fintech candidates on 2026-08-09.
+  - Kept outside AI hardware because these names are often dominated by BTC, financing, and speculative liquidity regimes.
+  - Forward-only thematic satellite universe; use for separate scanning and observation only.
+symbols:
+- symbol: CIFR
+  company_name: Cipher Digital
+  sector: Financials
+  theme: crypto_compute_power
+  subtheme: bitcoin_mining_hpc_compute_power_adjacency
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Speculative power/compute/crypto-adjacent infrastructure; keep outside core
+    model until reviewed.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: COIN
+  company_name: Coinbase
+  sector: Financials
+  theme: crypto_beta
+  subtheme: crypto_market_beta
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: High-beta fintech/crypto exposure; not a defensive hedge.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: CORZ
+  company_name: Core Scientific
+  sector: Financials
+  theme: crypto_compute_power
+  subtheme: bitcoin_mining_hpc_compute_power_adjacency
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Speculative power/compute/crypto-adjacent infrastructure; keep outside core
+    model until reviewed.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: FUTU
+  company_name: 富途控股
+  sector: Financials
+  theme: high_beta_fintech
+  subtheme: brokerage_lending_and_capital_market_beta
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: High-beta fintech/crypto exposure; not a defensive hedge.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: HOOD
+  company_name: Robinhood
+  sector: Financials
+  theme: high_beta_fintech
+  subtheme: brokerage_lending_and_capital_market_beta
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: High-beta fintech/crypto exposure; not a defensive hedge.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: IREN
+  company_name: IREN Ltd
+  sector: Financials
+  theme: crypto_compute_power
+  subtheme: bitcoin_mining_hpc_compute_power_adjacency
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Speculative power/compute/crypto-adjacent infrastructure; keep outside core
+    model until reviewed.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: MSTR
+  company_name: Strategy
+  sector: Financials
+  theme: crypto_beta
+  subtheme: crypto_market_beta
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: High-beta fintech/crypto exposure; not a defensive hedge.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: SOFI
+  company_name: SoFi Technologies
+  sector: Financials
+  theme: high_beta_fintech
+  subtheme: brokerage_lending_and_capital_market_beta
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: High-beta fintech/crypto exposure; not a defensive hedge.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
+- symbol: WULF
+  company_name: TeraWulf
+  sector: Financials
+  theme: crypto_compute_power
+  subtheme: bitcoin_mining_hpc_compute_power_adjacency
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Thematic satellite from Futu raw pool: Speculative power/compute/crypto-adjacent infrastructure; keep outside core
+    model until reviewed.'
+  liquidity_tier: medium
+  benchmark_etf: QQQ
