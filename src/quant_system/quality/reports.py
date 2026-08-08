@@ -79,6 +79,10 @@ class NewsUpdateReport:
     article_rows_written: int
     event_rows_written: int
     parquet_files_written: int
+    sentiment_status: PipelineStatus
+    sentiment_cache_hits: int
+    sentiment_cache_misses: int
+    sentiment_degraded_count: int
     alpha_vantage_calls: int
     sec_calls: int
     warnings: dict[str, str]
@@ -93,6 +97,7 @@ class NewsUpdateReport:
         payload["start_utc"] = self.start_utc.isoformat()
         payload["end_utc"] = self.end_utc.isoformat()
         payload["status"] = self.status.value
+        payload["sentiment_status"] = self.sentiment_status.value
         return payload
 
     def write(self, report_directory: Path) -> Path:

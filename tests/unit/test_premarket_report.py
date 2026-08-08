@@ -194,9 +194,7 @@ def test_relaxed_theme_strength_without_leader_reversal_is_watch_only() -> None:
     assert rows[0]["relaxed_quality_pass"] is False
     assert rows[0]["manual_review_allowed"] is False
     assert rows[0]["calibration_action"] == "WATCH_ONLY_RELAXED_QUALITY_GATE"
-    assert rows[0]["relaxed_quality_reasons"] == (
-        "theme_LEADING;ai_vs_hedge_spread_20d_positive"
-    )
+    assert rows[0]["relaxed_quality_reasons"] == ("theme_LEADING;ai_vs_hedge_spread_20d_positive")
 
 
 def test_defensive_relaxed_overlay_requires_quality_gate() -> None:
@@ -485,6 +483,8 @@ def test_write_premarket_report_includes_model_rank_context(tmp_path) -> None:
             "stop_price": 90.0,
             "target_price": 115.0,
             "model_rank": 1,
+            "model_score": 0.123456,
+            "model_rank_status": "SCORED",
             "news_risk": "LOW",
             "recommended_action": "PREPARE_MANUAL_CONDITIONAL_ORDER",
         }
@@ -502,6 +502,8 @@ def test_write_premarket_report_includes_model_rank_context(tmp_path) -> None:
     assert "Model rank context" in markdown
     assert "lightgbm_daily_context_v1" in markdown
     assert "Training rows: `33`" in markdown
+    assert "0.1235" in markdown
+    assert "SCORED" in markdown
 
 
 def _signal(symbol: str) -> CandidateSignal:

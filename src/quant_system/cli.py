@@ -351,8 +351,14 @@ def update_news(
             model_revision=source_settings.sentiment.finbert.model_revision,
             device=source_settings.sentiment.finbert.device,
         )
+        sentiment_model_key = (
+            "finbert:"
+            f"{source_settings.sentiment.finbert.model_name}:"
+            f"{source_settings.sentiment.finbert.model_revision}"
+        )
     else:
         scorer = RuleBasedSentimentScorer()
+        sentiment_model_key = "rule_based:v1"
 
     service = NewsUpdateService(
         repository=repository,
@@ -362,6 +368,12 @@ def update_news(
         config=NewsUpdateConfig(
             alpha_vantage_batch_size=source_settings.alpha_vantage.batch_size,
             high_severity_veto=source_settings.risk.high_severity_veto,
+            sentiment_cache_directory=settings.resolved_data_dir / "cache" / "sentiment",
+            sentiment_cache_enabled=source_settings.sentiment.finbert.cache_enabled,
+            sentiment_timeout_seconds=(
+                source_settings.sentiment.finbert.inference_timeout_seconds
+            ),
+            sentiment_model_key=sentiment_model_key,
         ),
         news_provider=news_provider,
         news_guard=news_guard,

@@ -170,7 +170,9 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
                 "- Decision scope: "
                 f"`{model_rank_context.get('decision_scope', 'RANK_CONTEXT_ONLY')}`",
                 f"- Training rows: `{model_rank_context.get('training_rows', 0)}`",
+                f"- Minimum training rows: `{model_rank_context.get('minimum_train_rows', 'n/a')}`",
                 f"- Scored rows: `{model_rank_context.get('scored_rows', 0)}`",
+                f"- Target: `{model_rank_context.get('target_column', 'n/a')}`",
                 "",
             ]
         )
@@ -194,14 +196,14 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
                 "### Tiered candidates",
                 "",
                 "| Rank | Symbol | Role | Tier | Passed tiers | Score | "
-                "Model rank | Review | Action |",
-                "|---:|---|---|---|---|---:|---:|---|---|",
+                "Model rank | Model score | Model status | Review | Action |",
+                "|---:|---|---|---|---|---:|---:|---:|---|---|---|",
             ]
         )
         for row in calibration_rows:
             lines.append(
                 "| {rank} | {symbol} | {role} | {tier} | {passed} | {score:.4f} | "
-                "{model_rank} | {review} | {action} |".format(
+                "{model_rank} | {model_score} | {model_status} | {review} | {action} |".format(
                     rank=row["calibration_rank"],
                     symbol=row["symbol"],
                     role=row["universe_role"],
@@ -209,6 +211,8 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
                     passed=row["passed_tiers"],
                     score=row["score"],
                     model_rank=_format_optional_int(row.get("model_rank")),
+                    model_score=_format_optional_float(row.get("model_score")),
+                    model_status=row.get("model_rank_status", ""),
                     review="yes" if row["manual_review_allowed"] else "no",
                     action=row["calibration_action"],
                 )
@@ -216,8 +220,8 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
         lines.append("")
     lines.extend(
         [
-        "## Candidates",
-        "",
+            "## Candidates",
+            "",
         ]
     )
     if not candidate_rows:
@@ -235,18 +239,21 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
     lines.extend(
         [
             "| Rank | Symbol | Source | Score | Close | Limit draft | Stop | "
-            "Target | Model rank | News | Action |",
-            "|---:|---|---|---:|---:|---:|---:|---:|---:|---|---|",
+            "Target | Model rank | Model score | Model status | News | Action |",
+            "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|---|",
         ]
     )
     for row in candidate_rows:
         lines.append(
             "| {rank} | {symbol} | {universe_role} | {score:.4f} | {signal_close:.2f} | "
             "{limit_price:.2f} | {stop_price:.2f} | {target_price:.2f} | "
-            "{model_rank} | {news_risk} | {recommended_action} |".format(
+            "{model_rank} | {model_score} | {model_status} | "
+            "{news_risk} | {recommended_action} |".format(
                 **{
                     **row,
                     "model_rank": _format_optional_int(row.get("model_rank")),
+                    "model_score": _format_optional_float(row.get("model_score")),
+                    "model_status": row.get("model_rank_status", ""),
                 }
             )
         )
@@ -268,6 +275,12 @@ def _format_optional_int(value: Any) -> str:
     if value is None or value == "":
         return ""
     return str(int(value))
+
+
+def _format_optional_float(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+    return f"{float(value):.4f}"
 
 
 def _render_positions_markdown(report: dict[str, Any], rows: list[dict[str, Any]]) -> str:
@@ -349,9 +362,7 @@ def _markdown_table(rows: list[dict[str, Any]]) -> list[str]:
     ]
     for row in rows:
         rendered.append(
-            "| "
-            + " | ".join(_format_markdown_cell(row.get(column)) for column in columns)
-            + " |"
+            "| " + " | ".join(_format_markdown_cell(row.get(column)) for column in columns) + " |"
         )
     return rendered
 
@@ -383,12 +394,7 @@ def _render_html(title: str, markdown: str) -> str:
 
 
 def _escape_html(value: object) -> str:
-    return (
-        str(value)
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
+    return str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _money(value: object) -> str:

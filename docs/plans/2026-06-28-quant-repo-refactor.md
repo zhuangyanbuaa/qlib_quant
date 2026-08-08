@@ -1851,5 +1851,6 @@ Technical closure 状态（2026-08-09）：
 - `feat/technical-closure` 已从 `dev` 开出。
 - LightGBM daily rank context 已接入 `premarket` 第一版：只生成 `model_score`、`model_rank` 和 `model_rank_context`，不改变规则、动作或人工 review gate。
 - 当成熟训练样本不足、LightGBM 不可用或当天无候选时，报告明确显示 `INSUFFICIENT_TRAINING_ROWS` / `UNAVAILABLE_LIGHTGBM_NOT_INSTALLED` / `SKIPPED_NO_CANDIDATES`，不阻塞日常报告。
-- 下一项是 FinBERT production cache / timeout / `DEGRADED` fallback。
+- LightGBM rank context 已增强 Markdown 和 Streamlit 展示：显示 rank、score、status、训练样本、最低样本、scored rows 和 target。
+- FinBERT production cache / timeout / `DEGRADED` fallback 已完成第一版：按 article/model key 缓存，超时或模型不可用时 fallback 到 rule-based scorer，并在 quality report 与 article `quality_flags` 中标记降级。
 - Qlib export/golden tests 暂缓到明确需要 Qlib workflow 时再做；Chronos 继续 postpone。

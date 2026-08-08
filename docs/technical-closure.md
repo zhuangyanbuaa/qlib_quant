@@ -16,7 +16,7 @@ an explicit deferral.
 
 ## LightGBM daily ranking context
 
-Status: implemented first.
+Status: implemented.
 
 `quant decision premarket` now accepts:
 
@@ -37,6 +37,8 @@ The default CLI behavior attaches a read-only `model_rank_context`. The ranker:
 - returns explicit statuses such as `INSUFFICIENT_TRAINING_ROWS`,
   `UNAVAILABLE_LIGHTGBM_NOT_INSTALLED`, or `SKIPPED_NO_CANDIDATES` instead of
   blocking daily reports.
+- displays model rank, model score, model status, training rows, minimum rows,
+  scored rows, and target column in Markdown and the local Streamlit dashboard.
 
 Smoke result on the latest local 2026-07-24 report:
 
@@ -49,17 +51,30 @@ minimum_train_rows = 30
 This is the intended behavior: model context is visible, but the system does
 not pretend an under-sampled model is actionable.
 
-## Remaining closure items
+## FinBERT production cache / timeout / degraded status
 
-### FinBERT production cache / timeout / degraded status
-
-Next priority. Before enabling real transformer inference in a daily workflow:
+Status: implemented.
 
 - cache by `article_id` or `dedupe_key` plus model/tokenizer version;
 - avoid repeated inference for old articles;
 - enforce a per-run timeout;
 - return `sentiment_status: DEGRADED` and deterministic rule/keyword fallback
   when inference is unavailable or too slow.
+- write sentiment cache hits, cache misses, degraded count, and
+  `sentiment_status` in the news update quality report;
+- add `sentiment_status:DEGRADED` to article quality flags when fallback is used.
+
+The cache is file-backed under:
+
+```text
+data/cache/sentiment/
+```
+
+The raw news schema is unchanged. The persisted article still stores the final
+sentiment label/score, while degradation metadata stays in quality reports and
+article `quality_flags`.
+
+## Remaining closure items
 
 ### Qlib export / golden tests
 

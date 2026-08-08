@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from quant_system.ingestion.config import load_price_source_settings
+from quant_system.ingestion.config import load_news_source_settings, load_price_source_settings
 
 
 def test_repository_price_source_config_is_valid() -> None:
@@ -23,3 +23,10 @@ def test_unknown_config_keys_fail_fast(tmp_path) -> None:
 
     with pytest.raises(ValidationError, match="mystery"):
         load_price_source_settings(config)
+
+
+def test_news_source_config_includes_finbert_runtime_guards() -> None:
+    settings = load_news_source_settings(Path("configs/sources/news.yaml"))
+
+    assert settings.sentiment.finbert.cache_enabled is True
+    assert settings.sentiment.finbert.inference_timeout_seconds == 20
