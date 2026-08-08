@@ -7,6 +7,7 @@ from quant_system.decision.premarket import (
     _candidate_rows,
     _exclude_context_only_benchmarks,
     _portfolio_posture,
+    load_decision_symbol_benchmarks,
     load_decision_universe,
 )
 from quant_system.decision.reports import write_premarket_report
@@ -30,6 +31,18 @@ def test_load_decision_universe_tags_ai_and_hedge_roles() -> None:
     assert roles["NVDA"] == "ai_alpha"
     assert roles["COST"] == "hedge_overlay"
     assert roles["QQQ"] == "benchmark"
+
+
+def test_load_decision_symbol_benchmarks_reads_member_sector_etfs() -> None:
+    benchmarks = load_decision_symbol_benchmarks(
+        (
+            Path("configs/universe/ai_watchlist.yaml"),
+            Path("configs/universe/hedge_overlay.yaml"),
+        )
+    )
+
+    assert benchmarks["NVDA"] == "SMH"
+    assert benchmarks["COST"] == "XLP"
 
 
 def test_candidate_rows_include_manual_order_draft() -> None:
@@ -150,6 +163,101 @@ def test_relaxed_leader_reversal_passes_quality_gate() -> None:
 
     assert rows[0]["relaxed_quality_pass"] is True
     assert rows[0]["relaxed_quality_reasons"] == "leader_stock_REVERSAL_ATTEMPT"
+    assert rows[0]["manual_review_allowed"] is True
+    assert rows[0]["calibration_action"] == "RELAXED_WATCHLIST_REVIEW_ONLY"
+
+
+def test_ai_candidate_requires_positive_sector_confirmation() -> None:
+    config = load_buy_the_dip_config(Path("configs/strategy/buy_the_dip.yaml"))
+    signal = _signal("NVDA")
+
+    rows = _calibration_candidate_rows(
+        [
+            TieredCandidateSignal(
+                signal=signal,
+                calibration_tier="RELAXED",
+                passed_tiers=("RELAXED",),
+            )
+        ],
+        role_by_symbol={"NVDA": "ai_alpha"},
+        benchmark_etf_by_symbol={"NVDA": "SMH"},
+        config=config,
+        strategy_context={
+            "candidate_tier_context": "RELAXED_WATCHLIST",
+            "ai_vs_hedge_spread_20d": 0.05,
+        },
+        hierarchy_rows=[
+            {
+                "symbol": "NVDA",
+                "role": "leader_stock",
+                "trend_state": "REVERSAL_ATTEMPT",
+                "theme": "ai_chips",
+                "sector": "Information Technology",
+            },
+            {
+                "symbol": "SMH",
+                "role": "sector_proxy",
+                "trend_state": "WEAKENING",
+                "relative_return_20d": -0.06,
+                "relative_return_60d": 0.04,
+            },
+        ],
+        rotation_rows=[
+            {
+                "group_type": "theme",
+                "group": "ai_chips",
+                "rotation_status": "LEADING",
+                "relative_return_20d": 0.03,
+            }
+        ],
+    )
+
+    assert rows[0]["relaxed_quality_pass"] is True
+    assert rows[0]["sector_confirmation_pass"] is False
+    assert rows[0]["manual_review_allowed"] is False
+    assert rows[0]["calibration_action"] == "WATCH_ONLY_SECTOR_CONFIRMATION_GATE"
+    assert "benchmark_etf:SMH" in rows[0]["sector_confirmation_reasons"]
+
+
+def test_ai_candidate_with_improving_sector_confirmation_is_reviewable() -> None:
+    config = load_buy_the_dip_config(Path("configs/strategy/buy_the_dip.yaml"))
+    signal = _signal("NVDA")
+
+    rows = _calibration_candidate_rows(
+        [
+            TieredCandidateSignal(
+                signal=signal,
+                calibration_tier="RELAXED",
+                passed_tiers=("RELAXED",),
+            )
+        ],
+        role_by_symbol={"NVDA": "ai_alpha"},
+        benchmark_etf_by_symbol={"NVDA": "SMH"},
+        config=config,
+        strategy_context={
+            "candidate_tier_context": "RELAXED_WATCHLIST",
+            "ai_vs_hedge_spread_20d": 0.05,
+        },
+        hierarchy_rows=[
+            {
+                "symbol": "NVDA",
+                "role": "leader_stock",
+                "trend_state": "REVERSAL_ATTEMPT",
+                "theme": "ai_chips",
+                "sector": "Information Technology",
+            },
+            {
+                "symbol": "SMH",
+                "role": "sector_proxy",
+                "trend_state": "REVERSAL_ATTEMPT",
+                "relative_return_20d": 0.01,
+                "relative_return_60d": -0.04,
+            },
+        ],
+        rotation_rows=[],
+    )
+
+    assert rows[0]["sector_confirmation_pass"] is True
     assert rows[0]["manual_review_allowed"] is True
     assert rows[0]["calibration_action"] == "RELAXED_WATCHLIST_REVIEW_ONLY"
 

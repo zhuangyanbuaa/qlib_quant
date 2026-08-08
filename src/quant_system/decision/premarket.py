@@ -47,6 +47,16 @@ def load_decision_universe(paths: tuple[Path, ...]) -> tuple[tuple[str, ...], di
     return tuple(sorted(set(symbols))), roles
 
 
+def load_decision_symbol_benchmarks(paths: tuple[Path, ...]) -> dict[str, str]:
+    """Load per-symbol sector/theme ETF benchmarks from watchlist configs."""
+    benchmarks: dict[str, str] = {}
+    for path in paths:
+        config = load_watchlist_config(path)
+        for member in config.symbols:
+            benchmarks.setdefault(member.symbol, member.benchmark_etf)
+    return benchmarks
+
+
 def run_premarket_workflow(
     *,
     repository: ParquetRepository,
@@ -68,6 +78,7 @@ def run_premarket_workflow(
     run_id = run_id or uuid4()
     generated_at_utc = _ensure_utc(generated_at_utc or datetime.now(UTC))
     symbols, role_by_symbol = load_decision_universe(universe_paths)
+    benchmark_etf_by_symbol = load_decision_symbol_benchmarks(universe_paths)
     benchmark_symbol = config.strategy.benchmark_symbol.upper()
     features = load_feature_history(
         repository=repository,
@@ -97,6 +108,7 @@ def run_premarket_workflow(
     candidate_rows = _candidate_rows(
         signals,
         role_by_symbol=role_by_symbol,
+        benchmark_etf_by_symbol=benchmark_etf_by_symbol,
         config=config,
     )
     hierarchy_context: dict[str, Any] | None = None
@@ -128,6 +140,7 @@ def run_premarket_workflow(
         calibration_rows = _calibration_candidate_rows(
             tiered_candidates,
             role_by_symbol=role_by_symbol,
+            benchmark_etf_by_symbol=benchmark_etf_by_symbol,
             config=config,
             strategy_context=hierarchy_context,
             hierarchy_rows=hierarchy_report["rows"],
@@ -304,9 +317,11 @@ def _candidate_rows(
     signals: list[Any],
     *,
     role_by_symbol: dict[str, str],
+    benchmark_etf_by_symbol: dict[str, str] | None = None,
     config: BuyTheDipConfig,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    benchmark_etf_by_symbol = benchmark_etf_by_symbol or {}
     for rank, signal in enumerate(signals, start=1):
         stop_price = max(
             0.01,
@@ -319,6 +334,7 @@ def _candidate_rows(
                 "signal_id": str(signal.signal_id),
                 "symbol": signal.symbol,
                 "universe_role": role_by_symbol.get(signal.symbol, "unclassified"),
+                "benchmark_etf": benchmark_etf_by_symbol.get(signal.symbol, ""),
                 "signal_session": signal.signal_session.isoformat(),
                 "earliest_order_session": signal.earliest_order_session.isoformat(),
                 "earliest_order_time_utc": signal.earliest_order_time_utc.isoformat(),
@@ -375,6 +391,7 @@ def _calibration_candidate_rows(
     tiered_candidates: list[TieredCandidateSignal],
     *,
     role_by_symbol: dict[str, str],
+    benchmark_etf_by_symbol: dict[str, str] | None = None,
     config: BuyTheDipConfig,
     strategy_context: dict[str, Any],
     hierarchy_rows: list[dict[str, Any]] | None = None,
@@ -383,6 +400,7 @@ def _calibration_candidate_rows(
     rows = _candidate_rows(
         [candidate.signal for candidate in tiered_candidates],
         role_by_symbol=role_by_symbol,
+        benchmark_etf_by_symbol=benchmark_etf_by_symbol,
         config=config,
     )
     context_tier = str(strategy_context["candidate_tier_context"])
@@ -411,10 +429,18 @@ def _calibration_candidate_rows(
             hierarchy_by_symbol=hierarchy_by_symbol,
             rotation_by_group=rotation_by_group,
         )
+        sector_confirmation_pass, sector_confirmation_reasons = (
+            _sector_confirmation_gate(
+                row=row,
+                hierarchy_by_symbol=hierarchy_by_symbol,
+            )
+        )
         row["relaxed_quality_pass"] = relaxed_quality_pass
         row["relaxed_quality_reasons"] = ";".join(relaxed_quality_reasons)
         row["defensive_overlay_quality_pass"] = defensive_quality_pass
         row["defensive_overlay_quality_reasons"] = ";".join(defensive_quality_reasons)
+        row["sector_confirmation_pass"] = sector_confirmation_pass
+        row["sector_confirmation_reasons"] = ";".join(sector_confirmation_reasons)
         row["manual_review_allowed"] = _manual_review_allowed(
             row=row,
             calibration_tier=tiered.calibration_tier,
@@ -426,6 +452,43 @@ def _calibration_candidate_rows(
             context_tier=context_tier,
         )
     return rows
+
+
+def _sector_confirmation_gate(
+    *,
+    row: dict[str, Any],
+    hierarchy_by_symbol: dict[str, dict[str, Any]],
+) -> tuple[bool, tuple[str, ...]]:
+    """Check whether an AI-alpha candidate's benchmark ETF supports risk-taking."""
+    if row["universe_role"] != "ai_alpha":
+        return True, ("not_ai_alpha",)
+
+    benchmark_etf = str(row.get("benchmark_etf") or "")
+    if not benchmark_etf:
+        return True, ("benchmark_etf_not_configured",)
+
+    benchmark_state = hierarchy_by_symbol.get(benchmark_etf, {})
+    if not benchmark_state:
+        return False, (f"benchmark_etf_missing:{benchmark_etf}",)
+
+    trend_state = str(benchmark_state.get("trend_state") or "UNKNOWN")
+    relative_20d = benchmark_state.get("relative_return_20d")
+    relative_60d = benchmark_state.get("relative_return_60d")
+
+    reasons = [
+        f"benchmark_etf:{benchmark_etf}",
+        f"benchmark_trend:{trend_state}",
+    ]
+    if relative_20d is not None:
+        reasons.append(f"benchmark_relative_20d:{float(relative_20d):.4f}")
+    if relative_60d is not None:
+        reasons.append(f"benchmark_relative_60d:{float(relative_60d):.4f}")
+
+    if trend_state in POSITIVE_SYMBOL_STATES and not _is_below(relative_20d, -0.03):
+        return True, tuple(reasons)
+    if _is_positive(relative_20d) and trend_state != "WASHOUT":
+        return True, tuple(reasons)
+    return False, tuple(reasons)
 
 
 def _relaxed_quality_gate(
@@ -517,6 +580,10 @@ def _manual_review_allowed(
         if context_tier in {"DEFENSIVE", "RELAXED_WATCHLIST"}:
             return bool(row.get("defensive_overlay_quality_pass"))
         return False
+    if row["universe_role"] == "ai_alpha" and not row.get(
+        "sector_confirmation_pass", True
+    ):
+        return False
     if context_tier == "DEFENSIVE":
         return False
     if context_tier == "STRICT":
@@ -544,6 +611,10 @@ def _calibration_action(
         return "WATCH_ONLY_DEFENSIVE_OVERLAY_CONTEXT"
     if context_tier == "DEFENSIVE":
         return "DEFER_AI_ALPHA_DEFENSIVE_CONTEXT"
+    if row["universe_role"] == "ai_alpha" and not row.get(
+        "sector_confirmation_pass", True
+    ):
+        return "WATCH_ONLY_SECTOR_CONFIRMATION_GATE"
     if context_tier == "STRICT" and calibration_tier != "STRICT":
         return "WATCH_ONLY_STRICT_CONTEXT"
     if context_tier == "RELAXED_WATCHLIST" and calibration_tier == "RELAXED":
@@ -564,6 +635,11 @@ def _calibration_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
             row["calibration_tier"] == "RELAXED" for row in rows
         ),
         "manual_review_allowed_count": sum(row["manual_review_allowed"] for row in rows),
+        "sector_confirmation_block_count": sum(
+            row["universe_role"] == "ai_alpha"
+            and not row.get("sector_confirmation_pass", True)
+            for row in rows
+        ),
         "defensive_defer_count": sum(
             row["calibration_action"] == "DEFER_AI_ALPHA_DEFENSIVE_CONTEXT"
             for row in rows
@@ -581,6 +657,10 @@ def _recommended_action(universe_role: str, news_risk: str) -> str:
 
 def _is_positive(value: object) -> bool:
     return value is not None and float(value) > 0
+
+
+def _is_below(value: object, threshold: float) -> bool:
+    return value is not None and float(value) < threshold
 
 
 def _counts(candidate_rows: list[dict[str, Any]]) -> dict[str, int]:

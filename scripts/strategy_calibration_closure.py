@@ -34,6 +34,7 @@ from quant_system.decision.hierarchy import (
 )
 from quant_system.decision.premarket import (
     _calibration_candidate_rows,
+    load_decision_symbol_benchmarks,
     load_decision_universe,
 )
 from quant_system.decision.rotation import (
@@ -113,6 +114,7 @@ def run_closure(inputs: ClosureInputs) -> dict[str, Any]:
     config = load_buy_the_dip_config(inputs.strategy_config_path)
     universe_paths = (inputs.ai_universe_path, inputs.hedge_universe_path)
     symbols, role_by_symbol = load_decision_universe(universe_paths)
+    benchmark_etf_by_symbol = load_decision_symbol_benchmarks(universe_paths)
     benchmark_symbol = config.strategy.benchmark_symbol.upper()
 
     sessions = _load_sessions(
@@ -186,6 +188,7 @@ def run_closure(inputs: ClosureInputs) -> dict[str, Any]:
             rows = _calibration_candidate_rows(
                 tiered,
                 role_by_symbol=role_by_symbol,
+                benchmark_etf_by_symbol=benchmark_etf_by_symbol,
                 config=config,
                 strategy_context=context_payload["strategy_context"],
                 hierarchy_rows=context_payload["hierarchy_rows"],
@@ -491,6 +494,11 @@ def _candidate_records(
                 "baseline_candidate": bool(row["baseline_candidate"]),
                 "relaxed_quality_pass": bool(row["relaxed_quality_pass"]),
                 "defensive_overlay_quality_pass": bool(row["defensive_overlay_quality_pass"]),
+                "benchmark_etf": row.get("benchmark_etf"),
+                "sector_confirmation_pass": bool(
+                    row.get("sector_confirmation_pass", True)
+                ),
+                "sector_confirmation_reasons": row.get("sector_confirmation_reasons"),
                 "score": float(row["score"]),
                 "signal_close": signal_close,
                 "target_session": target_session.isoformat()
@@ -596,6 +604,7 @@ def _summarize_slice(
         "action_counts": dict(Counter(frame["calibration_action"])),
         "context_counts": dict(Counter(frame["context_tier"])),
         "tier_counts": dict(Counter(frame["calibration_tier"])),
+        "sector_confirmation": _sector_confirmation_summary(frame),
         "manual_review_stats": _return_stats(manual, return_col, relative_col),
         "all_candidate_stats": _return_stats(matured, return_col, relative_col),
     }
@@ -612,8 +621,43 @@ def _empty_summary() -> dict[str, Any]:
         "action_counts": {},
         "context_counts": {},
         "tier_counts": {},
+        "sector_confirmation": {
+            "ai_rows": 0,
+            "ai_pass_count": 0,
+            "ai_block_count": 0,
+            "ai_block_by_benchmark": {},
+            "ai_block_by_context": {},
+        },
         "manual_review_stats": _empty_stats(),
         "all_candidate_stats": _empty_stats(),
+    }
+
+
+def _sector_confirmation_summary(frame: pd.DataFrame) -> dict[str, Any]:
+    if frame.empty or "sector_confirmation_pass" not in frame.columns:
+        return {
+            "ai_rows": 0,
+            "ai_pass_count": 0,
+            "ai_block_count": 0,
+            "ai_block_by_benchmark": {},
+            "ai_block_by_context": {},
+        }
+    ai = frame.loc[frame["universe_role"] == "ai_alpha"].copy()
+    if ai.empty:
+        return {
+            "ai_rows": 0,
+            "ai_pass_count": 0,
+            "ai_block_count": 0,
+            "ai_block_by_benchmark": {},
+            "ai_block_by_context": {},
+        }
+    blocked = ai.loc[~ai["sector_confirmation_pass"].astype(bool)]
+    return {
+        "ai_rows": len(ai),
+        "ai_pass_count": int(ai["sector_confirmation_pass"].astype(bool).sum()),
+        "ai_block_count": len(blocked),
+        "ai_block_by_benchmark": dict(Counter(blocked["benchmark_etf"])),
+        "ai_block_by_context": dict(Counter(blocked["context_tier"])),
     }
 
 
