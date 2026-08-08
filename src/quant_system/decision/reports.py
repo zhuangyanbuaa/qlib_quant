@@ -134,6 +134,7 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
     metadata = report["metadata"]
     posture = report["portfolio_posture"]
     strategy_context = report.get("strategy_context", {})
+    model_rank_context = report.get("model_rank_context", {})
     counts = report["counts"]
     lines = [
         f"# Premarket Plan — {metadata['signal_session']}",
@@ -159,6 +160,20 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
         ),
         "",
     ]
+    if model_rank_context:
+        lines.extend(
+            [
+                "## Model rank context",
+                "",
+                f"- Status: `{model_rank_context.get('status', 'DISABLED')}`",
+                f"- Model: `{model_rank_context.get('model', 'n/a')}`",
+                "- Decision scope: "
+                f"`{model_rank_context.get('decision_scope', 'RANK_CONTEXT_ONLY')}`",
+                f"- Training rows: `{model_rank_context.get('training_rows', 0)}`",
+                f"- Scored rows: `{model_rank_context.get('scored_rows', 0)}`",
+                "",
+            ]
+        )
     calibration_counts = report.get("calibration_counts")
     if calibration_counts:
         lines.extend(
@@ -178,20 +193,22 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
             [
                 "### Tiered candidates",
                 "",
-                "| Rank | Symbol | Role | Tier | Passed tiers | Score | Review | Action |",
-                "|---:|---|---|---|---|---:|---|---|",
+                "| Rank | Symbol | Role | Tier | Passed tiers | Score | "
+                "Model rank | Review | Action |",
+                "|---:|---|---|---|---|---:|---:|---|---|",
             ]
         )
         for row in calibration_rows:
             lines.append(
                 "| {rank} | {symbol} | {role} | {tier} | {passed} | {score:.4f} | "
-                "{review} | {action} |".format(
+                "{model_rank} | {review} | {action} |".format(
                     rank=row["calibration_rank"],
                     symbol=row["symbol"],
                     role=row["universe_role"],
                     tier=row["calibration_tier"],
                     passed=row["passed_tiers"],
                     score=row["score"],
+                    model_rank=_format_optional_int(row.get("model_rank")),
                     review="yes" if row["manual_review_allowed"] else "no",
                     action=row["calibration_action"],
                 )
@@ -218,15 +235,20 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
     lines.extend(
         [
             "| Rank | Symbol | Source | Score | Close | Limit draft | Stop | "
-            "Target | News | Action |",
-            "|---:|---|---|---:|---:|---:|---:|---:|---|---|",
+            "Target | Model rank | News | Action |",
+            "|---:|---|---|---:|---:|---:|---:|---:|---:|---|---|",
         ]
     )
     for row in candidate_rows:
         lines.append(
             "| {rank} | {symbol} | {universe_role} | {score:.4f} | {signal_close:.2f} | "
             "{limit_price:.2f} | {stop_price:.2f} | {target_price:.2f} | "
-            "{news_risk} | {recommended_action} |".format(**row)
+            "{model_rank} | {news_risk} | {recommended_action} |".format(
+                **{
+                    **row,
+                    "model_rank": _format_optional_int(row.get("model_rank")),
+                }
+            )
         )
     lines.extend(
         [
@@ -240,6 +262,12 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
         ]
     )
     return "\n".join(lines)
+
+
+def _format_optional_int(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+    return str(int(value))
 
 
 def _render_positions_markdown(report: dict[str, Any], rows: list[dict[str, Any]]) -> str:

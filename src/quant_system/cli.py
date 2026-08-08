@@ -683,6 +683,22 @@ def decision_premarket(
             help="Benchmark ETF YAML used by calibration context.",
         ),
     ] = PROJECT_ROOT / "configs" / "universe" / "benchmarks.yaml",
+    model_ranking: Annotated[
+        bool,
+        typer.Option(
+            "--model-ranking/--no-model-ranking",
+            help="Attach read-only LightGBM rank context without changing actions.",
+        ),
+    ] = True,
+    model_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--model-config",
+            exists=True,
+            dir_okay=False,
+            help="Ridge + LightGBM ranking YAML used for daily rank context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "models" / "ranking_baseline.yaml",
 ) -> None:
     """Generate JSON, CSV, and Markdown artifacts for the premarket plan."""
     signal_session = (
@@ -704,6 +720,10 @@ def decision_premarket(
         news_lookback_hours=news_source_settings.risk.lookback_hours,
         include_calibration=calibration,
         benchmark_path=benchmark_path,
+        include_model_ranking=model_ranking,
+        model_settings=load_ranking_baseline_settings(model_config_path)
+        if model_ranking
+        else None,
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 

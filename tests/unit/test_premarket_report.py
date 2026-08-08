@@ -446,6 +446,64 @@ def test_write_premarket_report_includes_calibration_section(tmp_path) -> None:
     assert "RELAXED_WATCHLIST_REVIEW_ONLY" in markdown
 
 
+def test_write_premarket_report_includes_model_rank_context(tmp_path) -> None:
+    run_id = uuid4()
+    report = {
+        "metadata": {
+            "run_id": str(run_id),
+            "generated_at_utc": datetime(2026, 7, 26, 12, tzinfo=UTC).isoformat(),
+            "signal_session": "2026-07-24",
+            "earliest_order_session": "2026-07-27",
+        },
+        "counts": {
+            "candidate_count": 1,
+            "ai_candidate_count": 1,
+            "hedge_candidate_count": 0,
+            "medium_news_risk_count": 0,
+        },
+        "portfolio_posture": {
+            "status": "RISK_ON_SELECTIVE",
+            "market_regime": "GREEN",
+            "message": "Rules-approved candidates exist.",
+        },
+        "model_rank_context": {
+            "status": "SCORED",
+            "model": "lightgbm_daily_context_v1",
+            "decision_scope": "RANK_CONTEXT_ONLY_DOES_NOT_CHANGE_ACTIONS",
+            "training_rows": 33,
+            "scored_rows": 1,
+        },
+    }
+    rows = [
+        {
+            "rank": 1,
+            "symbol": "NVDA",
+            "universe_role": "ai_alpha",
+            "score": 0.12,
+            "signal_close": 100.0,
+            "limit_price": 100.0,
+            "stop_price": 90.0,
+            "target_price": 115.0,
+            "model_rank": 1,
+            "news_risk": "LOW",
+            "recommended_action": "PREPARE_MANUAL_CONDITIONAL_ORDER",
+        }
+    ]
+
+    artifacts = write_premarket_report(
+        report=report,
+        candidate_rows=rows,
+        report_root=tmp_path,
+        signal_session=date(2026, 7, 24),
+        run_id=run_id,
+    )
+    markdown = artifacts.markdown_path.read_text(encoding="utf-8")
+
+    assert "Model rank context" in markdown
+    assert "lightgbm_daily_context_v1" in markdown
+    assert "Training rows: `33`" in markdown
+
+
 def _signal(symbol: str) -> CandidateSignal:
     return CandidateSignal(
         symbol=symbol,

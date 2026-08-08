@@ -52,6 +52,16 @@ def build_candidate_dataset(
 
     signal_frame = pd.DataFrame([signal.model_dump(mode="python") for signal in signals])
     signal_frame["signal_id"] = signal_frame["signal_id"].astype(str)
+    colliding_feature_columns = {
+        column for column in dataset_config.feature_columns if column in signal_frame.columns
+    }
+    if colliding_feature_columns:
+        signal_frame = signal_frame.rename(
+            columns={
+                column: f"signal_{column}"
+                for column in sorted(colliding_feature_columns)
+            }
+        )
     feature_slice = features.copy()
     feature_slice["session_date_ny"] = pd.to_datetime(feature_slice["session_date_ny"]).dt.date
     feature_slice["symbol"] = feature_slice["symbol"].astype("string").str.upper()

@@ -1845,3 +1845,11 @@ quant paper update --premarket-report <premarket-json> --fill-session <next-sess
 1. 合并 `feat/strategy-calibration` 到 `dev`。
 2. 开 `feat/technical-closure`，决定补齐或延期 Qlib export、FinBERT production cache/timeout、LightGBM daily ranker。
 3. 若每日输出质量稳定，再进入 Phase 7：launchd、日志轮转、失败通知、交易日/夏令时调度和 `daily-runbook.md`。
+
+Technical closure 状态（2026-08-09）：
+
+- `feat/technical-closure` 已从 `dev` 开出。
+- LightGBM daily rank context 已接入 `premarket` 第一版：只生成 `model_score`、`model_rank` 和 `model_rank_context`，不改变规则、动作或人工 review gate。
+- 当成熟训练样本不足、LightGBM 不可用或当天无候选时，报告明确显示 `INSUFFICIENT_TRAINING_ROWS` / `UNAVAILABLE_LIGHTGBM_NOT_INSTALLED` / `SKIPPED_NO_CANDIDATES`，不阻塞日常报告。
+- 下一项是 FinBERT production cache / timeout / `DEGRADED` fallback。
+- Qlib export/golden tests 暂缓到明确需要 Qlib workflow 时再做；Chronos 继续 postpone。
