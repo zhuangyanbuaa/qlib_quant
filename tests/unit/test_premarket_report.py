@@ -33,6 +33,17 @@ def test_load_decision_universe_tags_ai_and_hedge_roles() -> None:
     assert roles["QQQ"] == "benchmark"
 
 
+def test_load_decision_universe_tags_satellite_role() -> None:
+    symbols, roles = load_decision_universe(
+        (Path("configs/universe/ai_satellite_watchlist.yaml"),)
+    )
+
+    assert "MXL" in symbols
+    assert "NVTS" in symbols
+    assert roles["MXL"] == "ai_satellite"
+    assert roles["NVTS"] == "ai_satellite"
+
+
 def test_load_decision_symbol_benchmarks_reads_member_sector_etfs() -> None:
     benchmarks = load_decision_symbol_benchmarks(
         (
@@ -69,6 +80,22 @@ def test_candidate_rows_include_manual_order_draft() -> None:
     assert rows[0]["max_gap_up_price"] == 103.0
     assert rows[0]["gap_down_cancel_below"] == 95.0
     assert rows[0]["recommended_action"] == "PREPARE_MANUAL_CONDITIONAL_ORDER"
+
+
+def test_satellite_candidate_rows_use_satellite_review_action() -> None:
+    config = load_buy_the_dip_config(Path("configs/strategy/buy_the_dip.yaml"))
+    signal = _signal("MXL")
+
+    rows = _candidate_rows(
+        [signal],
+        role_by_symbol={"MXL": "ai_satellite"},
+        benchmark_etf_by_symbol={"MXL": "DTCR"},
+        config=config,
+    )
+
+    assert rows[0]["universe_role"] == "ai_satellite"
+    assert rows[0]["benchmark_etf"] == "DTCR"
+    assert rows[0]["recommended_action"] == "REVIEW_AS_AI_SATELLITE"
 
 
 def test_context_only_benchmarks_are_excluded_from_daily_candidates() -> None:
@@ -260,6 +287,49 @@ def test_ai_candidate_with_improving_sector_confirmation_is_reviewable() -> None
     assert rows[0]["sector_confirmation_pass"] is True
     assert rows[0]["manual_review_allowed"] is True
     assert rows[0]["calibration_action"] == "RELAXED_WATCHLIST_REVIEW_ONLY"
+
+
+def test_satellite_candidate_uses_sector_confirmation_gate() -> None:
+    config = load_buy_the_dip_config(Path("configs/strategy/buy_the_dip.yaml"))
+    signal = _signal("MXL")
+
+    rows = _calibration_candidate_rows(
+        [
+            TieredCandidateSignal(
+                signal=signal,
+                calibration_tier="BASELINE",
+                passed_tiers=("BASELINE",),
+            )
+        ],
+        role_by_symbol={"MXL": "ai_satellite"},
+        benchmark_etf_by_symbol={"MXL": "DTCR"},
+        config=config,
+        strategy_context={
+            "candidate_tier_context": "BASELINE",
+            "ai_vs_hedge_spread_20d": 0.05,
+        },
+        hierarchy_rows=[
+            {
+                "symbol": "MXL",
+                "role": "stock",
+                "trend_state": "REVERSAL_ATTEMPT",
+                "theme": "networking_optical",
+                "sector": "Information Technology",
+            },
+            {
+                "symbol": "DTCR",
+                "role": "sector_proxy",
+                "trend_state": "LAGGING",
+                "relative_return_20d": -0.05,
+                "relative_return_60d": -0.02,
+            },
+        ],
+        rotation_rows=[],
+    )
+
+    assert rows[0]["sector_confirmation_pass"] is False
+    assert rows[0]["manual_review_allowed"] is False
+    assert rows[0]["calibration_action"] == "WATCH_ONLY_SECTOR_CONFIRMATION_GATE"
 
 
 def test_relaxed_theme_strength_without_leader_reversal_is_watch_only() -> None:
@@ -490,6 +560,46 @@ def test_write_premarket_report_outputs_json_csv_and_markdown(tmp_path) -> None:
     assert artifacts.csv_path.exists()
     assert artifacts.markdown_path.exists()
     assert "NVDA" in artifacts.markdown_path.read_text(encoding="utf-8")
+
+
+def test_write_premarket_report_supports_custom_stem(tmp_path) -> None:
+    run_id = uuid4()
+    report = {
+        "metadata": {
+            "run_id": str(run_id),
+            "generated_at_utc": datetime(2026, 7, 26, 12, tzinfo=UTC).isoformat(),
+            "report_title": "AI Satellite Scan",
+            "signal_session": "2026-07-24",
+            "earliest_order_session": "2026-07-27",
+        },
+        "counts": {
+            "candidate_count": 0,
+            "ai_candidate_count": 0,
+            "satellite_candidate_count": 0,
+            "hedge_candidate_count": 0,
+            "medium_news_risk_count": 0,
+        },
+        "portfolio_posture": {
+            "status": "CASH_FIRST",
+            "market_regime": "GREEN",
+            "message": "No satellite candidates.",
+        },
+    }
+
+    artifacts = write_premarket_report(
+        report=report,
+        candidate_rows=[],
+        report_root=tmp_path,
+        signal_session=date(2026, 7, 24),
+        run_id=run_id,
+        stem="satellite",
+        title="AI Satellite Scan",
+    )
+
+    assert artifacts.json_path.name == "satellite.json"
+    assert artifacts.csv_path.name == "satellite_candidates.csv"
+    assert artifacts.markdown_path.name == "satellite.md"
+    assert "AI Satellite Scan" in artifacts.markdown_path.read_text(encoding="utf-8")
 
 
 def test_write_premarket_report_includes_calibration_section(tmp_path) -> None:

@@ -53,8 +53,8 @@ For AI-alpha candidates, the premarket calibration output now includes:
 - `sector_confirmation_reasons`: the ETF symbol, trend state, and relative
   20/60-session context used for the gate.
 
-If the candidate is AI-alpha and `sector_confirmation_pass` is false, the row is
-not allowed into manual review. The resulting action is:
+If the candidate is core AI-alpha or AI-satellite and `sector_confirmation_pass`
+is false, the row is not allowed into manual review. The resulting action is:
 
 ```text
 WATCH_ONLY_SECTOR_CONFIRMATION_GATE
@@ -68,6 +68,36 @@ QQQ/SPY = can the portfolio take growth risk?
 SMH/SOXX/IGV/DTCR = is the candidate's industry wind supportive?
 Stock = which specific setup is worth reviewing?
 ```
+
+## Satellite scan layer
+
+The core AI watchlist intentionally remains concentrated. Broader Futu raw-pool
+coverage and selected EDA, advanced-packaging, metrology, test, and power
+semiconductor names live in:
+
+```text
+configs/universe/ai_satellite_watchlist.yaml
+```
+
+Run the separate satellite scan with:
+
+```bash
+quant decision satellite --date 2026-08-07
+```
+
+This writes a separate report set:
+
+```text
+data/reports/daily/<date>/<run_id>/satellite.json
+data/reports/daily/<date>/<run_id>/satellite_candidates.csv
+data/reports/daily/<date>/<run_id>/satellite.md
+data/reports/daily/<date>/<run_id>/satellite.html
+```
+
+The satellite command scans only `AI_SATELLITE` symbols, but computes calibration
+context from the core AI, satellite, and hedge-overlay universes together. This
+keeps broad-market and rotation diagnostics anchored while preventing satellite
+names from diluting the core AI breadth metrics.
 
 ## Important boundary
 

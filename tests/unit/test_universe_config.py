@@ -28,6 +28,24 @@ def test_ai_watchlist_benchmarks_are_declared() -> None:
     assert {member.benchmark_etf for member in watchlist.symbols}.issubset(declared)
 
 
+def test_ai_satellite_watchlist_is_separate_forward_only_layer() -> None:
+    satellite = load_watchlist_config(Path("configs/universe/ai_satellite_watchlist.yaml"))
+    ai_watchlist = load_watchlist_config(Path("configs/universe/ai_watchlist.yaml"))
+    hedge_overlay = load_watchlist_config(Path("configs/universe/hedge_overlay.yaml"))
+    benchmarks = load_benchmark_config(Path("configs/universe/benchmarks.yaml"))
+    declared = {benchmark.symbol for benchmark in benchmarks.benchmarks}
+
+    assert satellite.universe_type == "AI_SATELLITE"
+    assert 40 <= len(satellite.symbols) <= 120
+    assert {"MXL", "NVTS", "CDNS", "SNPS", "ONTO", "CAMT"}.issubset(
+        set(satellite.member_symbols)
+    )
+    assert set(satellite.benchmark_symbols).issubset(declared)
+    assert {member.benchmark_etf for member in satellite.symbols}.issubset(declared)
+    assert set(satellite.member_symbols).isdisjoint(set(ai_watchlist.member_symbols))
+    assert set(satellite.member_symbols).isdisjoint(set(hedge_overlay.member_symbols))
+
+
 def test_hedge_overlay_is_separate_from_ai_alpha_watchlist() -> None:
     ai_watchlist = load_watchlist_config(Path("configs/universe/ai_watchlist.yaml"))
     hedge_overlay = load_watchlist_config(Path("configs/universe/hedge_overlay.yaml"))

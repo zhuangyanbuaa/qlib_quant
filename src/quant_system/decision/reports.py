@@ -30,15 +30,18 @@ def write_premarket_report(
     report_root: Path,
     signal_session: date,
     run_id: UUID,
+    stem: str = "premarket",
+    title: str = "Premarket Plan",
 ) -> DailyReportArtifacts:
     """Write JSON, CSV, and Markdown artifacts for the daily workbench."""
     directory = report_root / signal_session.isoformat() / str(run_id)
     directory.mkdir(parents=True, exist_ok=True)
 
-    json_path = directory / "premarket.json"
-    csv_path = directory / "candidates.csv"
-    markdown_path = directory / "premarket.md"
-    html_path = directory / "premarket.html"
+    csv_stem = "candidates" if stem == "premarket" else f"{stem}_candidates"
+    json_path = directory / f"{stem}.json"
+    csv_path = directory / f"{csv_stem}.csv"
+    markdown_path = directory / f"{stem}.md"
+    html_path = directory / f"{stem}.html"
 
     json_path.write_text(
         json.dumps(report, indent=2, sort_keys=True, default=str),
@@ -47,7 +50,7 @@ def write_premarket_report(
     pd.DataFrame(candidate_rows).to_csv(csv_path, index=False)
     markdown = _render_markdown(report, candidate_rows)
     markdown_path.write_text(markdown, encoding="utf-8")
-    html_path.write_text(_render_html("Premarket Plan", markdown), encoding="utf-8")
+    html_path.write_text(_render_html(title, markdown), encoding="utf-8")
 
     return DailyReportArtifacts(
         directory=directory,
@@ -136,8 +139,9 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
     strategy_context = report.get("strategy_context", {})
     model_rank_context = report.get("model_rank_context", {})
     counts = report["counts"]
+    title = metadata.get("report_title", "Premarket Plan")
     lines = [
-        f"# Premarket Plan — {metadata['signal_session']}",
+        f"# {title} — {metadata['signal_session']}",
         "",
         f"- Generated UTC: `{metadata['generated_at_utc']}`",
         f"- Earliest order session: `{metadata['earliest_order_session']}`",
@@ -146,6 +150,7 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
         f"- Strategy context: `{strategy_context.get('candidate_tier_context', 'BASELINE')}`",
         f"- Candidate count: `{counts['candidate_count']}`",
         f"- AI alpha candidates: `{counts['ai_candidate_count']}`",
+        f"- Satellite candidates: `{counts.get('satellite_candidate_count', 0)}`",
         f"- Hedge overlay candidates: `{counts['hedge_candidate_count']}`",
         "",
         "## Operating note",

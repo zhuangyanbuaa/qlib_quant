@@ -1,0 +1,709 @@
+version: '2026-08-09'
+universe_type: AI_SATELLITE
+description: Separate AI satellite scan universe built from Futu raw candidates plus selected AI semiconductor supply-chain
+  additions. Use for watch-only expansion and forward observation; do not mix with the core AI alpha watchlist without review.
+selection_policy:
+  start_date_rule: Every member starts no earlier than the satellite selection date.
+  minimum_size: 40
+  maximum_size: 120
+  benchmark_symbols:
+  - QQQ
+  - SPY
+  - SMH
+  - SOXX
+  - IGV
+  - DTCR
+  - XLU
+  source_basis:
+  - Generated from configs/universe/futu_candidates_raw.yaml on 2026-08-09, excluding symbols already in core AI, hedge overlay,
+    or benchmark configs.
+  - Includes raw candidates with candidate_bucket in ai_hardware, ai_infrastructure, or ai_software and suggested_action in
+    keep_as_satellite or promote_to_ai_watchlist.
+  - Supplemental EDA, metrology, inspection, test, power, and advanced-materials names added by Codex based on official company/product
+    positioning.
+  - Forward-only satellite universe; use for separate scanning and observation, not as an unbiased historical universe.
+  - 'SMH reference: https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/'
+  - 'DTCR reference: https://www.globalxetfs.com/funds/dtcr/'
+  - 'Navitas AI data-center reference: https://navitassemi.com/en/applications/ai-datacenter'
+  - 'MaxLinear infrastructure reference: https://investors.maxlinear.com/'
+  - 'Cadence AI chip-design reference: https://www.cadence.com/en_US/home/explore/ai-chip-design.html'
+  - 'Synopsys AI solutions reference: https://www.synopsys.com/ai.html'
+  - 'Onto advanced-packaging reference: https://ontoinnovation.com/market-segment-semiconductor-advanced-packaging/'
+  - 'Camtek inspection/metrology reference: https://www.camtek.com/'
+symbols:
+- symbol: ADI
+  company_name: 亚德诺
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: AKAM
+  company_name: Akamai Technologies, Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Edge compute and security satellite candidate.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: ALGM
+  company_name: Allegro Microsystems
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: ALMU
+  company_name: Aeluma Inc
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: microcap_compound_semiconductor_watch_only
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: AMBA
+  company_name: 安霸
+  sector: Information Technology
+  theme: edge_connectivity_semiconductors
+  subtheme: edge_ai_rf_sensor_connectivity
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: AMPG
+  company_name: AmpliTech Group
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: broadband_rf_data_center_connectivity
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: AMZN
+  company_name: 亚马逊
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: AOSL
+  company_name: Alpha and Omega Semiconductor Limited
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Power semiconductor exposure; review liquidity before core promotion.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: BWXT
+  company_name: BWX Technologies, Inc.
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_generation_backup_grid_satellite
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Nuclear technology supply-chain exposure for long-duration power demand.'
+  liquidity_tier: medium
+  benchmark_etf: XLU
+- symbol: CAMT
+  company_name: Camtek Ltd.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: advanced_packaging_metrology_inspection
+  start_date: '2026-08-09'
+  end_date: null
+  reason: Inspection and metrology exposure for advanced packaging, memory, and AI/HPC supply chains.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: CDNS
+  company_name: Cadence Design Systems, Inc.
+  sector: Information Technology
+  theme: semiconductor_design_eda
+  subtheme: eda_ip_and_ai_chip_design
+  start_date: '2026-08-09'
+  end_date: null
+  reason: EDA and IP platform for AI chip and system design workflows.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: COHU
+  company_name: Cohu, Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: semiconductor_test_and_inspection
+  start_date: '2026-08-09'
+  end_date: null
+  reason: Semiconductor test and inspection equipment satellite.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: CRM
+  company_name: 赛富时
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: CRUS
+  company_name: 凌云半导体
+  sector: Information Technology
+  theme: edge_connectivity_semiconductors
+  subtheme: edge_ai_rf_sensor_connectivity
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: CRWD
+  company_name: CrowdStrike
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Cybersecurity or edge security exposure; useful satellite, not core AI
+    hardware.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: CSCO
+  company_name: Cisco Systems, Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Networking/security infrastructure satellite candidate.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: DIOD
+  company_name: Diodes Incorporated
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: discrete_analog_power_semiconductors
+  start_date: '2026-08-09'
+  end_date: null
+  reason: Discrete, analog, and power semiconductor satellite.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: FFIV
+  company_name: F5, Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Application delivery and security infrastructure candidate.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: FSLR
+  company_name: First Solar, Inc.
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_generation_backup_grid_satellite
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Power supply-chain candidate adjacent to data-center load growth.'
+  liquidity_tier: medium
+  benchmark_etf: XLU
+- symbol: FTNT
+  company_name: Fortinet, Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Network security platform; CIBR top holding.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: GFS
+  company_name: GlobalFoundries
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: foundry_specialty_semiconductor
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: GNRC
+  company_name: Generac Holdings Inc.
+  sector: Industrials
+  theme: data_center_power_cooling
+  subtheme: power_generation_backup_grid_satellite
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Backup power and distributed energy exposure.'
+  liquidity_tier: medium
+  benchmark_etf: XLU
+- symbol: GOOG
+  company_name: 谷歌-C
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: GOOGL
+  company_name: 谷歌-A
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: HLIT
+  company_name: 谐波
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: broadband_rf_data_center_connectivity
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: INDI
+  company_name: indie Semiconductor
+  sector: Information Technology
+  theme: edge_connectivity_semiconductors
+  subtheme: edge_ai_rf_sensor_connectivity
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: KEYS
+  company_name: Keysight Technologies, Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: electronic_design_test_measurement
+  start_date: '2026-08-09'
+  end_date: null
+  reason: Electronic design, test, and measurement exposure across semiconductor and high-speed infrastructure.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: LSCC
+  company_name: Lattice Semiconductor Corporation
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: satellite_semiconductor_watch_only
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Low-power FPGA and edge AI semiconductor exposure.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: MCHP
+  company_name: 微芯科技
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: MDB
+  company_name: MongoDB, Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Developer data platform satellite candidate.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: META
+  company_name: Meta Platforms
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: MPWR
+  company_name: Monolithic Power Systems
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: MSFT
+  company_name: 微软
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: MXL
+  company_name: MaxLinear
+  sector: Information Technology
+  theme: networking_optical
+  subtheme: broadband_rf_data_center_connectivity
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: NET
+  company_name: Cloudflare, Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Edge cloud and security platform satellite candidate.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: NOW
+  company_name: ServiceNow
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: NVTS
+  company_name: 纳微半导体
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: NXPI
+  company_name: 恩智浦
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: OKTA
+  company_name: Okta, Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Identity security satellite candidate.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: 'ON'
+  company_name: 安森美半导体
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: ONTO
+  company_name: Onto Innovation Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: advanced_packaging_metrology_inspection
+  start_date: '2026-08-09'
+  end_date: null
+  reason: Metrology and inspection exposure for advanced packaging and AI packages.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: ORCL
+  company_name: 甲骨文
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: PANW
+  company_name: Palo Alto Networks, Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Cybersecurity platform; CIBR top holding.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: PLTR
+  company_name: Palantir
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: POWI
+  company_name: Power Integrations, Inc.
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_conversion_semiconductors
+  start_date: '2026-08-09'
+  end_date: null
+  reason: Power-conversion semiconductor satellite for data-center power efficiency watch.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: QRVO
+  company_name: Qorvo
+  sector: Information Technology
+  theme: edge_connectivity_semiconductors
+  subtheme: edge_ai_rf_sensor_connectivity
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: RDDT
+  company_name: Reddit
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: ROG
+  company_name: Rogers Corporation
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: advanced_materials_power_rf_semiconductors
+  start_date: '2026-08-09'
+  end_date: null
+  reason: Advanced materials exposure for power, RF, and high-frequency semiconductor applications.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: ROK
+  company_name: Rockwell Automation, Inc.
+  sector: Industrials
+  theme: data_center_buildout
+  subtheme: industrial_automation_and_construction
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Industrial automation exposure for semiconductor and infrastructure buildout.'
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: SITM
+  company_name: SiTime Corporation
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Precision timing silicon used in data-center and networking hardware.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: SLAB
+  company_name: 芯科实验室
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: SNOW
+  company_name: Snowflake Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Data cloud and AI data platform satellite candidate.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: SNPS
+  company_name: Synopsys, Inc.
+  sector: Information Technology
+  theme: semiconductor_design_eda
+  subtheme: eda_ip_and_ai_chip_design
+  start_date: '2026-08-09'
+  end_date: null
+  reason: EDA, verification, and semiconductor IP platform for AI-era chip design.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: SOUN
+  company_name: SoundHound AI
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: AI software, cloud, data, or application platform exposure.'
+  liquidity_tier: medium
+  benchmark_etf: IGV
+- symbol: STM
+  company_name: 意法半导体
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: SWKS
+  company_name: 思佳讯
+  sector: Information Technology
+  theme: edge_connectivity_semiconductors
+  subtheme: edge_ai_rf_sensor_connectivity
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: SYNA
+  company_name: Synaptics
+  sector: Information Technology
+  theme: edge_connectivity_semiconductors
+  subtheme: edge_ai_rf_sensor_connectivity
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: TSEM
+  company_name: Tower半导体
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: foundry_specialty_semiconductor
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: TXN
+  company_name: 德州仪器
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: URI
+  company_name: United Rentals, Inc.
+  sector: Industrials
+  theme: data_center_buildout
+  subtheme: industrial_automation_and_construction
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Equipment rental exposure to infrastructure construction cycles.'
+  liquidity_tier: medium
+  benchmark_etf: DTCR
+- symbol: VECO
+  company_name: Veeco Instruments Inc.
+  sector: Information Technology
+  theme: semiconductor_supply_chain
+  subtheme: compound_semiconductor_and_advanced_packaging_equipment
+  start_date: '2026-08-09'
+  end_date: null
+  reason: Process equipment exposure for compound semiconductor and advanced packaging supply chains.
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: VICR
+  company_name: Vicor电子
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: VSH
+  company_name: 威世科技
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: WOLF
+  company_name: Wolfspeed
+  sector: Information Technology
+  theme: power_analog_semiconductors
+  subtheme: power_management_analog_mixed_signal
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Traditional semiconductor candidate from Futu; review liquidity and AI
+    linkage.'
+  liquidity_tier: medium
+  benchmark_etf: SMH
+- symbol: ZS
+  company_name: Zscaler, Inc.
+  sector: Software
+  theme: ai_platform_software
+  subtheme: cloud_security_data_ai_platforms
+  start_date: '2026-08-09'
+  end_date: null
+  reason: 'Satellite candidate from futu raw pool: Zero-trust security satellite candidate.'
+  liquidity_tier: medium
+  benchmark_etf: IGV

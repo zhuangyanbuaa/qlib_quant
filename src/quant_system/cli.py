@@ -60,6 +60,7 @@ from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.storage.sqlite import OperationsRegistry
 from quant_system.strategy.config import load_buy_the_dip_config
+from quant_system.universe.config import load_watchlist_config
 
 app = typer.Typer(
     name="quant",
@@ -227,6 +228,15 @@ def update_prices(
         bool,
         typer.Option("--all-stored", help="Update every symbol already in DuckDB."),
     ] = False,
+    universe_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--universe",
+            exists=True,
+            dir_okay=False,
+            help="Watchlist YAML whose members and benchmarks should be updated.",
+        ),
+    ] = None,
     config_path: Annotated[
         Path,
         typer.Option(
@@ -238,8 +248,9 @@ def update_prices(
     ] = PROJECT_ROOT / "configs" / "sources" / "prices.yaml",
 ) -> None:
     """Incrementally update completed daily bars and emit a quality report."""
-    if symbols and all_stored:
-        raise typer.BadParameter("use either --symbols or --all-stored, not both")
+    selected_modes = sum(bool(value) for value in (symbols, all_stored, universe_path))
+    if selected_modes > 1:
+        raise typer.BadParameter("use only one of --symbols, --all-stored, or --universe")
     source_settings = load_price_source_settings(config_path)
     settings = get_settings()
     repository = ParquetRepository(settings.resolved_data_dir)
@@ -249,6 +260,9 @@ def update_prices(
         with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
             analytics.refresh_views()
             requested = tuple(analytics.stored_symbols())
+    elif universe_path is not None:
+        universe = load_watchlist_config(universe_path)
+        requested = tuple(sorted({*universe.member_symbols, *universe.benchmark_symbols}))
     elif symbols:
         requested = tuple(part.strip().upper() for part in symbols.split(",") if part.strip())
     else:
@@ -736,6 +750,132 @@ def decision_premarket(
         model_settings=load_ranking_baseline_settings(model_config_path)
         if model_ranking
         else None,
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("satellite")
+def decision_satellite(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help="Satellite scan signal session in YYYY-MM-DD form.",
+        ),
+    ] = None,
+    satellite_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--satellite-universe",
+            exists=True,
+            dir_okay=False,
+            help="AI satellite watchlist YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "ai_satellite_watchlist.yaml",
+    ai_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--ai-universe",
+            exists=True,
+            dir_okay=False,
+            help="Core AI alpha watchlist YAML used for context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "ai_watchlist.yaml",
+    hedge_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--hedge-universe",
+            exists=True,
+            dir_okay=False,
+            help="Defensive hedge overlay YAML used for context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "hedge_overlay.yaml",
+    strategy_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--strategy-config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+    news_risk: Annotated[
+        bool,
+        typer.Option("--news-risk/--no-news-risk", help="Apply Phase 4 news vetoes."),
+    ] = True,
+    news_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--news-config",
+            exists=True,
+            dir_okay=False,
+            help="News-source YAML used for risk lookback settings.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "sources" / "news.yaml",
+    calibration: Annotated[
+        bool,
+        typer.Option(
+            "--calibration/--no-calibration",
+            help="Attach read-only hierarchy and tiered-candidate calibration context.",
+        ),
+    ] = True,
+    benchmark_path: Annotated[
+        Path,
+        typer.Option(
+            "--benchmarks",
+            exists=True,
+            dir_okay=False,
+            help="Benchmark ETF YAML used by calibration context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "benchmarks.yaml",
+    model_ranking: Annotated[
+        bool,
+        typer.Option(
+            "--model-ranking/--no-model-ranking",
+            help="Attach read-only LightGBM rank context without changing actions.",
+        ),
+    ] = True,
+    model_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--model-config",
+            exists=True,
+            dir_okay=False,
+            help="Ridge + LightGBM ranking YAML used for daily rank context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "models" / "ranking_baseline.yaml",
+) -> None:
+    """Generate a separate AI satellite scan without widening the core watchlist."""
+    signal_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    news_source_settings = load_news_source_settings(news_config_path)
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_premarket_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        universe_paths=(satellite_universe_path,),
+        calibration_universe_paths=(
+            ai_universe_path,
+            satellite_universe_path,
+            hedge_universe_path,
+        ),
+        signal_session=signal_session,
+        config=load_buy_the_dip_config(strategy_config_path),
+        include_news_risk=news_risk,
+        news_lookback_hours=news_source_settings.risk.lookback_hours,
+        include_calibration=calibration,
+        benchmark_path=benchmark_path,
+        include_model_ranking=model_ranking,
+        model_settings=load_ranking_baseline_settings(model_config_path)
+        if model_ranking
+        else None,
+        report_stem="satellite",
+        report_title="AI Satellite Scan",
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 

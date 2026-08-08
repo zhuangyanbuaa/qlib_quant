@@ -26,6 +26,7 @@ from quant_system.strategy.calibration import TieredCandidateSignal, generate_ti
 from quant_system.strategy.config import BuyTheDipConfig
 from quant_system.universe.config import load_watchlist_config
 
+AI_RISK_UNIVERSE_ROLES = {"ai_alpha", "ai_satellite"}
 POSITIVE_SYMBOL_STATES = {"REVERSAL_ATTEMPT", "CONFIRMED_REVERSAL", "UPTREND"}
 POSITIVE_ROTATION_STATES = {"LEADING", "IMPROVING"}
 DEFENSIVE_OVERLAY_REVIEW_THEMES = {"defensive_healthcare", "defensive_staples"}
@@ -37,7 +38,7 @@ def load_decision_universe(paths: tuple[Path, ...]) -> tuple[tuple[str, ...], di
     roles: dict[str, str] = {}
     for path in paths:
         config = load_watchlist_config(path)
-        role = "hedge_overlay" if config.universe_type == "HEDGE_OVERLAY" else "ai_alpha"
+        role = _universe_role(config.universe_type)
         for member in config.symbols:
             symbols.append(member.symbol)
             roles.setdefault(member.symbol, role)
@@ -45,6 +46,14 @@ def load_decision_universe(paths: tuple[Path, ...]) -> tuple[tuple[str, ...], di
         for benchmark_symbol in config.benchmark_symbols:
             roles.setdefault(benchmark_symbol, "benchmark")
     return tuple(sorted(set(symbols))), roles
+
+
+def _universe_role(universe_type: str) -> str:
+    if universe_type == "HEDGE_OVERLAY":
+        return "hedge_overlay"
+    if universe_type == "AI_SATELLITE":
+        return "ai_satellite"
+    return "ai_alpha"
 
 
 def load_decision_symbol_benchmarks(paths: tuple[Path, ...]) -> dict[str, str]:
@@ -69,8 +78,11 @@ def run_premarket_workflow(
     news_lookback_hours: int,
     include_calibration: bool = False,
     benchmark_path: Path | None = None,
+    calibration_universe_paths: tuple[Path, ...] | None = None,
     include_model_ranking: bool = False,
     model_settings: RankingBaselineSettings | None = None,
+    report_stem: str = "premarket",
+    report_title: str = "Premarket Plan",
     run_id: UUID | None = None,
     generated_at_utc: datetime | None = None,
 ) -> tuple[dict[str, Any], DailyReportArtifacts]:
@@ -115,11 +127,12 @@ def run_premarket_workflow(
     hierarchy_artifacts: DailyReportArtifacts | None = None
     calibration_rows: list[dict[str, Any]] = []
     if include_calibration and benchmark_path is not None:
+        context_universe_paths = calibration_universe_paths or universe_paths
         hierarchy_report, hierarchy_artifacts = run_hierarchy_diagnostics_workflow(
             repository=repository,
             database_path=database_path,
             report_root=report_root,
-            universe_paths=universe_paths,
+            universe_paths=context_universe_paths,
             benchmark_path=benchmark_path,
             as_of=signal_session,
             benchmark_symbol=benchmark_symbol,
@@ -170,6 +183,8 @@ def run_premarket_workflow(
         "metadata": {
             "run_id": str(run_id),
             "generated_at_utc": generated_at_utc.isoformat(),
+            "report_stem": report_stem,
+            "report_title": report_title,
             "signal_session": signal_session.isoformat(),
             "data_cutoff_utc": clock.session_close_utc(signal_session).isoformat(),
             "earliest_order_session": earliest_order_session.isoformat(),
@@ -214,6 +229,8 @@ def run_premarket_workflow(
         report_root=report_root,
         signal_session=signal_session,
         run_id=run_id,
+        stem=report_stem,
+        title=report_title,
     )
     report["artifacts"] = {
         "directory": str(artifacts.directory),
@@ -228,6 +245,8 @@ def run_premarket_workflow(
         report_root=report_root,
         signal_session=signal_session,
         run_id=run_id,
+        stem=report_stem,
+        title=report_title,
     )
     return report, artifacts
 
@@ -460,7 +479,7 @@ def _sector_confirmation_gate(
     hierarchy_by_symbol: dict[str, dict[str, Any]],
 ) -> tuple[bool, tuple[str, ...]]:
     """Check whether an AI-alpha candidate's benchmark ETF supports risk-taking."""
-    if row["universe_role"] != "ai_alpha":
+    if row["universe_role"] not in AI_RISK_UNIVERSE_ROLES:
         return True, ("not_ai_alpha",)
 
     benchmark_etf = str(row.get("benchmark_etf") or "")
@@ -520,9 +539,8 @@ def _relaxed_quality_gate(
     if _rotation_row_is_positive(sector_rotation):
         reasons.append(f"sector_{sector_rotation['rotation_status']}")
 
-    if (
-        row["universe_role"] == "ai_alpha"
-        and _is_positive(strategy_context.get("ai_vs_hedge_spread_20d"))
+    if row["universe_role"] in AI_RISK_UNIVERSE_ROLES and _is_positive(
+        strategy_context.get("ai_vs_hedge_spread_20d")
     ):
         reasons.append("ai_vs_hedge_spread_20d_positive")
 
@@ -580,7 +598,7 @@ def _manual_review_allowed(
         if context_tier in {"DEFENSIVE", "RELAXED_WATCHLIST"}:
             return bool(row.get("defensive_overlay_quality_pass"))
         return False
-    if row["universe_role"] == "ai_alpha" and not row.get(
+    if row["universe_role"] in AI_RISK_UNIVERSE_ROLES and not row.get(
         "sector_confirmation_pass", True
     ):
         return False
@@ -611,7 +629,7 @@ def _calibration_action(
         return "WATCH_ONLY_DEFENSIVE_OVERLAY_CONTEXT"
     if context_tier == "DEFENSIVE":
         return "DEFER_AI_ALPHA_DEFENSIVE_CONTEXT"
-    if row["universe_role"] == "ai_alpha" and not row.get(
+    if row["universe_role"] in AI_RISK_UNIVERSE_ROLES and not row.get(
         "sector_confirmation_pass", True
     ):
         return "WATCH_ONLY_SECTOR_CONFIRMATION_GATE"
@@ -636,7 +654,7 @@ def _calibration_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
         ),
         "manual_review_allowed_count": sum(row["manual_review_allowed"] for row in rows),
         "sector_confirmation_block_count": sum(
-            row["universe_role"] == "ai_alpha"
+            row["universe_role"] in AI_RISK_UNIVERSE_ROLES
             and not row.get("sector_confirmation_pass", True)
             for row in rows
         ),
@@ -652,6 +670,8 @@ def _recommended_action(universe_role: str, news_risk: str) -> str:
         return "DEFER_FOR_MANUAL_NEWS_REVIEW"
     if universe_role == "hedge_overlay":
         return "REVIEW_AS_DEFENSIVE_OVERLAY"
+    if universe_role == "ai_satellite":
+        return "REVIEW_AS_AI_SATELLITE"
     return "PREPARE_MANUAL_CONDITIONAL_ORDER"
 
 
@@ -667,7 +687,10 @@ def _counts(candidate_rows: list[dict[str, Any]]) -> dict[str, int]:
     return {
         "candidate_count": len(candidate_rows),
         "ai_candidate_count": sum(
-            row["universe_role"] == "ai_alpha" for row in candidate_rows
+            row["universe_role"] in AI_RISK_UNIVERSE_ROLES for row in candidate_rows
+        ),
+        "satellite_candidate_count": sum(
+            row["universe_role"] == "ai_satellite" for row in candidate_rows
         ),
         "hedge_candidate_count": sum(
             row["universe_role"] == "hedge_overlay" for row in candidate_rows
@@ -699,7 +722,7 @@ def _portfolio_posture(
     candidate_rows: list[dict[str, Any]],
 ) -> dict[str, str]:
     hedge_count = sum(row["universe_role"] == "hedge_overlay" for row in candidate_rows)
-    ai_count = sum(row["universe_role"] == "ai_alpha" for row in candidate_rows)
+    ai_count = sum(row["universe_role"] in AI_RISK_UNIVERSE_ROLES for row in candidate_rows)
     if market_regime == "RED":
         return {
             "status": "DEFENSIVE_REVIEW",

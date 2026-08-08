@@ -33,6 +33,13 @@ def test_data_help_lists_phase_one_commands() -> None:
     assert "news-risk" in result.stdout
 
 
+def test_update_prices_help_lists_universe_option() -> None:
+    result = runner.invoke(app, ["data", "update-prices", "--help"])
+
+    assert result.exit_code == 0
+    assert "--universe" in result.stdout
+
+
 def test_model_help_lists_phase_five_commands() -> None:
     result = runner.invoke(app, ["model", "--help"])
 
@@ -46,6 +53,7 @@ def test_decision_help_lists_phase_six_commands() -> None:
 
     assert result.exit_code == 0
     assert "premarket" in result.stdout
+    assert "satellite" in result.stdout
     assert "positions" in result.stdout
     assert "rotation" in result.stdout
     assert "hierarchy" in result.stdout

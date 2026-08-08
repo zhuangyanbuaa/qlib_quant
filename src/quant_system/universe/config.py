@@ -82,7 +82,11 @@ class WatchlistConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     version: str
-    universe_type: Literal["CURRENT_SNAPSHOT_FORWARD_ONLY", "HEDGE_OVERLAY"]
+    universe_type: Literal[
+        "CURRENT_SNAPSHOT_FORWARD_ONLY",
+        "AI_SATELLITE",
+        "HEDGE_OVERLAY",
+    ]
     description: str
     selection_policy: WatchlistSelectionPolicy
     symbols: tuple[WatchlistMemberConfig, ...]
