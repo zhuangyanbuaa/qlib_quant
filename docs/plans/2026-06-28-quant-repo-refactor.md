@@ -1788,20 +1788,23 @@ quant --help
 
 ## 22. 下一步
 
-当前状态（2026-07-26）：
+当前状态（2026-08-08）：
 
 - Phase 0–5 已完成第一版。
-- `dev` 已包含 Phase 0–5A–5C。
-- `feat/phase5-lightgbm` 已完成保守 LightGBM、OOF 比较、校准、特征稳定性和 SQLite model registry，等待 review/merge。
-- 下一阶段应从 Phase 6 开始，但只能在 Phase 5 完整 merge 后进行。
+- `feat/phase6` 已完成 Phase 6 第一版：盘前计划、JSON/CSV/Markdown/HTML 报告、SQLite 人工日志、持仓退出检查、开盘前刷新、T+30/T+60 门禁、forward paper trading 和本地 Streamlit dashboard。
+- 开盘门禁在没有可靠 intraday point-in-time snapshot 时保守返回 `DEFER`，不伪造盘中成交；若提供 broker snapshot，则只做 `KEEP/DEFER/CANCEL` 决策支持。
+- forward paper trading 写入 `paper_fills`，与人工 `fills_manual` 分离；系统仍不自动下单。
+- 2026 YTD simulation 显示 baseline 规则偏克制，下一轮策略研究应优先评估 `STRICT/RELAXED` 两层候选，而不是直接进入 Phase 7 自动化。
 
-Phase 5 开始前的 gate：
+Phase 6 完成 gate：
 
 ```bash
 pytest
 ruff check src tests
-quant strategy scan --symbols AAPL,MSFT,NVDA,AMD,QQQ --date <latest-completed-session> --news-risk
-quant data news-risk --symbols AAPL,MSFT,NVDA --cutoff <signal-cutoff-utc>
+quant decision premarket --date <known-completed-session> --no-news-risk
+quant decision preopen-refresh --premarket-report <premarket-json>
+quant decision open-gate --minutes 30 --premarket-report <premarket-json>
+quant paper update --premarket-report <premarket-json> --fill-session <next-session>
 ```
 
-Phase 5 的最小目标不是“训练出更强模型”，而是先建立可信的 label、purged walk-forward、Ridge baseline、保守 LightGBM、OOF 比较和模型注册格式。LightGBM 只有在 OOF/OOS 稳定优于无模型规则 baseline 时才允许进入每日报告；当前小样本 smoke 明确返回 `NOT_ELIGIBLE_NO_OOF`，不得晋级。
+下一阶段不应直接盲目自动化。建议先开一个策略校准分支，加入 `STRICT` / `RELAXED` 候选层、候选质量对照和 forward-only 观察；确认每日输出质量后，再进入 Phase 7 launchd 自动化与 runbook。

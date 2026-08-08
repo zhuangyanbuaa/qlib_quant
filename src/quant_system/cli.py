@@ -12,6 +12,19 @@ import typer
 
 from quant_system import __version__
 from quant_system.backtest.workflow import run_backtest_workflow, scan_workflow
+from quant_system.decision.gates import (
+    latest_report_path,
+    run_open_gate_workflow,
+    run_preopen_refresh_workflow,
+)
+from quant_system.decision.journal import reconstruct_open_positions
+from quant_system.decision.paper import (
+    run_paper_advance_workflow,
+    run_paper_update_workflow,
+)
+from quant_system.decision.positions import run_position_check_workflow
+from quant_system.decision.premarket import run_premarket_workflow
+from quant_system.domain.clocks import NyseSessionClock
 from quant_system.ingestion.alpha_vantage import AlphaVantageNewsAdapter
 from quant_system.ingestion.config import (
     load_news_source_settings,
@@ -43,6 +56,7 @@ from quant_system.sentiment.risk import assess_news_risk
 from quant_system.settings import PROJECT_ROOT, get_settings
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
+from quant_system.storage.sqlite import OperationsRegistry
 from quant_system.strategy.config import load_buy_the_dip_config
 
 app = typer.Typer(
@@ -55,10 +69,25 @@ data_app = typer.Typer(help="Manage local market-data storage.", no_args_is_help
 strategy_app = typer.Typer(help="Generate rules-only strategy candidates.", no_args_is_help=True)
 backtest_app = typer.Typer(help="Run conservative portfolio backtests.", no_args_is_help=True)
 model_app = typer.Typer(help="Train and evaluate ranking baselines.", no_args_is_help=True)
+decision_app = typer.Typer(
+    help="Generate daily human decision-support reports.",
+    no_args_is_help=True,
+)
+journal_app = typer.Typer(
+    help="Record manual decisions, fills, and holdings.",
+    no_args_is_help=True,
+)
+paper_app = typer.Typer(
+    help="Run forward paper-trading ledger updates.",
+    no_args_is_help=True,
+)
 app.add_typer(data_app, name="data")
 app.add_typer(strategy_app, name="strategy")
 app.add_typer(backtest_app, name="backtest")
 app.add_typer(model_app, name="model")
+app.add_typer(decision_app, name="decision")
+app.add_typer(journal_app, name="journal")
+app.add_typer(paper_app, name="paper")
 
 
 def _version_callback(value: bool) -> None:
@@ -587,6 +616,441 @@ def model_ranking_baseline(
     typer.echo(json.dumps(result.summary, indent=2, sort_keys=True))
 
 
+@decision_app.command("premarket")
+def decision_premarket(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help="Signal session in YYYY-MM-DD form. Defaults to latest completed NYSE session.",
+        ),
+    ] = None,
+    ai_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--ai-universe",
+            exists=True,
+            dir_okay=False,
+            help="AI alpha watchlist YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "ai_watchlist.yaml",
+    hedge_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--hedge-universe",
+            exists=True,
+            dir_okay=False,
+            help="Defensive hedge overlay YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "hedge_overlay.yaml",
+    strategy_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--strategy-config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+    news_risk: Annotated[
+        bool,
+        typer.Option("--news-risk/--no-news-risk", help="Apply Phase 4 news vetoes."),
+    ] = True,
+    news_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--news-config",
+            exists=True,
+            dir_okay=False,
+            help="News-source YAML used for risk lookback settings.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "sources" / "news.yaml",
+) -> None:
+    """Generate JSON, CSV, and Markdown artifacts for the premarket plan."""
+    signal_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    news_source_settings = load_news_source_settings(news_config_path)
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_premarket_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        universe_paths=(ai_universe_path, hedge_universe_path),
+        signal_session=signal_session,
+        config=load_buy_the_dip_config(strategy_config_path),
+        include_news_risk=news_risk,
+        news_lookback_hours=news_source_settings.risk.lookback_hours,
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("positions")
+def decision_positions(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help=(
+                "Position check session in YYYY-MM-DD form. "
+                "Defaults to latest completed NYSE session."
+            ),
+        ),
+    ] = None,
+    strategy_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--strategy-config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+) -> None:
+    """Check recorded open positions for HOLD/EXIT/DEFENSIVE actions."""
+    check_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_position_check_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        operations_database_path=settings.resolved_data_dir / "db" / "operations.sqlite",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        as_of=check_session,
+        config=load_buy_the_dip_config(strategy_config_path),
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("preopen-refresh")
+def decision_preopen_refresh(
+    premarket_report_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--premarket-report",
+            exists=True,
+            dir_okay=False,
+            help="Premarket JSON report. Defaults to latest under data/reports/daily.",
+        ),
+    ] = None,
+    snapshot_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--snapshot",
+            exists=True,
+            dir_okay=False,
+            help="Optional CSV/JSON broker snapshot with symbol,last_price,news_risk.",
+        ),
+    ] = None,
+) -> None:
+    """Run a conservative pre-open refresh before manual order entry."""
+    settings = get_settings()
+    source_report = _resolve_premarket_report(
+        premarket_report_path,
+        settings.resolved_data_dir,
+    )
+    report, _artifacts = run_preopen_refresh_workflow(
+        premarket_report_path=source_report,
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        snapshot_path=snapshot_path,
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("open-gate")
+def decision_open_gate(
+    minutes: Annotated[
+        int,
+        typer.Option("--minutes", min=30, max=60, help="Open gate minute: 30 or 60."),
+    ],
+    premarket_report_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--premarket-report",
+            exists=True,
+            dir_okay=False,
+            help="Premarket JSON report. Defaults to latest under data/reports/daily.",
+        ),
+    ] = None,
+    snapshot_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--snapshot",
+            exists=True,
+            dir_okay=False,
+            help="Optional CSV/JSON broker snapshot with symbol,last_price,news_risk.",
+        ),
+    ] = None,
+) -> None:
+    """Run T+30/T+60 KEEP/DEFER/CANCEL gate checks."""
+    settings = get_settings()
+    source_report = _resolve_premarket_report(
+        premarket_report_path,
+        settings.resolved_data_dir,
+    )
+    report, _artifacts = run_open_gate_workflow(
+        premarket_report_path=source_report,
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        minutes=minutes,
+        snapshot_path=snapshot_path,
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@journal_app.command("add-fill")
+def journal_add_fill(
+    symbol: Annotated[str, typer.Option("--symbol", help="Ticker symbol.")],
+    side: Annotated[str, typer.Option("--side", help="BUY or SELL.")],
+    quantity: Annotated[int, typer.Option("--quantity", min=1, help="Filled shares.")],
+    price: Annotated[float, typer.Option("--price", min=0.01, help="Fill price.")],
+    fill_time: Annotated[
+        str | None,
+        typer.Option(
+            "--fill-time",
+            help=(
+                "UTC fill timestamp, e.g. 2026-07-27T13:30:00+00:00. "
+                "Defaults to now."
+            ),
+        ),
+    ] = None,
+    commission: Annotated[
+        float,
+        typer.Option("--commission", min=0, help="Absolute commission amount."),
+    ] = 0.0,
+    signal_id: Annotated[
+        str | None,
+        typer.Option("--signal-id", help="Optional system signal UUID."),
+    ] = None,
+    stop_price: Annotated[
+        float | None,
+        typer.Option("--stop-price", min=0.01, help="Optional planned stop price."),
+    ] = None,
+    target_price: Annotated[
+        float | None,
+        typer.Option("--target-price", min=0.01, help="Optional planned target price."),
+    ] = None,
+    notes: Annotated[str, typer.Option("--notes", help="Human note.")] = "",
+) -> None:
+    """Record a manual broker fill in operations SQLite."""
+    settings = get_settings()
+    with OperationsRegistry(settings.resolved_data_dir / "db" / "operations.sqlite") as store:
+        record = store.record_manual_fill(
+            symbol=symbol,
+            side=side,
+            quantity=quantity,
+            price=price,
+            fill_time_utc=_parse_cli_datetime(fill_time) if fill_time else datetime.now(UTC),
+            commission=commission,
+            signal_id=signal_id,
+            stop_price=stop_price,
+            target_price=target_price,
+            notes=notes,
+        )
+    typer.echo(json.dumps(record, indent=2, sort_keys=True))
+
+
+@journal_app.command("decision")
+def journal_decision(
+    symbol: Annotated[str, typer.Option("--symbol", help="Ticker symbol.")],
+    action: Annotated[
+        str,
+        typer.Option("--action", help="ACCEPT, REJECT, DEFER, WATCH, REDUCE, EXIT."),
+    ],
+    decision_session: Annotated[
+        datetime | None,
+        typer.Option("--date", help="Decision session. Defaults to latest completed NYSE session."),
+    ] = None,
+    reason: Annotated[str, typer.Option("--reason", help="Human reason.")] = "",
+    signal_id: Annotated[
+        str | None,
+        typer.Option("--signal-id", help="Optional system signal UUID."),
+    ] = None,
+    report_run_id: Annotated[
+        str | None,
+        typer.Option("--report-run-id", help="Optional premarket report run UUID."),
+    ] = None,
+) -> None:
+    """Record a manual decision linked to an optional system signal."""
+    session = (
+        decision_session.date()
+        if decision_session is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    settings = get_settings()
+    with OperationsRegistry(settings.resolved_data_dir / "db" / "operations.sqlite") as store:
+        record = store.record_manual_decision(
+            symbol=symbol,
+            decision_session=session.isoformat(),
+            action=action,
+            reason=reason,
+            signal_id=signal_id,
+            report_run_id=report_run_id,
+        )
+    typer.echo(json.dumps(record, indent=2, sort_keys=True))
+
+
+@journal_app.command("positions")
+def journal_positions() -> None:
+    """Show open positions reconstructed from manual fills."""
+    settings = get_settings()
+    with OperationsRegistry(settings.resolved_data_dir / "db" / "operations.sqlite") as store:
+        positions = reconstruct_open_positions(store.manual_fills())
+    typer.echo(
+        json.dumps(
+            {"open_positions": [position.to_dict() for position in positions]},
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+@journal_app.command("fills")
+def journal_fills(
+    symbol: Annotated[
+        str | None,
+        typer.Option("--symbol", help="Optional ticker filter."),
+    ] = None,
+) -> None:
+    """List manual fills from operations SQLite."""
+    settings = get_settings()
+    with OperationsRegistry(settings.resolved_data_dir / "db" / "operations.sqlite") as store:
+        fills = store.manual_fills(symbol=symbol)
+    typer.echo(json.dumps({"fills": fills}, indent=2, sort_keys=True))
+
+
+@paper_app.command("update")
+def paper_update(
+    premarket_report_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--premarket-report",
+            exists=True,
+            dir_okay=False,
+            help="Premarket JSON report. Defaults to latest under data/reports/daily.",
+        ),
+    ] = None,
+    gate_report_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--gate-report",
+            exists=True,
+            dir_okay=False,
+            help="Optional open-gate JSON report; non-KEEP rows are skipped.",
+        ),
+    ] = None,
+    fill_session: Annotated[
+        datetime | None,
+        typer.Option("--fill-session", help="Paper fill session. Defaults to report next session."),
+    ] = None,
+    quantity: Annotated[
+        int,
+        typer.Option("--quantity", min=1, help="Paper shares per accepted signal."),
+    ] = 1,
+    strategy_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--strategy-config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+) -> None:
+    """Create forward paper BUY fills for eligible premarket candidates."""
+    settings = get_settings()
+    source_report = _resolve_premarket_report(
+        premarket_report_path,
+        settings.resolved_data_dir,
+    )
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_paper_update_workflow(
+        premarket_report_path=source_report,
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        operations_database_path=settings.resolved_data_dir / "db" / "operations.sqlite",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        config=load_buy_the_dip_config(strategy_config_path),
+        gate_report_path=gate_report_path,
+        fill_session=fill_session.date() if fill_session else None,
+        quantity=quantity,
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@paper_app.command("advance")
+def paper_advance(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help="Paper exit-check session. Defaults to latest completed NYSE session.",
+        ),
+    ] = None,
+    strategy_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--strategy-config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+) -> None:
+    """Advance open paper positions and record paper SELL fills when exits trigger."""
+    settings = get_settings()
+    check_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_paper_advance_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        operations_database_path=settings.resolved_data_dir / "db" / "operations.sqlite",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        as_of=check_session,
+        config=load_buy_the_dip_config(strategy_config_path),
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@paper_app.command("positions")
+def paper_positions() -> None:
+    """Show open paper positions reconstructed from paper fills."""
+    settings = get_settings()
+    with OperationsRegistry(settings.resolved_data_dir / "db" / "operations.sqlite") as store:
+        positions = reconstruct_open_positions(store.paper_fills())
+    typer.echo(
+        json.dumps(
+            {"open_positions": [position.to_dict() for position in positions]},
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+@paper_app.command("fills")
+def paper_fills(
+    symbol: Annotated[
+        str | None,
+        typer.Option("--symbol", help="Optional ticker filter."),
+    ] = None,
+) -> None:
+    """List forward paper fills from operations SQLite."""
+    settings = get_settings()
+    with OperationsRegistry(settings.resolved_data_dir / "db" / "operations.sqlite") as store:
+        fills = store.paper_fills(symbol=symbol)
+    typer.echo(json.dumps({"fills": fills}, indent=2, sort_keys=True))
+
+
 def _parse_symbols(value: str) -> tuple[str, ...]:
     symbols = tuple(
         dict.fromkeys(part.strip().upper() for part in value.split(",") if part.strip())
@@ -600,6 +1064,22 @@ def _ensure_utc(value: datetime) -> datetime:
     if value.utcoffset() is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def _parse_cli_datetime(value: str) -> datetime:
+    try:
+        return _ensure_utc(datetime.fromisoformat(value.replace("Z", "+00:00")))
+    except ValueError as error:
+        raise typer.BadParameter(f"invalid ISO datetime: {value}") from error
+
+
+def _resolve_premarket_report(value: Path | None, data_root: Path) -> Path:
+    if value is not None:
+        return value
+    resolved = latest_report_path(data_root / "reports" / "daily", stem="premarket")
+    if resolved is None:
+        raise typer.BadParameter("no premarket report found; run quant decision premarket")
+    return resolved
 
 
 def main() -> None:
