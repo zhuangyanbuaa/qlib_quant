@@ -17,6 +17,7 @@ from quant_system.decision.gates import (
     run_open_gate_workflow,
     run_preopen_refresh_workflow,
 )
+from quant_system.decision.hierarchy import run_hierarchy_diagnostics_workflow
 from quant_system.decision.journal import reconstruct_open_positions
 from quant_system.decision.paper import (
     run_paper_advance_workflow,
@@ -24,6 +25,7 @@ from quant_system.decision.paper import (
 )
 from quant_system.decision.positions import run_position_check_workflow
 from quant_system.decision.premarket import run_premarket_workflow
+from quant_system.decision.rotation import run_rotation_diagnostics_workflow
 from quant_system.domain.clocks import NyseSessionClock
 from quant_system.ingestion.alpha_vantage import AlphaVantageNewsAdapter
 from quant_system.ingestion.config import (
@@ -665,6 +667,22 @@ def decision_premarket(
             help="News-source YAML used for risk lookback settings.",
         ),
     ] = PROJECT_ROOT / "configs" / "sources" / "news.yaml",
+    calibration: Annotated[
+        bool,
+        typer.Option(
+            "--calibration/--no-calibration",
+            help="Attach read-only hierarchy and tiered-candidate calibration context.",
+        ),
+    ] = True,
+    benchmark_path: Annotated[
+        Path,
+        typer.Option(
+            "--benchmarks",
+            exists=True,
+            dir_okay=False,
+            help="Benchmark ETF YAML used by calibration context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "benchmarks.yaml",
 ) -> None:
     """Generate JSON, CSV, and Markdown artifacts for the premarket plan."""
     signal_session = (
@@ -684,6 +702,8 @@ def decision_premarket(
         config=load_buy_the_dip_config(strategy_config_path),
         include_news_risk=news_risk,
         news_lookback_hours=news_source_settings.risk.lookback_hours,
+        include_calibration=calibration,
+        benchmark_path=benchmark_path,
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
@@ -725,6 +745,124 @@ def decision_positions(
         report_root=settings.resolved_data_dir / "reports" / "daily",
         as_of=check_session,
         config=load_buy_the_dip_config(strategy_config_path),
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("rotation")
+def decision_rotation(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help=(
+                "Rotation diagnostic session in YYYY-MM-DD form. "
+                "Defaults to latest completed NYSE session."
+            ),
+        ),
+    ] = None,
+    ai_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--ai-universe",
+            exists=True,
+            dir_okay=False,
+            help="AI alpha watchlist YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "ai_watchlist.yaml",
+    hedge_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--hedge-universe",
+            exists=True,
+            dir_okay=False,
+            help="Defensive hedge overlay YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "hedge_overlay.yaml",
+    benchmark_symbol: Annotated[
+        str,
+        typer.Option("--benchmark", help="Default benchmark for mixed groups."),
+    ] = "QQQ",
+) -> None:
+    """Generate read-only sector/theme rotation diagnostics for calibration."""
+    diagnostic_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_rotation_diagnostics_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        universe_paths=(ai_universe_path, hedge_universe_path),
+        as_of=diagnostic_session,
+        benchmark_symbol=benchmark_symbol,
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("hierarchy")
+def decision_hierarchy(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help=(
+                "Hierarchy diagnostic session in YYYY-MM-DD form. "
+                "Defaults to latest completed NYSE session."
+            ),
+        ),
+    ] = None,
+    ai_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--ai-universe",
+            exists=True,
+            dir_okay=False,
+            help="AI alpha watchlist YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "ai_watchlist.yaml",
+    hedge_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--hedge-universe",
+            exists=True,
+            dir_okay=False,
+            help="Defensive hedge overlay YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "hedge_overlay.yaml",
+    benchmark_path: Annotated[
+        Path,
+        typer.Option(
+            "--benchmarks",
+            exists=True,
+            dir_okay=False,
+            help="Benchmark ETF YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "benchmarks.yaml",
+    benchmark_symbol: Annotated[
+        str,
+        typer.Option("--benchmark", help="Default benchmark for relative returns."),
+    ] = "QQQ",
+) -> None:
+    """Generate market/sector/stock diagnostics and calibration context."""
+    diagnostic_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_hierarchy_diagnostics_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        universe_paths=(ai_universe_path, hedge_universe_path),
+        benchmark_path=benchmark_path,
+        as_of=diagnostic_session,
+        benchmark_symbol=benchmark_symbol,
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 

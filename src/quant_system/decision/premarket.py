@@ -10,14 +10,20 @@ from uuid import UUID, uuid4
 import pandas as pd
 
 from quant_system.backtest.workflow import load_feature_history
+from quant_system.decision.hierarchy import run_hierarchy_diagnostics_workflow
 from quant_system.decision.reports import DailyReportArtifacts, write_premarket_report
 from quant_system.domain.clocks import NyseSessionClock
 from quant_system.sentiment.risk import NewsRiskAssessment, assess_news_risk
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.strategy.buy_the_dip import BuyTheDipStrategy
+from quant_system.strategy.calibration import TieredCandidateSignal, generate_tiered_candidates
 from quant_system.strategy.config import BuyTheDipConfig
 from quant_system.universe.config import load_watchlist_config
+
+POSITIVE_SYMBOL_STATES = {"REVERSAL_ATTEMPT", "CONFIRMED_REVERSAL", "UPTREND"}
+POSITIVE_ROTATION_STATES = {"LEADING", "IMPROVING"}
+DEFENSIVE_OVERLAY_REVIEW_THEMES = {"defensive_healthcare", "defensive_staples"}
 
 
 def load_decision_universe(paths: tuple[Path, ...]) -> tuple[tuple[str, ...], dict[str, str]]:
@@ -46,6 +52,8 @@ def run_premarket_workflow(
     config: BuyTheDipConfig,
     include_news_risk: bool,
     news_lookback_hours: int,
+    include_calibration: bool = False,
+    benchmark_path: Path | None = None,
     run_id: UUID | None = None,
     generated_at_utc: datetime | None = None,
 ) -> tuple[dict[str, Any], DailyReportArtifacts]:
@@ -78,11 +86,46 @@ def run_premarket_workflow(
         as_of=signal_session,
         news_risk=news_risk,
     )
+    signals = _exclude_context_only_benchmarks(signals, role_by_symbol)
     candidate_rows = _candidate_rows(
         signals,
         role_by_symbol=role_by_symbol,
         config=config,
     )
+    hierarchy_context: dict[str, Any] | None = None
+    hierarchy_artifacts: DailyReportArtifacts | None = None
+    calibration_rows: list[dict[str, Any]] = []
+    if include_calibration and benchmark_path is not None:
+        hierarchy_report, hierarchy_artifacts = run_hierarchy_diagnostics_workflow(
+            repository=repository,
+            database_path=database_path,
+            report_root=report_root,
+            universe_paths=universe_paths,
+            benchmark_path=benchmark_path,
+            as_of=signal_session,
+            benchmark_symbol=benchmark_symbol,
+            run_id=run_id,
+            generated_at_utc=generated_at_utc,
+        )
+        hierarchy_context = hierarchy_report["strategy_context"]
+        tiered_candidates = generate_tiered_candidates(
+            features=features,
+            as_of=signal_session,
+            base_config=config.strategy,
+            news_risk=news_risk,
+        )
+        tiered_candidates = _exclude_context_only_tiered_benchmarks(
+            tiered_candidates,
+            role_by_symbol,
+        )
+        calibration_rows = _calibration_candidate_rows(
+            tiered_candidates,
+            role_by_symbol=role_by_symbol,
+            config=config,
+            strategy_context=hierarchy_context,
+            hierarchy_rows=hierarchy_report["rows"],
+            rotation_rows=hierarchy_report.get("rotation_rows", []),
+        )
     market_regime = _market_regime(
         annotated,
         benchmark_symbol=benchmark_symbol,
@@ -102,15 +145,34 @@ def run_premarket_workflow(
             ).isoformat(),
             "symbol_count": len(symbols),
             "news_risk_enabled": include_news_risk,
-            "model_status": "RULES_ONLY_NO_MODEL_ATTACHED",
+            "calibration_enabled": include_calibration and benchmark_path is not None,
+            "model_status": "RULES_ONLY_WITH_CALIBRATION_CONTEXT"
+            if hierarchy_context
+            else "RULES_ONLY_NO_MODEL_ATTACHED",
         },
         "counts": _counts(candidate_rows),
+        "calibration_counts": _calibration_counts(calibration_rows),
         "portfolio_posture": _portfolio_posture(
             market_regime=market_regime,
             candidate_rows=candidate_rows,
         ),
+        "strategy_context": hierarchy_context
+        or {
+            "candidate_tier_context": "BASELINE",
+            "risk_multiplier_hint": 1.0,
+            "message": "Calibration context disabled; use canonical baseline rules.",
+        },
         "candidates": candidate_rows,
+        "calibration_candidate_tiers": calibration_rows,
     }
+    if hierarchy_artifacts is not None:
+        report["hierarchy_artifacts"] = {
+            "directory": str(hierarchy_artifacts.directory),
+            "json": str(hierarchy_artifacts.json_path),
+            "csv": str(hierarchy_artifacts.csv_path),
+            "markdown": str(hierarchy_artifacts.markdown_path),
+            "html": str(hierarchy_artifacts.html_path),
+        }
     artifacts = write_premarket_report(
         report=report,
         candidate_rows=candidate_rows,
@@ -220,12 +282,238 @@ def _candidate_rows(
     return rows
 
 
+def _exclude_context_only_benchmarks(
+    signals: list[Any],
+    role_by_symbol: dict[str, str],
+) -> list[Any]:
+    return [
+        signal
+        for signal in signals
+        if role_by_symbol.get(signal.symbol) != "benchmark"
+    ]
+
+
+def _exclude_context_only_tiered_benchmarks(
+    candidates: list[TieredCandidateSignal],
+    role_by_symbol: dict[str, str],
+) -> list[TieredCandidateSignal]:
+    return [
+        candidate
+        for candidate in candidates
+        if role_by_symbol.get(candidate.signal.symbol) != "benchmark"
+    ]
+
+
+def _calibration_candidate_rows(
+    tiered_candidates: list[TieredCandidateSignal],
+    *,
+    role_by_symbol: dict[str, str],
+    config: BuyTheDipConfig,
+    strategy_context: dict[str, Any],
+    hierarchy_rows: list[dict[str, Any]] | None = None,
+    rotation_rows: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    rows = _candidate_rows(
+        [candidate.signal for candidate in tiered_candidates],
+        role_by_symbol=role_by_symbol,
+        config=config,
+    )
+    context_tier = str(strategy_context["candidate_tier_context"])
+    hierarchy_by_symbol = {
+        str(row["symbol"]): row for row in (hierarchy_rows or []) if row.get("symbol")
+    }
+    rotation_by_group = {
+        (str(row["group_type"]), str(row["group"])): row
+        for row in (rotation_rows or [])
+        if row.get("group_type") and row.get("group")
+    }
+    for row, tiered in zip(rows, tiered_candidates, strict=True):
+        row["calibration_rank"] = row.pop("rank")
+        row["calibration_tier"] = tiered.calibration_tier
+        row["passed_tiers"] = ";".join(tiered.passed_tiers)
+        row["context_tier"] = context_tier
+        row["baseline_candidate"] = "BASELINE" in tiered.passed_tiers
+        relaxed_quality_pass, relaxed_quality_reasons = _relaxed_quality_gate(
+            row=row,
+            hierarchy_by_symbol=hierarchy_by_symbol,
+            rotation_by_group=rotation_by_group,
+            strategy_context=strategy_context,
+        )
+        defensive_quality_pass, defensive_quality_reasons = _defensive_overlay_quality_gate(
+            row=row,
+            hierarchy_by_symbol=hierarchy_by_symbol,
+            rotation_by_group=rotation_by_group,
+        )
+        row["relaxed_quality_pass"] = relaxed_quality_pass
+        row["relaxed_quality_reasons"] = ";".join(relaxed_quality_reasons)
+        row["defensive_overlay_quality_pass"] = defensive_quality_pass
+        row["defensive_overlay_quality_reasons"] = ";".join(defensive_quality_reasons)
+        row["manual_review_allowed"] = _manual_review_allowed(
+            row=row,
+            calibration_tier=tiered.calibration_tier,
+            context_tier=context_tier,
+        )
+        row["calibration_action"] = _calibration_action(
+            row=row,
+            calibration_tier=tiered.calibration_tier,
+            context_tier=context_tier,
+        )
+    return rows
+
+
+def _relaxed_quality_gate(
+    *,
+    row: dict[str, Any],
+    hierarchy_by_symbol: dict[str, dict[str, Any]],
+    rotation_by_group: dict[tuple[str, str], dict[str, Any]],
+    strategy_context: dict[str, Any],
+) -> tuple[bool, tuple[str, ...]]:
+    """Check whether a relaxed-only row is strong enough for manual review."""
+    if row["calibration_tier"] != "RELAXED":
+        return True, ("not_relaxed_tier",)
+
+    symbol_state = hierarchy_by_symbol.get(str(row["symbol"]), {})
+    reasons: list[str] = []
+    if (
+        symbol_state.get("role") == "leader_stock"
+        and symbol_state.get("trend_state") in POSITIVE_SYMBOL_STATES
+    ):
+        reasons.append(f"leader_stock_{symbol_state['trend_state']}")
+
+    theme = symbol_state.get("theme")
+    theme_rotation = rotation_by_group.get(("theme", str(theme))) if theme else None
+    if _rotation_row_is_positive(theme_rotation):
+        reasons.append(f"theme_{theme_rotation['rotation_status']}")
+
+    sector = symbol_state.get("sector")
+    sector_rotation = rotation_by_group.get(("sector", str(sector))) if sector else None
+    if _rotation_row_is_positive(sector_rotation):
+        reasons.append(f"sector_{sector_rotation['rotation_status']}")
+
+    if (
+        row["universe_role"] == "ai_alpha"
+        and _is_positive(strategy_context.get("ai_vs_hedge_spread_20d"))
+    ):
+        reasons.append("ai_vs_hedge_spread_20d_positive")
+
+    leader_reversal = any(reason.startswith("leader_stock_") for reason in reasons)
+    return leader_reversal, tuple(reasons)
+
+
+def _defensive_overlay_quality_gate(
+    *,
+    row: dict[str, Any],
+    hierarchy_by_symbol: dict[str, dict[str, Any]],
+    rotation_by_group: dict[tuple[str, str], dict[str, Any]],
+) -> tuple[bool, tuple[str, ...]]:
+    """Check whether a hedge overlay row is high-quality enough for manual review."""
+    if row["universe_role"] != "hedge_overlay":
+        return True, ("not_hedge_overlay",)
+
+    symbol_state = hierarchy_by_symbol.get(str(row["symbol"]), {})
+    theme = str(symbol_state.get("theme") or "")
+    reasons: list[str] = []
+    if theme not in DEFENSIVE_OVERLAY_REVIEW_THEMES:
+        return False, (f"theme_not_reviewable:{theme or 'unknown'}",)
+    reasons.append(f"theme_reviewable:{theme}")
+
+    trend_state = symbol_state.get("trend_state")
+    if symbol_state.get("role") != "leader_stock" or trend_state not in POSITIVE_SYMBOL_STATES:
+        return False, (*reasons, f"symbol_not_leader_reversal:{trend_state or 'unknown'}")
+    reasons.append(f"leader_stock_{trend_state}")
+
+    theme_rotation = rotation_by_group.get(("theme", theme))
+    if not _rotation_row_is_positive(theme_rotation):
+        return False, (*reasons, "theme_rotation_not_positive")
+    reasons.append(f"theme_{theme_rotation['rotation_status']}")
+
+    return True, tuple(reasons)
+
+
+def _rotation_row_is_positive(row: dict[str, Any] | None) -> bool:
+    if row is None:
+        return False
+    return row.get("rotation_status") in POSITIVE_ROTATION_STATES or _is_positive(
+        row.get("relative_return_20d")
+    )
+
+
+def _manual_review_allowed(
+    *,
+    row: dict[str, Any],
+    calibration_tier: str,
+    context_tier: str,
+) -> bool:
+    if row["news_risk"] == "MEDIUM":
+        return False
+    if row["universe_role"] == "hedge_overlay":
+        if context_tier in {"DEFENSIVE", "RELAXED_WATCHLIST"}:
+            return bool(row.get("defensive_overlay_quality_pass"))
+        return False
+    if context_tier == "DEFENSIVE":
+        return False
+    if context_tier == "STRICT":
+        return calibration_tier == "STRICT"
+    if context_tier == "RELAXED_WATCHLIST":
+        if calibration_tier == "RELAXED":
+            return bool(row.get("relaxed_quality_pass"))
+        return calibration_tier in {"STRICT", "BASELINE", "RELAXED"}
+    return calibration_tier in {"STRICT", "BASELINE"}
+
+
+def _calibration_action(
+    *,
+    row: dict[str, Any],
+    calibration_tier: str,
+    context_tier: str,
+) -> str:
+    if row["news_risk"] == "MEDIUM":
+        return "DEFER_FOR_MANUAL_NEWS_REVIEW"
+    if row["universe_role"] == "hedge_overlay":
+        if not row.get("defensive_overlay_quality_pass"):
+            return "WATCH_ONLY_DEFENSIVE_OVERLAY_QUALITY_GATE"
+        if context_tier in {"DEFENSIVE", "RELAXED_WATCHLIST"}:
+            return "REVIEW_AS_DEFENSIVE_OVERLAY"
+        return "WATCH_ONLY_DEFENSIVE_OVERLAY_CONTEXT"
+    if context_tier == "DEFENSIVE":
+        return "DEFER_AI_ALPHA_DEFENSIVE_CONTEXT"
+    if context_tier == "STRICT" and calibration_tier != "STRICT":
+        return "WATCH_ONLY_STRICT_CONTEXT"
+    if context_tier == "RELAXED_WATCHLIST" and calibration_tier == "RELAXED":
+        if not row.get("relaxed_quality_pass"):
+            return "WATCH_ONLY_RELAXED_QUALITY_GATE"
+        return "RELAXED_WATCHLIST_REVIEW_ONLY"
+    if calibration_tier == "RELAXED":
+        return "WATCH_ONLY_RELAXED_CALIBRATION"
+    return row["recommended_action"]
+
+
+def _calibration_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "calibration_candidate_count": len(rows),
+        "strict_candidate_count": sum(row["calibration_tier"] == "STRICT" for row in rows),
+        "baseline_candidate_count": sum(row["baseline_candidate"] for row in rows),
+        "relaxed_only_candidate_count": sum(
+            row["calibration_tier"] == "RELAXED" for row in rows
+        ),
+        "manual_review_allowed_count": sum(row["manual_review_allowed"] for row in rows),
+        "defensive_defer_count": sum(
+            row["calibration_action"] == "DEFER_AI_ALPHA_DEFENSIVE_CONTEXT"
+            for row in rows
+        ),
+    }
+
+
 def _recommended_action(universe_role: str, news_risk: str) -> str:
     if news_risk == "MEDIUM":
         return "DEFER_FOR_MANUAL_NEWS_REVIEW"
     if universe_role == "hedge_overlay":
         return "REVIEW_AS_DEFENSIVE_OVERLAY"
     return "PREPARE_MANUAL_CONDITIONAL_ORDER"
+
+
+def _is_positive(value: object) -> bool:
+    return value is not None and float(value) > 0
 
 
 def _counts(candidate_rows: list[dict[str, Any]]) -> dict[str, int]:

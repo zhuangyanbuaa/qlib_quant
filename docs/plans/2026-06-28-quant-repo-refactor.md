@@ -1517,6 +1517,8 @@ quant --help
 
 **目标：** 模型只改善排序，不改变策略定义。
 
+**状态（2026-08-09）：已完成第一版；尚未默认接管每日报告排序。**
+
 **任务：**
 
 1. 定义未来相对收益标签。
@@ -1536,9 +1538,18 @@ quant --help
 - 模型得分不被误称为真实胜率。
 - 任一 fold 的 embargo 检查失败时训练必须中止。
 
+**实施结果：**
+
+- 已建立未来相对收益标签、Ridge baseline、保守 LightGBM wrapper、purged walk-forward、embargo 检查、OOF 报告和模型 registry。
+- `quant model compare` 可比较规则、Ridge 和 LightGBM，并输出排名、校准、特征稳定性和模型登记结果。
+- LightGBM 仍遵守 ADR-004：只作为候选排序器，不允许绕过硬规则。
+- 当前每日 `premarket` 默认仍以规则和策略校准上下文为主；LightGBM 尚未作为生产默认 ranker 接入每日工作流。
+
 ### Phase 6：每日决策与人工日志
 
 **目标：** 形成真正可使用的每日工作台。
+
+**状态（2026-08-09）：已完成第一版。**
 
 **任务：**
 
@@ -1557,9 +1568,18 @@ quant --help
 - 每笔实际交易都能链接到系统建议和人工决定。
 - 20:00 盘前报告质量足够高，开盘后门禁主要用于取消异常，而不是重新构造交易计划。
 
+**实施结果：**
+
+- 已实现盘前计划、开盘前刷新、T+30/T+60 门禁、JSON/CSV/Markdown/HTML 报告、SQLite 人工日志、持仓退出检查、forward paper trading 和本地 Streamlit dashboard。
+- 开盘门禁在没有可靠 intraday point-in-time snapshot 时保守返回 `DEFER`，不伪造盘中成交；若提供 broker snapshot，则只做 `KEEP/DEFER/CANCEL` 决策支持。
+- forward paper trading 写入 `paper_fills`，与人工 `fills_manual` 分离；系统仍不自动下单。
+- 2026 YTD simulation 显示 baseline 规则偏克制，因此 Phase 6 后增加了策略校准工作，而不是直接进入自动化。
+
 ### Phase 7：自动化和运行手册
 
 **目标：** 数据和报告自动运行，用户只处理异常和下单。
+
+**状态（2026-08-09）：未完成；属于运行自动化阶段。**
 
 **任务：**
 
@@ -1581,6 +1601,8 @@ quant --help
 ### Phase 8：可选预训练时间序列模型
 
 **目标：** 在稳定 baseline 上评估 Chronos，而不是让其成为依赖。
+
+**状态（2026-08-09）：未开始；保持可选实验，不阻塞主线。**
 
 **任务：**
 
@@ -1730,7 +1752,7 @@ quant --help
 
 - 所有日线数据有统一 schema。
 - 最新日期、缺失率和 stale 状态每天可见。
-- 原始数据可以完整重建 curated、DuckDB 和 Qlib。
+- 原始数据可以完整重建 curated 和 DuckDB；Qlib bin/export 作为后续技术 closure 项补齐或明确延期。
 
 ### 策略
 
@@ -1744,6 +1766,7 @@ quant --help
 - LightGBM 只在 OOS 优于简单规则时启用。
 - 新闻情绪可追溯到具体文章。
 - 模型版本、特征版本和数据 cutoff 可追溯。
+- 真实 FinBERT 生产推理在启用前必须补齐 article-level cache、超时熔断和降级状态。
 
 ### 每日操作
 
@@ -1788,13 +1811,21 @@ quant --help
 
 ## 22. 下一步
 
-当前状态（2026-08-08）：
+当前状态（2026-08-09）：
 
-- Phase 0–5 已完成第一版。
-- `feat/phase6` 已完成 Phase 6 第一版：盘前计划、JSON/CSV/Markdown/HTML 报告、SQLite 人工日志、持仓退出检查、开盘前刷新、T+30/T+60 门禁、forward paper trading 和本地 Streamlit dashboard。
+- Phase 0–6 已完成第一版：工程基础、统一存储、价格/宏观采集、规则策略、回测、新闻/情绪第一版、LightGBM/Ridge 第一版、每日决策、人工日志、持仓检查、forward paper trading 和本地 Streamlit dashboard。
 - 开盘门禁在没有可靠 intraday point-in-time snapshot 时保守返回 `DEFER`，不伪造盘中成交；若提供 broker snapshot，则只做 `KEEP/DEFER/CANCEL` 决策支持。
 - forward paper trading 写入 `paper_fills`，与人工 `fills_manual` 分离；系统仍不自动下单。
-- 2026 YTD simulation 显示 baseline 规则偏克制，下一轮策略研究应优先评估 `STRICT/RELAXED` 两层候选，而不是直接进入 Phase 7 自动化。
+- 2026 YTD simulation 显示 baseline 规则偏克制，因此已开启 `feat/strategy-calibration`，增加三层市场/板块/个股诊断、板块轮动、`STRICT/BASELINE/RELAXED` 候选和防御 overlay 校准。
+- `feat/strategy-calibration` 已完成 calibration closure：2026 YTD、关键 regime slices 和参数敏感度支持将当前规则作为 conservative calibration 合并；该分支不改变“模型不得绕过硬规则”和“系统不自动下单”的边界。
+- closure 结论：不要继续放宽 `RELAXED`；looser variant 使 manual-review 候选转为负期望，tighter-relaxed 样本更少但质量更好。二三月阴跌仍是主要弱点，应偏向 `STRICT`、降仓或 no-trade。
+
+当前尚未完全完成或明确延期的非运行技术项：
+
+- **Qlib export/golden tests：** 计划中要求 curated Parquet 可导出 Qlib bin，并验证 DuckDB 与 Qlib 核心指标一致；当前尚未实现 `qlib_adapter`。
+- **FinBERT 生产化：** 当前 Phase 4 第一版提供 lazy wrapper 和 deterministic fallback；真实 FinBERT 推理启用前必须补齐 article-level cache、超时熔断和 `sentiment_status: DEGRADED` 降级路径。
+- **LightGBM 每日报告接入：** Phase 5 已有训练和对比工作流，但每日 `premarket` 尚未默认使用 LightGBM ranker。
+- **Chronos-Bolt：** 保持 Phase 8 可选实验；不改善主线质量则不接入。
 
 Phase 6 完成 gate：
 
@@ -1807,4 +1838,10 @@ quant decision open-gate --minutes 30 --premarket-report <premarket-json>
 quant paper update --premarket-report <premarket-json> --fill-session <next-session>
 ```
 
-下一阶段不应直接盲目自动化。建议先开一个策略校准分支，加入 `STRICT` / `RELAXED` 候选层、候选质量对照和 forward-only 观察；确认每日输出质量后，再进入 Phase 7 launchd 自动化与 runbook。
+下一阶段不应直接盲目自动化。策略校准 closure 已支持将当前分支合并为保守人工决策 overlay；合并后再进入 technical closure 或 Phase 7 launchd 自动化与 runbook。
+
+策略校准完成后建议的顺序：
+
+1. 合并 `feat/strategy-calibration` 到 `dev`。
+2. 开 `feat/technical-closure`，决定补齐或延期 Qlib export、FinBERT production cache/timeout、LightGBM daily ranker。
+3. 若每日输出质量稳定，再进入 Phase 7：launchd、日志轮转、失败通知、交易日/夏令时调度和 `daily-runbook.md`。
