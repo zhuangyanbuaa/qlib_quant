@@ -133,6 +133,7 @@ def write_decision_table_report(
 def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]]) -> str:
     metadata = report["metadata"]
     posture = report["portfolio_posture"]
+    strategy_context = report.get("strategy_context", {})
     counts = report["counts"]
     lines = [
         f"# Premarket Plan — {metadata['signal_session']}",
@@ -141,6 +142,7 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
         f"- Earliest order session: `{metadata['earliest_order_session']}`",
         f"- Market regime: `{posture['market_regime']}`",
         f"- Posture: `{posture['status']}`",
+        f"- Strategy context: `{strategy_context.get('candidate_tier_context', 'BASELINE')}`",
         f"- Candidate count: `{counts['candidate_count']}`",
         f"- AI alpha candidates: `{counts['ai_candidate_count']}`",
         f"- Hedge overlay candidates: `{counts['hedge_candidate_count']}`",
@@ -149,9 +151,58 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
         "",
         posture["message"],
         "",
-        "## Candidates",
+        "## Strategy calibration",
+        "",
+        strategy_context.get(
+            "message",
+            "Calibration context unavailable; use canonical baseline rules.",
+        ),
         "",
     ]
+    calibration_counts = report.get("calibration_counts")
+    if calibration_counts:
+        lines.extend(
+            [
+                f"- Calibration candidates: `{calibration_counts['calibration_candidate_count']}`",
+                f"- Strict candidates: `{calibration_counts['strict_candidate_count']}`",
+                f"- Baseline candidates: `{calibration_counts['baseline_candidate_count']}`",
+                "- Relaxed-only candidates: "
+                f"`{calibration_counts['relaxed_only_candidate_count']}`",
+                f"- Manual-review allowed: `{calibration_counts['manual_review_allowed_count']}`",
+                "",
+            ]
+        )
+    calibration_rows = report.get("calibration_candidate_tiers", [])
+    if calibration_rows:
+        lines.extend(
+            [
+                "### Tiered candidates",
+                "",
+                "| Rank | Symbol | Role | Tier | Passed tiers | Score | Review | Action |",
+                "|---:|---|---|---|---|---:|---|---|",
+            ]
+        )
+        for row in calibration_rows:
+            lines.append(
+                "| {rank} | {symbol} | {role} | {tier} | {passed} | {score:.4f} | "
+                "{review} | {action} |".format(
+                    rank=row["calibration_rank"],
+                    symbol=row["symbol"],
+                    role=row["universe_role"],
+                    tier=row["calibration_tier"],
+                    passed=row["passed_tiers"],
+                    score=row["score"],
+                    review="yes" if row["manual_review_allowed"] else "no",
+                    action=row["calibration_action"],
+                )
+            )
+        lines.append("")
+    lines.extend(
+        [
+        "## Candidates",
+        "",
+        ]
+    )
     if not candidate_rows:
         lines.extend(
             [

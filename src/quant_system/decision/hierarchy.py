@@ -153,6 +153,7 @@ def run_hierarchy_diagnostics_workflow(
         "strategy_context": context,
         "rotation_posture": rotation_summary,
         "pair_spreads": pair_spreads,
+        "rotation_rows": rotation_rows,
         "rows": rows,
     }
     artifacts = write_decision_table_report(

@@ -92,3 +92,67 @@ calibration posture:
 
 This layer is intentionally read-only. It calibrates the daily workbench context
 before the canonical Buy-the-Dip rule thresholds are changed.
+
+## Tiered candidate scan
+
+`quant decision premarket` now attaches read-only tiered candidates by default.
+Disable this with:
+
+```bash
+quant decision premarket --date 2026-07-24 --no-calibration
+```
+
+The canonical `candidates` section remains the baseline Buy-the-Dip output. The
+additional `calibration_candidate_tiers` section answers a different question:
+"What would strict, baseline, and relaxed rules show under the current market
+context?"
+
+Tier definitions:
+
+- `STRICT`: requires stronger 60-session relative strength, a healthier MA50
+  slope, a narrower dip window, and a tighter RSI/ATR-drawdown setup.
+- `BASELINE`: the canonical Buy-the-Dip rules used by scan and backtest.
+- `RELAXED`: allows weaker relative strength, a wider dip window, and a wider
+  RSI/ATR-drawdown range, but still requires daily confirmation and news vetoes.
+
+Relaxed candidates must also pass a quality gate before they are allowed into
+manual review. The current calibrated gate is intentionally narrow: the symbol
+must be a `leader_stock` and its hierarchy state must be `REVERSAL_ATTEMPT`,
+`CONFIRMED_REVERSAL`, or `UPTREND`.
+
+The report still records supporting context when available:
+
+- its theme or sector rotation row is `LEADING`/`IMPROVING`, or has positive
+  20-session relative return;
+- for AI alpha rows, AI alpha is stronger than hedge overlay on the 20-session
+  spread.
+
+Those supporting context fields explain the setup, but they do not by themselves
+permit manual review. If the leader-stock condition is missing, the row remains
+visible as `WATCH_ONLY_RELAXED_QUALITY_GATE`.
+
+The strategy context controls how these rows should be interpreted:
+
+- `DEFENSIVE`: AI alpha rows are deferred; quality-gated hedge overlay rows may
+  be reviewed.
+- `STRICT`: only `STRICT` rows are manual-review candidates.
+- `BASELINE`: `STRICT` and `BASELINE` rows are manual-review candidates.
+- `RELAXED_WATCHLIST`: quality-gated `RELAXED` rows may be reviewed as watchlist
+  candidates, not automatic buy candidates.
+
+## Defensive overlay gate
+
+Hedge overlay rows have their own quality gate. The defensive overlay is not a
+generic permission to buy every low-beta or diversifying stock.
+
+Manual review is currently limited to:
+
+- `defensive_healthcare` or `defensive_staples`;
+- `leader_stock` symbols only;
+- symbol state in `REVERSAL_ATTEMPT`, `CONFIRMED_REVERSAL`, or `UPTREND`;
+- positive theme rotation.
+
+`defensive_financials` and `defensive_utilities` remain useful as context, but
+they are not manual-review overlays by default. YTD calibration showed that
+financial diversifiers and rate-sensitive utilities were a drag when treated as
+Buy-the-Dip defensive entries.

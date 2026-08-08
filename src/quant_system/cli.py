@@ -667,6 +667,22 @@ def decision_premarket(
             help="News-source YAML used for risk lookback settings.",
         ),
     ] = PROJECT_ROOT / "configs" / "sources" / "news.yaml",
+    calibration: Annotated[
+        bool,
+        typer.Option(
+            "--calibration/--no-calibration",
+            help="Attach read-only hierarchy and tiered-candidate calibration context.",
+        ),
+    ] = True,
+    benchmark_path: Annotated[
+        Path,
+        typer.Option(
+            "--benchmarks",
+            exists=True,
+            dir_okay=False,
+            help="Benchmark ETF YAML used by calibration context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "benchmarks.yaml",
 ) -> None:
     """Generate JSON, CSV, and Markdown artifacts for the premarket plan."""
     signal_session = (
@@ -686,6 +702,8 @@ def decision_premarket(
         config=load_buy_the_dip_config(strategy_config_path),
         include_news_risk=news_risk,
         news_lookback_hours=news_source_settings.risk.lookback_hours,
+        include_calibration=calibration,
+        benchmark_path=benchmark_path,
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
