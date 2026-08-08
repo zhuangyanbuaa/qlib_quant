@@ -20,6 +20,7 @@ class DailyReportArtifacts:
     json_path: Path
     csv_path: Path
     markdown_path: Path
+    html_path: Path
 
 
 def write_premarket_report(
@@ -37,19 +38,23 @@ def write_premarket_report(
     json_path = directory / "premarket.json"
     csv_path = directory / "candidates.csv"
     markdown_path = directory / "premarket.md"
+    html_path = directory / "premarket.html"
 
     json_path.write_text(
         json.dumps(report, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
     )
     pd.DataFrame(candidate_rows).to_csv(csv_path, index=False)
-    markdown_path.write_text(_render_markdown(report, candidate_rows), encoding="utf-8")
+    markdown = _render_markdown(report, candidate_rows)
+    markdown_path.write_text(markdown, encoding="utf-8")
+    html_path.write_text(_render_html("Premarket Plan", markdown), encoding="utf-8")
 
     return DailyReportArtifacts(
         directory=directory,
         json_path=json_path,
         csv_path=csv_path,
         markdown_path=markdown_path,
+        html_path=html_path,
     )
 
 
@@ -68,19 +73,60 @@ def write_position_check_report(
     json_path = directory / "positions.json"
     csv_path = directory / "positions.csv"
     markdown_path = directory / "positions.md"
+    html_path = directory / "positions.html"
 
     json_path.write_text(
         json.dumps(report, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
     )
     pd.DataFrame(rows).to_csv(csv_path, index=False)
-    markdown_path.write_text(_render_positions_markdown(report, rows), encoding="utf-8")
+    markdown = _render_positions_markdown(report, rows)
+    markdown_path.write_text(markdown, encoding="utf-8")
+    html_path.write_text(_render_html("Position Check", markdown), encoding="utf-8")
 
     return DailyReportArtifacts(
         directory=directory,
         json_path=json_path,
         csv_path=csv_path,
         markdown_path=markdown_path,
+        html_path=html_path,
+    )
+
+
+def write_decision_table_report(
+    *,
+    report: dict[str, Any],
+    rows: list[dict[str, Any]],
+    report_root: Path,
+    as_of: date,
+    run_id: UUID,
+    stem: str,
+    title: str,
+) -> DailyReportArtifacts:
+    """Write generic JSON, CSV, Markdown, and HTML decision artifacts."""
+    directory = report_root / as_of.isoformat() / str(run_id)
+    directory.mkdir(parents=True, exist_ok=True)
+
+    json_path = directory / f"{stem}.json"
+    csv_path = directory / f"{stem}.csv"
+    markdown_path = directory / f"{stem}.md"
+    html_path = directory / f"{stem}.html"
+
+    json_path.write_text(
+        json.dumps(report, indent=2, sort_keys=True, default=str),
+        encoding="utf-8",
+    )
+    pd.DataFrame(rows).to_csv(csv_path, index=False)
+    markdown = _render_generic_markdown(title, report, rows)
+    markdown_path.write_text(markdown, encoding="utf-8")
+    html_path.write_text(_render_html(title, markdown), encoding="utf-8")
+
+    return DailyReportArtifacts(
+        directory=directory,
+        json_path=json_path,
+        csv_path=csv_path,
+        markdown_path=markdown_path,
+        html_path=html_path,
     )
 
 
@@ -193,6 +239,77 @@ def _render_positions_markdown(report: dict[str, Any], rows: list[dict[str, Any]
         ]
     )
     return "\n".join(lines)
+
+
+def _render_generic_markdown(
+    title: str,
+    report: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> str:
+    metadata = report.get("metadata", {})
+    lines = [f"# {title}", ""]
+    for key, value in metadata.items():
+        lines.append(f"- {key}: `{value}`")
+    lines.extend(["", "## Summary", ""])
+    for key, value in report.get("counts", {}).items():
+        lines.append(f"- {key}: `{value}`")
+    lines.extend(["", "## Rows", ""])
+    if not rows:
+        lines.extend(["No rows.", ""])
+        return "\n".join(lines)
+    lines.extend(_markdown_table(rows))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _markdown_table(rows: list[dict[str, Any]]) -> list[str]:
+    columns = list(dict.fromkeys(column for row in rows for column in row))
+    rendered = [
+        "| " + " | ".join(columns) + " |",
+        "| " + " | ".join("---" for _ in columns) + " |",
+    ]
+    for row in rows:
+        rendered.append(
+            "| "
+            + " | ".join(_format_markdown_cell(row.get(column)) for column in columns)
+            + " |"
+        )
+    return rendered
+
+
+def _format_markdown_cell(value: object) -> str:
+    if value is None:
+        return ""
+    return str(value).replace("|", "\\|")
+
+
+def _render_html(title: str, markdown: str) -> str:
+    body = "\n".join(f"<p>{_escape_html(line)}</p>" for line in markdown.splitlines())
+    return (
+        "<!doctype html>\n"
+        "<html><head>"
+        '<meta charset="utf-8">'
+        f"<title>{_escape_html(title)}</title>"
+        "<style>"
+        "body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;"
+        "max-width:1100px;margin:32px auto;padding:0 20px;line-height:1.5;}"
+        "p{margin:0.35rem 0;} code{background:#f4f4f5;padding:2px 4px;"
+        "border-radius:4px;} table{border-collapse:collapse;width:100%;}"
+        "th,td{border:1px solid #ddd;padding:6px;text-align:left;}"
+        "th{background:#f8fafc;}"
+        "</style></head><body>"
+        f"{body}"
+        "</body></html>\n"
+    )
+
+
+def _escape_html(value: object) -> str:
+    return (
+        str(value)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
 
 
 def _money(value: object) -> str:

@@ -79,8 +79,32 @@ class OperationsRegistry:
         )
         self.connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS paper_fills (
+                fill_id TEXT PRIMARY KEY,
+                signal_id TEXT,
+                symbol TEXT NOT NULL,
+                side TEXT NOT NULL CHECK (side IN ('BUY', 'SELL')),
+                quantity INTEGER NOT NULL CHECK (quantity > 0),
+                price REAL NOT NULL CHECK (price > 0),
+                commission REAL NOT NULL CHECK (commission >= 0),
+                fill_time_utc TEXT NOT NULL,
+                stop_price REAL CHECK (stop_price IS NULL OR stop_price > 0),
+                target_price REAL CHECK (target_price IS NULL OR target_price > 0),
+                notes TEXT NOT NULL DEFAULT '',
+                created_at_utc TEXT NOT NULL
+            )
+            """
+        )
+        self.connection.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_fills_manual_symbol_time
             ON fills_manual(symbol, fill_time_utc)
+            """
+        )
+        self.connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_paper_fills_symbol_time
+            ON paper_fills(symbol, fill_time_utc)
             """
         )
         self.connection.execute(
@@ -166,6 +190,74 @@ class OperationsRegistry:
                 :action,
                 :reason,
                 :report_run_id,
+                :created_at_utc
+            )
+            """,
+            record,
+        )
+        self.connection.commit()
+        return record
+
+    def record_paper_fill(
+        self,
+        *,
+        symbol: str,
+        side: str,
+        quantity: int,
+        price: float,
+        fill_time_utc: datetime,
+        commission: float = 0.0,
+        signal_id: UUID | str | None = None,
+        stop_price: float | None = None,
+        target_price: float | None = None,
+        notes: str = "",
+        fill_id: UUID | str | None = None,
+        created_at_utc: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Record a forward paper-trading fill without touching manual journal facts."""
+        record = self._fill_record(
+            symbol=symbol,
+            side=side,
+            quantity=quantity,
+            price=price,
+            fill_time_utc=fill_time_utc,
+            commission=commission,
+            signal_id=signal_id,
+            stop_price=stop_price,
+            target_price=target_price,
+            notes=notes,
+            fill_id=fill_id,
+            created_at_utc=created_at_utc,
+        )
+        self.initialize_journal()
+        self.connection.execute(
+            """
+            INSERT OR IGNORE INTO paper_fills (
+                fill_id,
+                signal_id,
+                symbol,
+                side,
+                quantity,
+                price,
+                commission,
+                fill_time_utc,
+                stop_price,
+                target_price,
+                notes,
+                created_at_utc
+            )
+            VALUES (
+                :fill_id,
+                :signal_id,
+                :symbol,
+                :side,
+                :quantity,
+                :price,
+                :commission,
+                :fill_time_utc,
+                :stop_price,
+                :target_price,
+                :notes,
                 :created_at_utc
             )
             """,
@@ -275,6 +367,71 @@ class OperationsRegistry:
                 """
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def paper_fills(self, *, symbol: str | None = None) -> list[dict[str, Any]]:
+        """Return paper fills sorted by fill time."""
+        self.initialize_journal()
+        if symbol:
+            rows = self.connection.execute(
+                """
+                SELECT *
+                FROM paper_fills
+                WHERE symbol = ?
+                ORDER BY fill_time_utc, created_at_utc, fill_id
+                """,
+                [symbol.upper()],
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                """
+                SELECT *
+                FROM paper_fills
+                ORDER BY fill_time_utc, created_at_utc, fill_id
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def _fill_record(
+        self,
+        *,
+        symbol: str,
+        side: str,
+        quantity: int,
+        price: float,
+        fill_time_utc: datetime,
+        commission: float,
+        signal_id: UUID | str | None,
+        stop_price: float | None,
+        target_price: float | None,
+        notes: str,
+        fill_id: UUID | str | None,
+        created_at_utc: datetime | None,
+    ) -> dict[str, Any]:
+        if quantity <= 0:
+            raise ValueError("quantity must be positive")
+        if price <= 0:
+            raise ValueError("price must be positive")
+        if commission < 0:
+            raise ValueError("commission must not be negative")
+        normalized_side = side.upper()
+        if normalized_side not in {"BUY", "SELL"}:
+            raise ValueError("side must be BUY or SELL")
+        fill_time = _ensure_utc(fill_time_utc)
+        created_at = _ensure_utc(created_at_utc or datetime.now(UTC))
+        return {
+            "fill_id": str(fill_id or uuid4()),
+            "signal_id": str(signal_id) if signal_id else None,
+            "symbol": symbol.upper(),
+            "side": normalized_side,
+            "quantity": int(quantity),
+            "price": float(price),
+            "commission": float(commission),
+            "fill_time_utc": fill_time.isoformat(),
+            "stop_price": float(stop_price) if stop_price is not None else None,
+            "target_price": float(target_price) if target_price is not None else None,
+            "notes": notes,
+            "created_at_utc": created_at.isoformat(),
+        }
 
     def manual_decisions(self, *, limit: int = 100) -> list[dict[str, Any]]:
         """Return recent human decisions."""

@@ -34,6 +34,25 @@ def test_operations_registry_records_manual_fill_and_reconstructs_position(tmp_p
     assert positions[0].target_price == 115.0
 
 
+def test_operations_registry_keeps_paper_fills_separate_from_manual_fills(tmp_path) -> None:
+    database_path = tmp_path / "operations.sqlite"
+    with OperationsRegistry(database_path) as registry:
+        registry.record_paper_fill(
+            symbol="NVDA",
+            side="BUY",
+            quantity=1,
+            price=100.0,
+            commission=0.1,
+            fill_time_utc=datetime(2026, 7, 27, 13, 30, tzinfo=UTC),
+            signal_id="sig-1",
+            stop_price=90.0,
+            target_price=115.0,
+        )
+
+        assert registry.manual_fills() == []
+        assert len(registry.paper_fills()) == 1
+
+
 def test_reconstruct_open_positions_reduces_cost_basis_after_partial_sell() -> None:
     fills = [
         {

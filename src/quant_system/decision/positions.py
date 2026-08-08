@@ -99,6 +99,7 @@ def run_position_check_workflow(
         "json": str(artifacts.json_path),
         "csv": str(artifacts.csv_path),
         "markdown": str(artifacts.markdown_path),
+        "html": str(artifacts.html_path),
     }
     artifacts = write_position_check_report(
         report=report,

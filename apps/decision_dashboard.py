@@ -152,6 +152,9 @@ def _render_reports(date_root: Path) -> None:
     selected = st.selectbox("Markdown report", report_files, format_func=lambda p: p.name)
     st.markdown(selected.read_text(encoding="utf-8"))
     st.caption(str(selected))
+    html_peer = selected.with_suffix(".html")
+    if html_peer.exists():
+        st.caption(f"HTML artifact: {html_peer}")
 
 
 def _render_data_health(
