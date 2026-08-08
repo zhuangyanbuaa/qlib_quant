@@ -47,6 +47,8 @@ def test_decision_help_lists_phase_six_commands() -> None:
     assert result.exit_code == 0
     assert "premarket" in result.stdout
     assert "positions" in result.stdout
+    assert "rotation" in result.stdout
+    assert "hierarchy" in result.stdout
     assert "preopen-refresh" in result.stdout
     assert "open-gate" in result.stdout
 
