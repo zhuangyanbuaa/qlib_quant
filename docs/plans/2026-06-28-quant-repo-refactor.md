@@ -1817,7 +1817,8 @@ quant --help
 - 开盘门禁在没有可靠 intraday point-in-time snapshot 时保守返回 `DEFER`，不伪造盘中成交；若提供 broker snapshot，则只做 `KEEP/DEFER/CANCEL` 决策支持。
 - forward paper trading 写入 `paper_fills`，与人工 `fills_manual` 分离；系统仍不自动下单。
 - 2026 YTD simulation 显示 baseline 规则偏克制，因此已开启 `feat/strategy-calibration`，增加三层市场/板块/个股诊断、板块轮动、`STRICT/BASELINE/RELAXED` 候选和防御 overlay 校准。
-- `feat/strategy-calibration` 当前已通过测试，但在合并前仍属于策略研究分支；该分支不改变“模型不得绕过硬规则”和“系统不自动下单”的边界。
+- `feat/strategy-calibration` 已完成 calibration closure：2026 YTD、关键 regime slices 和参数敏感度支持将当前规则作为 conservative calibration 合并；该分支不改变“模型不得绕过硬规则”和“系统不自动下单”的边界。
+- closure 结论：不要继续放宽 `RELAXED`；looser variant 使 manual-review 候选转为负期望，tighter-relaxed 样本更少但质量更好。二三月阴跌仍是主要弱点，应偏向 `STRICT`、降仓或 no-trade。
 
 当前尚未完全完成或明确延期的非运行技术项：
 
@@ -1837,7 +1838,7 @@ quant decision open-gate --minutes 30 --premarket-report <premarket-json>
 quant paper update --premarket-report <premarket-json> --fill-session <next-session>
 ```
 
-下一阶段不应直接盲目自动化。建议先开一个策略校准分支，加入 `STRICT` / `RELAXED` 候选层、候选质量对照和 forward-only 观察；确认每日输出质量后，再进入 Phase 7 launchd 自动化与 runbook。
+下一阶段不应直接盲目自动化。策略校准 closure 已支持将当前分支合并为保守人工决策 overlay；合并后再进入 technical closure 或 Phase 7 launchd 自动化与 runbook。
 
 策略校准完成后建议的顺序：
 

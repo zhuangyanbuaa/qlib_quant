@@ -156,3 +156,65 @@ Manual review is currently limited to:
 they are not manual-review overlays by default. YTD calibration showed that
 financial diversifiers and rate-sensitive utilities were a drag when treated as
 Buy-the-Dip defensive entries.
+
+## Calibration closure
+
+Run:
+
+```bash
+python scripts/strategy_calibration_closure.py
+```
+
+The closure script is a read-only research tool. It does not write raw Parquet,
+SQLite trading state, model registry rows, or production strategy config. It
+summarizes:
+
+- 2026 YTD current calibration;
+- hand-picked regime slices for the February/March and June/July drawdowns and
+  the late-March/late-July reversal windows;
+- parameter sensitivity for current, tighter-relaxed, and looser-relaxed rule
+  variants.
+
+Latest local run:
+
+```text
+data/reports/simulations/calibration_closure/20260808T154501Z/summary.md
+```
+
+Important scope limits:
+
+- Universe policy is `CURRENT_SNAPSHOT_FORWARD_ONLY`.
+- Results are candidate-quality diagnostics from signal-session close to +5
+  benchmark sessions close, not executable fill P&L.
+- This should not be presented as an unbiased historical backtest because the
+  watchlist is a current selected universe.
+
+Summary from the latest run:
+
+| slice / variant | candidate rows | manual rows | matured manual | avg 5d | median 5d | win | avg relative |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| current YTD | 700 | 45 | 44 | 0.49% | 0.92% | 54.55% | 0.16% |
+| Feb/Mar drift-down | 289 | 11 | 11 | -1.93% | -1.32% | 36.36% | -1.06% |
+| Jun/Jul drift-down | 195 | 10 | 9 | -0.04% | 2.31% | 66.67% | 2.04% |
+| relaxed tighter | 311 | 19 | 19 | 1.36% | 2.31% | 63.16% | 1.37% |
+| relaxed looser | 853 | 57 | 56 | -0.45% | -0.42% | 46.43% | -0.61% |
+
+Closure decision:
+
+- Merge the current calibration as conservative decision support.
+- Do not loosen `RELAXED`; the looser variant expands candidates and turns
+  manual-review expectancy negative.
+- Consider using the tighter-relaxed result as the preferred mental model for
+  real money: fewer candidates, better candidate quality, but only 19 matured
+  manual-review rows so still below a high-confidence sample.
+- Treat February/March-style persistent drawdowns as the main weakness. In that
+  regime, the current manual-review set was negative, so the system should bias
+  toward `STRICT`, smaller size, or no new AI alpha rather than trying to catch
+  every dip.
+- Late-March and late-July reversal slices had too few mature candidates in the
+  current local dataset to justify custom reversal-specific thresholds. Do not
+  optimize rules to those two windows.
+
+Final recommendation: keep the strategy-calibration branch as a conservative
+manual-review overlay, not an alpha expansion. After merging, continue
+forward-only observation before enabling automation or increasing risk.
