@@ -186,6 +186,8 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
                 "- Relaxed-only candidates: "
                 f"`{calibration_counts['relaxed_only_candidate_count']}`",
                 f"- Manual-review allowed: `{calibration_counts['manual_review_allowed_count']}`",
+                "- Sector-confirmation blocks: "
+                f"`{calibration_counts.get('sector_confirmation_block_count', 0)}`",
                 "",
             ]
         )
@@ -196,20 +198,24 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
                 "### Tiered candidates",
                 "",
                 "| Rank | Symbol | Role | Tier | Passed tiers | Score | "
-                "Model rank | Model score | Model status | Review | Action |",
-                "|---:|---|---|---|---|---:|---:|---:|---|---|---|",
+                "Sector ETF | Sector OK | Model rank | Model score | Model status | "
+                "Review | Action |",
+                "|---:|---|---|---|---|---:|---|---|---:|---:|---|---|---|",
             ]
         )
         for row in calibration_rows:
             lines.append(
                 "| {rank} | {symbol} | {role} | {tier} | {passed} | {score:.4f} | "
-                "{model_rank} | {model_score} | {model_status} | {review} | {action} |".format(
+                "{benchmark_etf} | {sector_ok} | {model_rank} | {model_score} | "
+                "{model_status} | {review} | {action} |".format(
                     rank=row["calibration_rank"],
                     symbol=row["symbol"],
                     role=row["universe_role"],
                     tier=row["calibration_tier"],
                     passed=row["passed_tiers"],
                     score=row["score"],
+                    benchmark_etf=row.get("benchmark_etf", ""),
+                    sector_ok=_format_bool(row.get("sector_confirmation_pass")),
                     model_rank=_format_optional_int(row.get("model_rank")),
                     model_score=_format_optional_float(row.get("model_score")),
                     model_status=row.get("model_rank_status", ""),
@@ -281,6 +287,12 @@ def _format_optional_float(value: Any) -> str:
     if value is None or value == "":
         return ""
     return f"{float(value):.4f}"
+
+
+def _format_bool(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+    return "yes" if bool(value) else "no"
 
 
 def _render_positions_markdown(report: dict[str, Any], rows: list[dict[str, Any]]) -> str:

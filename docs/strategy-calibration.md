@@ -38,6 +38,37 @@ The `portfolio_posture` summary is a manual review hint, not a trade signal. For
 example, `AI_MOMENTUM_WEAKENING` means AI alpha still has long-window support,
 but the 20-session spread versus hedge overlay has turned negative.
 
+## Sector confirmation gate
+
+The canonical market-regime benchmark remains `QQQ`. Sector ETFs such as `SMH`,
+`SOXX`, `IGV`, and `DTCR` are not allowed to replace the broad-market weather
+check, because that would turn the system into a narrow sector-beta strategy.
+Instead, each AI-alpha candidate carries its configured `benchmark_etf` from the
+watchlist and uses that ETF as a sector confirmation layer.
+
+For AI-alpha candidates, the premarket calibration output now includes:
+
+- `benchmark_etf`: the sector/theme ETF assigned in the watchlist.
+- `sector_confirmation_pass`: whether the ETF backdrop supports manual review.
+- `sector_confirmation_reasons`: the ETF symbol, trend state, and relative
+  20/60-session context used for the gate.
+
+If the candidate is AI-alpha and `sector_confirmation_pass` is false, the row is
+not allowed into manual review. The resulting action is:
+
+```text
+WATCH_ONLY_SECTOR_CONFIRMATION_GATE
+```
+
+This means a strong individual stock reversal is still not enough when its
+sector ETF is weakening or lagging. The intent is:
+
+```text
+QQQ/SPY = can the portfolio take growth risk?
+SMH/SOXX/IGV/DTCR = is the candidate's industry wind supportive?
+Stock = which specific setup is worth reviewing?
+```
+
 ## Important boundary
 
 The current AI watchlist is `CURRENT_SNAPSHOT_FORWARD_ONLY`. Rotation diagnostics
