@@ -13,6 +13,11 @@ from quant_system.backtest.workflow import load_feature_history
 from quant_system.decision.hierarchy import run_hierarchy_diagnostics_workflow
 from quant_system.decision.reports import DailyReportArtifacts, write_premarket_report
 from quant_system.domain.clocks import NyseSessionClock
+from quant_system.models.config import RankingBaselineSettings
+from quant_system.models.daily_ranker import (
+    attach_model_scores,
+    rank_daily_candidates_with_lightgbm,
+)
 from quant_system.sentiment.risk import NewsRiskAssessment, assess_news_risk
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
@@ -54,6 +59,8 @@ def run_premarket_workflow(
     news_lookback_hours: int,
     include_calibration: bool = False,
     benchmark_path: Path | None = None,
+    include_model_ranking: bool = False,
+    model_settings: RankingBaselineSettings | None = None,
     run_id: UUID | None = None,
     generated_at_utc: datetime | None = None,
 ) -> tuple[dict[str, Any], DailyReportArtifacts]:
@@ -126,6 +133,19 @@ def run_premarket_workflow(
             hierarchy_rows=hierarchy_report["rows"],
             rotation_rows=hierarchy_report.get("rotation_rows", []),
         )
+    model_rank_rows = [*candidate_rows, *calibration_rows]
+    model_rank_context = _model_rank_context(
+        features=features,
+        rows=model_rank_rows,
+        signal_session=signal_session,
+        config=config,
+        include_model_ranking=include_model_ranking,
+        model_settings=model_settings,
+    )
+    ranking = model_rank_context.pop("_ranking", None)
+    if ranking is not None:
+        attach_model_scores(candidate_rows, ranking)
+        attach_model_scores(calibration_rows, ranking)
     market_regime = _market_regime(
         annotated,
         benchmark_symbol=benchmark_symbol,
@@ -146,9 +166,10 @@ def run_premarket_workflow(
             "symbol_count": len(symbols),
             "news_risk_enabled": include_news_risk,
             "calibration_enabled": include_calibration and benchmark_path is not None,
-            "model_status": "RULES_ONLY_WITH_CALIBRATION_CONTEXT"
-            if hierarchy_context
-            else "RULES_ONLY_NO_MODEL_ATTACHED",
+            "model_status": _metadata_model_status(
+                has_calibration=hierarchy_context is not None,
+                model_rank_context=model_rank_context,
+            ),
         },
         "counts": _counts(candidate_rows),
         "calibration_counts": _calibration_counts(calibration_rows),
@@ -162,6 +183,7 @@ def run_premarket_workflow(
             "risk_multiplier_hint": 1.0,
             "message": "Calibration context disabled; use canonical baseline rules.",
         },
+        "model_rank_context": model_rank_context,
         "candidates": candidate_rows,
         "calibration_candidate_tiers": calibration_rows,
     }
@@ -195,6 +217,51 @@ def run_premarket_workflow(
         run_id=run_id,
     )
     return report, artifacts
+
+
+def _model_rank_context(
+    *,
+    features: pd.DataFrame,
+    rows: list[dict[str, Any]],
+    signal_session: date,
+    config: BuyTheDipConfig,
+    include_model_ranking: bool,
+    model_settings: RankingBaselineSettings | None,
+) -> dict[str, Any]:
+    if not include_model_ranking:
+        return {
+            "model": "lightgbm_daily_context_v1",
+            "status": "DISABLED",
+            "decision_scope": "RANK_CONTEXT_ONLY_DOES_NOT_CHANGE_ACTIONS",
+        }
+    if model_settings is None:
+        return {
+            "model": "lightgbm_daily_context_v1",
+            "status": "UNAVAILABLE_MODEL_SETTINGS_MISSING",
+            "decision_scope": "RANK_CONTEXT_ONLY_DOES_NOT_CHANGE_ACTIONS",
+        }
+    ranking = rank_daily_candidates_with_lightgbm(
+        features=features,
+        candidate_rows=rows,
+        strategy_config=config,
+        model_settings=model_settings,
+        as_of=signal_session,
+    )
+    return {**ranking.context, "_ranking": ranking}
+
+
+def _metadata_model_status(
+    *,
+    has_calibration: bool,
+    model_rank_context: dict[str, Any],
+) -> str:
+    calibration = "WITH_CALIBRATION_CONTEXT" if has_calibration else "NO_CALIBRATION_CONTEXT"
+    status = model_rank_context.get("status", "DISABLED")
+    if status == "SCORED":
+        return f"RULES_ONLY_{calibration}_LIGHTGBM_RANK_CONTEXT"
+    if status == "DISABLED":
+        return f"RULES_ONLY_{calibration}_NO_MODEL_ATTACHED"
+    return f"RULES_ONLY_{calibration}_LIGHTGBM_RANK_{status}"
 
 
 def _load_news_risk(

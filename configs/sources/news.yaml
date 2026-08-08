@@ -41,6 +41,8 @@ sentiment:
     device: auto
     batch_size: 16
     max_articles_per_run: 500
+    inference_timeout_seconds: 20
+    cache_enabled: true
 
 risk:
   lookback_hours: 72

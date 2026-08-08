@@ -108,6 +108,8 @@ class FinbertSettings(BaseModel):
     device: Literal["auto", "cpu", "mps"] = "auto"
     batch_size: int = Field(default=16, ge=1)
     max_articles_per_run: int = Field(default=500, ge=1)
+    inference_timeout_seconds: float = Field(default=20, gt=0)
+    cache_enabled: bool = True
 
 
 class SentimentSettings(BaseModel):

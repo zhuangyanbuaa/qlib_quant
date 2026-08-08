@@ -91,6 +91,7 @@ def _render_today(
     col3.metric("Posture", posture["status"])
     col4.metric("Candidates", counts["candidate_count"])
     st.info(posture["message"])
+    _render_model_rank_context(premarket)
     if positions is not None:
         position_counts = positions["counts"]
         col1, col2, col3 = st.columns(3)
@@ -105,9 +106,31 @@ def _render_candidates(premarket: dict[str, Any] | None) -> None:
         st.warning("No candidate report available.")
         return
     candidates = pd.DataFrame(premarket.get("candidates", []))
+    calibration = pd.DataFrame(premarket.get("calibration_candidate_tiers", []))
+    _render_model_rank_context(premarket)
+    if not calibration.empty:
+        st.subheader("Calibration candidates")
+        display_columns = [
+            column
+            for column in (
+                "calibration_rank",
+                "symbol",
+                "universe_role",
+                "calibration_tier",
+                "context_tier",
+                "manual_review_allowed",
+                "calibration_action",
+                "model_rank",
+                "model_score",
+                "model_rank_status",
+            )
+            if column in calibration.columns
+        ]
+        st.dataframe(calibration[display_columns], use_container_width=True)
     if candidates.empty:
         st.info("No rules-approved candidates in this report.")
         return
+    st.subheader("Rules-approved candidates")
     st.dataframe(candidates, use_container_width=True)
     col1, col2 = st.columns(2)
     with col1:
@@ -116,6 +139,20 @@ def _render_candidates(premarket: dict[str, Any] | None) -> None:
     with col2:
         st.subheader("By Recommended Action")
         st.bar_chart(candidates["recommended_action"].value_counts())
+
+
+def _render_model_rank_context(premarket: dict[str, Any]) -> None:
+    context = premarket.get("model_rank_context", {})
+    if not context:
+        return
+    with st.expander("Model rank context", expanded=False):
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Status", context.get("status", "DISABLED"))
+        col2.metric("Training rows", context.get("training_rows", 0))
+        col3.metric("Minimum rows", context.get("minimum_train_rows", "n/a"))
+        col4.metric("Scored rows", context.get("scored_rows", 0))
+        st.caption(context.get("decision_scope", "RANK_CONTEXT_ONLY"))
+        st.json({key: value for key, value in context.items() if key not in {"feature_columns"}})
 
 
 def _render_portfolio(positions: dict[str, Any] | None, data_root: Path) -> None:

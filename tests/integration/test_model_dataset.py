@@ -63,3 +63,19 @@ def test_candidate_dataset_contains_only_rule_candidates_with_labels() -> None:
     assert row["earliest_order_session"].isoformat() == "2026-06-29"
     assert row["rsi14"] == 50.0
     assert "relative_return_1" in dataset.columns
+
+
+def test_candidate_dataset_preserves_feature_column_names_when_signal_fields_collide() -> None:
+    strategy_config = load_buy_the_dip_config(Path("configs/strategy/buy_the_dip.yaml"))
+    dataset = build_candidate_dataset(
+        feature_rows(),
+        strategy_config,
+        dataset_config=CandidateDatasetConfig(
+            holding_sessions=(1,),
+            feature_columns=("atr20", "rsi14"),
+        ),
+    )
+
+    assert "atr20" in dataset.columns
+    assert "signal_atr20" in dataset.columns
+    assert dataset.iloc[0]["atr20"] == 4.0

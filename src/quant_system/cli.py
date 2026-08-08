@@ -351,8 +351,14 @@ def update_news(
             model_revision=source_settings.sentiment.finbert.model_revision,
             device=source_settings.sentiment.finbert.device,
         )
+        sentiment_model_key = (
+            "finbert:"
+            f"{source_settings.sentiment.finbert.model_name}:"
+            f"{source_settings.sentiment.finbert.model_revision}"
+        )
     else:
         scorer = RuleBasedSentimentScorer()
+        sentiment_model_key = "rule_based:v1"
 
     service = NewsUpdateService(
         repository=repository,
@@ -362,6 +368,12 @@ def update_news(
         config=NewsUpdateConfig(
             alpha_vantage_batch_size=source_settings.alpha_vantage.batch_size,
             high_severity_veto=source_settings.risk.high_severity_veto,
+            sentiment_cache_directory=settings.resolved_data_dir / "cache" / "sentiment",
+            sentiment_cache_enabled=source_settings.sentiment.finbert.cache_enabled,
+            sentiment_timeout_seconds=(
+                source_settings.sentiment.finbert.inference_timeout_seconds
+            ),
+            sentiment_model_key=sentiment_model_key,
         ),
         news_provider=news_provider,
         news_guard=news_guard,
@@ -683,6 +695,22 @@ def decision_premarket(
             help="Benchmark ETF YAML used by calibration context.",
         ),
     ] = PROJECT_ROOT / "configs" / "universe" / "benchmarks.yaml",
+    model_ranking: Annotated[
+        bool,
+        typer.Option(
+            "--model-ranking/--no-model-ranking",
+            help="Attach read-only LightGBM rank context without changing actions.",
+        ),
+    ] = True,
+    model_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--model-config",
+            exists=True,
+            dir_okay=False,
+            help="Ridge + LightGBM ranking YAML used for daily rank context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "models" / "ranking_baseline.yaml",
 ) -> None:
     """Generate JSON, CSV, and Markdown artifacts for the premarket plan."""
     signal_session = (
@@ -704,6 +732,10 @@ def decision_premarket(
         news_lookback_hours=news_source_settings.risk.lookback_hours,
         include_calibration=calibration,
         benchmark_path=benchmark_path,
+        include_model_ranking=model_ranking,
+        model_settings=load_ranking_baseline_settings(model_config_path)
+        if model_ranking
+        else None,
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
