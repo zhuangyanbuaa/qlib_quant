@@ -78,10 +78,24 @@ Update selected symbols; SPY and QQQ are included automatically:
 uv run quant data update-prices --symbols AAPL,MSFT,NVDA
 ```
 
+Update symbols from the separate AI satellite layer:
+
+```bash
+uv run quant data update-prices --universe configs/universe/ai_satellite_watchlist.yaml
+```
+
 Update every symbol already stored:
 
 ```bash
 uv run quant data update-prices --all-stored
+```
+
+Plan or run a bounded historical backfill for all configured formal universes
+now defaults to core AI, AI satellite, and hedge overlay:
+
+```bash
+python scripts/backfill_universe_prices.py --max-chunks 0
+python scripts/backfill_universe_prices.py --execute --max-chunks 1
 ```
 
 Each run writes

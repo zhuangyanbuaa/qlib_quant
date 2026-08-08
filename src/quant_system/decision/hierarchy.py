@@ -62,9 +62,7 @@ def load_hierarchy_proxies(
 
     for path in universe_paths:
         config = load_watchlist_config(path)
-        universe_role = (
-            "hedge_overlay" if config.universe_type == "HEDGE_OVERLAY" else "ai_alpha"
-        )
+        universe_role = _universe_role(config.universe_type)
         for member in config.symbols:
             role = (
                 "leader_stock"
@@ -83,6 +81,14 @@ def load_hierarchy_proxies(
                 subtheme=member.subtheme,
             )
     return tuple(proxies[key] for key in sorted(proxies))
+
+
+def _universe_role(universe_type: str) -> str:
+    if universe_type == "HEDGE_OVERLAY":
+        return "hedge_overlay"
+    if universe_type.endswith("_SATELLITE") or universe_type == "RAW_REVIEW":
+        return "ai_satellite"
+    return "ai_alpha"
 
 
 def run_hierarchy_diagnostics_workflow(

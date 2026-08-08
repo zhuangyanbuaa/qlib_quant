@@ -36,9 +36,7 @@ def load_rotation_members(paths: tuple[Path, ...]) -> tuple[RotationMember, ...]
     members_by_symbol: dict[str, RotationMember] = {}
     for path in paths:
         config = load_watchlist_config(path)
-        universe_role = (
-            "hedge_overlay" if config.universe_type == "HEDGE_OVERLAY" else "ai_alpha"
-        )
+        universe_role = _universe_role(config.universe_type)
         for member in config.symbols:
             members_by_symbol.setdefault(
                 member.symbol,
@@ -52,6 +50,14 @@ def load_rotation_members(paths: tuple[Path, ...]) -> tuple[RotationMember, ...]
                 ),
             )
     return tuple(members_by_symbol[symbol] for symbol in sorted(members_by_symbol))
+
+
+def _universe_role(universe_type: str) -> str:
+    if universe_type == "HEDGE_OVERLAY":
+        return "hedge_overlay"
+    if universe_type.endswith("_SATELLITE") or universe_type == "RAW_REVIEW":
+        return "ai_satellite"
+    return "ai_alpha"
 
 
 def run_rotation_diagnostics_workflow(

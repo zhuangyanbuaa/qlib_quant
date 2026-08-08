@@ -45,6 +45,7 @@ from quant_system.universe.config import (  # noqa: E402
 
 DEFAULT_UNIVERSE_CONFIGS = (
     PROJECT_ROOT / "configs" / "universe" / "ai_watchlist.yaml",
+    PROJECT_ROOT / "configs" / "universe" / "ai_satellite_watchlist.yaml",
     PROJECT_ROOT / "configs" / "universe" / "hedge_overlay.yaml",
 )
 DEFAULT_PRICE_CONFIG = PROJECT_ROOT / "configs" / "sources" / "prices.yaml"
@@ -64,14 +65,17 @@ class CoverageSnapshot:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Safely backfill prices for AI and hedge universes.",
+        description="Safely backfill prices for core AI, satellite AI, and hedge universes.",
     )
     parser.add_argument(
         "--universe-config",
         action="append",
         type=Path,
         default=[],
-        help="Watchlist/overlay YAML to include. Defaults to AI watchlist and hedge overlay.",
+        help=(
+            "Watchlist/overlay YAML to include. Defaults to core AI, satellite AI, "
+            "and hedge overlay."
+        ),
     )
     parser.add_argument(
         "--raw-candidates",
