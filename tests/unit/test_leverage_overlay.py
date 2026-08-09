@@ -227,26 +227,61 @@ def test_leverage_overlay_universe_config_covers_common_watchlist_pairs() -> Non
 
     assert {
         "AAPL",
+        "ALAB",
         "AMD",
         "AMZN",
+        "ANET",
+        "ARM",
+        "ASML",
+        "ASTS",
         "AVGO",
+        "CEG",
+        "COHR",
         "COIN",
+        "CRDO",
+        "CRWD",
         "DELL",
         "GOOGL",
+        "HOOD",
+        "HPE",
+        "INTC",
+        "IREN",
+        "KLAC",
+        "LRCX",
         "META",
         "MRVL",
         "MSFT",
         "MSTR",
         "MU",
+        "MXL",
         "NBIS",
+        "NET",
+        "NOW",
         "NVDA",
+        "NVTS",
+        "OKLO",
+        "ORCL",
         "PLTR",
         "QQQ",
+        "QCOM",
+        "RDDT",
+        "RKLB",
         "SMCI",
+        "SNOW",
         "SOXX",
+        "TSM",
         "TSLA",
+        "VST",
         "VRT",
     }.issubset(underlyings)
+
+    generic_members = [
+        member
+        for member in universe.pairs
+        if member.product_type == "generic_2x_watch"
+    ]
+    assert generic_members
+    assert all(member.leveraged_etf_symbol is None for member in generic_members)
 
     watchlist_symbols = set()
     for path in (
@@ -254,6 +289,7 @@ def test_leverage_overlay_universe_config_covers_common_watchlist_pairs() -> Non
         Path("configs/universe/ai_satellite_watchlist.yaml"),
         Path("configs/universe/internet_platform_watchlist.yaml"),
         Path("configs/universe/crypto_compute_watchlist.yaml"),
+        Path("configs/universe/space_satellite_watchlist.yaml"),
     ):
         watchlist_symbols.update(load_watchlist_config(path).member_symbols)
     benchmark_symbols = {"QQQ", "SOXX", "SPY"}
@@ -293,8 +329,53 @@ def test_leverage_overlay_universe_workflow_writes_batch_artifacts(
 
     assert report["metadata"]["pair_count"] == 2
     json.dumps(report)
+    assert "attention_counts" in report["metadata"]
+    assert all("attention_status" in row for row in report["assessments"])
     assert artifacts.csv_path is not None
     assert artifacts.csv_path.exists()
     prompt = artifacts.prompt_path.read_text(encoding="utf-8")
     assert "2x ETF batch catalyst review prompt" in prompt
     assert "不要给自动下单建议" in prompt
+
+
+def test_leverage_overlay_universe_marks_generic_riskon_watch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    loaded_universe = load_leverage_overlay_universe_config(
+        Path("configs/universe/leverage_overlay_universe.yaml")
+    )
+    generic_pair = next(
+        member
+        for member in loaded_universe.pairs
+        if member.product_type == "generic_2x_watch"
+    )
+    universe = loaded_universe.model_copy(update={"pairs": (generic_pair,)})
+
+    def fake_load_feature_history(**_kwargs):
+        features = _features(market_risk_on=False)
+        generic = features.loc[features["symbol"] == "MU"].copy()
+        generic["symbol"] = generic_pair.underlying_symbol
+        return pd.concat([features, generic], ignore_index=True)
+
+    monkeypatch.setattr(
+        "quant_system.decision.leverage.load_feature_history",
+        fake_load_feature_history,
+    )
+
+    report, artifacts = run_leverage_overlay_universe_workflow(
+        repository=ParquetRepository(tmp_path / "data"),
+        database_path=tmp_path / "analytics.duckdb",
+        report_root=tmp_path / "reports",
+        signal_session=date(2026, 8, 7),
+        config=_config(),
+        universe=universe,
+        catalyst_confirmed=False,
+        run_id=uuid4(),
+    )
+
+    row = report["assessments"][0]
+    assert row["leveraged_etf_symbol"] is None
+    assert row["action"] == "NO_2X_TRADE"
+    assert row["attention_status"] == "GENERIC_2X_RISKON_WATCH"
+    assert "generic_2x_watch" in artifacts.markdown_path.read_text(encoding="utf-8")

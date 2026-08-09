@@ -184,6 +184,7 @@ def run_leverage_overlay_universe_workflow(
                 "source_urls": list(member.source_urls),
             }
         )
+        row["attention_status"] = _attention_status(row, config)
         rows.append(row)
 
     clock = NyseSessionClock()
@@ -191,6 +192,12 @@ def run_leverage_overlay_universe_workflow(
     action_counts = {
         str(action): int(count)
         for action, count in pd.Series([row["action"] for row in rows])
+        .value_counts()
+        .items()
+    }
+    attention_counts = {
+        str(status): int(count)
+        for status, count in pd.Series([row["attention_status"] for row in rows])
         .value_counts()
         .items()
     }
@@ -215,11 +222,13 @@ def run_leverage_overlay_universe_workflow(
             "pair_count": len(rows),
             "review_candidate_count": len(review_rows),
             "action_counts": action_counts,
+            "attention_counts": attention_counts,
         },
         "assessments": sorted(
             rows,
             key=lambda row: (
                 _action_rank(row["action"]),
+                _attention_rank(row["attention_status"]),
                 -int(row["score"]),
                 row["tier"],
                 row["underlying_symbol"],
@@ -407,17 +416,22 @@ def _render_leverage_overlay_universe_markdown(report: dict[str, Any]) -> str:
         f"- Pair count: `{metadata['pair_count']}`",
         f"- Review candidates: `{metadata['review_candidate_count']}`",
         f"- Action counts: `{metadata['action_counts']}`",
+        f"- Attention counts: `{metadata['attention_counts']}`",
         "",
         "## Candidate radar",
         "",
-        "| Action | Score | Tier | Underlying | 2x product | Sector | Setup | Stop % | Notes |",
-        "|---|---:|---|---|---|---|---|---:|---|",
+        (
+            "| Action | Attention | Score | Tier | Underlying | 2x product | "
+            "Sector | Setup | Stop % | Notes |"
+        ),
+        "|---|---|---:|---|---|---|---|---|---:|---|",
     ]
     for row in rows:
         lines.append(
-            f"| `{row['action']}` | {row['score']}/{row['max_score']} | "
+            f"| `{row['action']}` | `{row['attention_status']}` | "
+            f"{row['score']}/{row['max_score']} | "
             f"`{row['tier']}` | `{row['underlying_symbol']}` | "
-            f"`{row['leveraged_etf_symbol']}` | `{row['sector_etf']}` | "
+            f"`{_leveraged_product_label(row)}` | `{row['sector_etf']}` | "
             f"`{row['setup_type']}` | `{_percent(row.get('stop_pct'))}` | "
             f"{row['notes']} |"
         )
@@ -427,7 +441,9 @@ def _render_leverage_overlay_universe_markdown(report: dict[str, Any]) -> str:
             "## Manual-only boundary",
             "",
             "This batch radar evaluates whether the underlying setup deserves manual",
-            "2x product review. It does not evaluate live product spreads, liquidity,",
+            "2x product review. Generic rows intentionally do not name a product;",
+            "they mean the underlying may be attractive for a separately chosen 2x",
+            "expression. The scan does not evaluate live product spreads, liquidity,",
             "borrow/creation issues, tax suitability, or broker availability, and it",
             "must not change main-strategy candidates or paper fills.",
             "",
@@ -443,6 +459,12 @@ def _render_leverage_overlay_universe_prompt(report: dict[str, Any]) -> str:
         for row in report["assessments"]
         if row["action"] in {"ALLOW_MANUAL_REVIEW", "NEED_CATALYST_REVIEW"}
     ]
+    if not rows:
+        rows = [
+            row
+            for row in report["assessments"]
+            if row["attention_status"] != "NO_LEVERAGE_ATTENTION"
+        ][:12]
     if not rows:
         rows = report["assessments"][:8]
     lines = [
@@ -465,14 +487,18 @@ def _render_leverage_overlay_universe_prompt(report: dict[str, Any]) -> str:
         "",
         "候选：",
         "",
-        "| Action | Score | Underlying | 2x ETF | Alternatives | Sector | Setup | Stop % |",
-        "|---|---:|---|---|---|---|---|---:|",
+        (
+            "| Action | Attention | Score | Underlying | 2x ETF | Alternatives | "
+            "Sector | Setup | Stop % |"
+        ),
+        "|---|---|---:|---|---|---|---|---|---:|",
     ]
     for row in rows:
         alternatives = ", ".join(row.get("alternative_leveraged_etfs", []))
         lines.append(
-            f"| `{row['action']}` | {row['score']}/{row['max_score']} | "
-            f"`{row['underlying_symbol']}` | `{row['leveraged_etf_symbol']}` | "
+            f"| `{row['action']}` | `{row['attention_status']}` | "
+            f"{row['score']}/{row['max_score']} | "
+            f"`{row['underlying_symbol']}` | `{_leveraged_product_label(row)}` | "
             f"`{alternatives}` | `{row['sector_etf']}` | "
             f"`{row['setup_type']}` | `{_percent(row.get('stop_pct'))}` |"
         )
@@ -500,6 +526,7 @@ def _write_leverage_overlay_csv(report: dict[str, Any], csv_path: Path) -> None:
             {
                 "signal_session": row["signal_session"],
                 "action": row["action"],
+                "attention_status": row["attention_status"],
                 "score": row["score"],
                 "max_score": row["max_score"],
                 "tier": row["tier"],
@@ -507,7 +534,8 @@ def _write_leverage_overlay_csv(report: dict[str, Any], csv_path: Path) -> None:
                 "product_type": row["product_type"],
                 "provider": row["provider"],
                 "underlying_symbol": row["underlying_symbol"],
-                "leveraged_etf_symbol": row["leveraged_etf_symbol"],
+                "leveraged_etf_symbol": row["leveraged_etf_symbol"] or "",
+                "leverage_expression": _leveraged_product_label(row),
                 "alternative_leveraged_etfs": ",".join(
                     row.get("alternative_leveraged_etfs", [])
                 ),
@@ -539,6 +567,36 @@ def _feature_symbols_for_universe(
         symbols.add(member.sector_etf)
         symbols.add((member.market_symbol or default_market_symbol).upper())
     return tuple(sorted(symbols))
+
+
+def _leveraged_product_label(row: dict[str, Any]) -> str:
+    if row.get("leveraged_etf_symbol"):
+        return str(row["leveraged_etf_symbol"])
+    if row.get("product_type") == "generic_2x_watch":
+        return "generic_2x_watch"
+    return "not_provided"
+
+
+def _attention_status(row: dict[str, Any], config: LeverageOverlayConfig) -> str:
+    if row["action"] in {"ALLOW_MANUAL_REVIEW", "NEED_CATALYST_REVIEW"}:
+        return "FORMAL_2X_REVIEW"
+    if (
+        row.get("product_type") == "generic_2x_watch"
+        and int(row["score"]) >= config.strategy.common_stock_preferred_score
+    ):
+        return "GENERIC_2X_RISKON_WATCH"
+    if int(row["score"]) >= config.strategy.common_stock_preferred_score:
+        return "UNDERLYING_RISKON_WATCH"
+    return "NO_LEVERAGE_ATTENTION"
+
+
+def _attention_rank(status: str) -> int:
+    return {
+        "FORMAL_2X_REVIEW": 0,
+        "GENERIC_2X_RISKON_WATCH": 1,
+        "UNDERLYING_RISKON_WATCH": 2,
+        "NO_LEVERAGE_ATTENTION": 3,
+    }.get(status, 9)
 
 
 def _action_rank(action: str) -> int:

@@ -103,6 +103,20 @@ data/reports/daily/<date>/<run_id>/leverage_overlay_universe_prompt.md
 data/reports/daily/<date>/<run_id>/leverage_overlay_universe_candidates.csv
 ```
 
+Some batch rows may show `generic_2x_watch` instead of a concrete 2x ETF ticker.
+Those rows mean the underlying stock/index has a potentially attractive
+risk-on setup for manual leverage research. They do not assert that a specific
+leveraged product exists or is liquid enough to trade.
+
+Batch reports also include `attention_status`:
+
+- `FORMAL_2X_REVIEW`: the row reached the normal 2x review gate.
+- `GENERIC_2X_RISKON_WATCH`: no product ticker is specified, but the underlying
+  risk-on score is high enough to research a 2x expression manually.
+- `UNDERLYING_RISKON_WATCH`: a concrete product row did not pass the full gate,
+  but the underlying still deserves attention.
+- `NO_LEVERAGE_ATTENTION`: no leverage-specific follow-up.
+
 Actions are deliberately manual:
 
 - `ALLOW_MANUAL_REVIEW`: all checklist items, including catalyst, passed.

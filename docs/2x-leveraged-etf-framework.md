@@ -43,6 +43,21 @@ The configured batch radar is in:
 configs/universe/leverage_overlay_universe.yaml
 ```
 
+Batch rows can be either concrete products or generic leverage watch rows:
+
+- Concrete rows name a possible 2x product, such as `MUU`, `NVDL`, or `QLD`.
+- `generic_2x_watch` rows intentionally leave the product ticker blank. They
+  mean the underlying stock's market/sector/trend/stop/RR context may be strong
+  enough to research a 2x expression manually.
+
+Batch output separates hard action from softer attention:
+
+- `action` remains conservative and answers whether the row passes the formal
+  2x gate.
+- `attention_status` can still flag `GENERIC_2X_RISKON_WATCH` when the
+  underlying looks sufficiently risk-on but no concrete product ticker has been
+  selected.
+
 - 2x ETF ideas are manual-only tactical overlays.
 - They do not bypass canonical Buy-the-Dip rules, sector confirmation,
   reversal/repair context, news review, or position-risk controls.

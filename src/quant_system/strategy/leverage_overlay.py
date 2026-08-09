@@ -47,13 +47,13 @@ class LeverageOverlayUniverseMember(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     underlying_symbol: str
-    leveraged_etf_symbol: str
+    leveraged_etf_symbol: str | None = None
     alternative_leveraged_etfs: tuple[str, ...] = ()
     sector_etf: str
     market_symbol: str | None = None
-    tier: Literal["primary", "satellite", "index", "watch_only"]
+    tier: Literal["primary", "satellite", "index", "watch_only", "generic_watch"]
     provider: str
-    product_type: Literal["single_stock_2x", "sector_2x", "index_2x"]
+    product_type: Literal["single_stock_2x", "sector_2x", "index_2x", "generic_2x_watch"]
     universe_role: str
     notes: str
     source_urls: tuple[str, ...] = ()
