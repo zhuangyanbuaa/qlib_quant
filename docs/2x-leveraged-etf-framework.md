@@ -1,25 +1,47 @@
 # 2x Leveraged ETF Manual Trading Framework
 
-This document is a manual decision-support framework for occasional 2x long ETF
-use, such as single-stock or thematic 2x products. It is intentionally not part
-of the automated strategy gate.
+This document defines the subsidiary, manual-only 2x long ETF overlay strategy,
+such as single-stock or thematic 2x products. It is intentionally not part of
+the main Buy-the-Dip gate.
 
 Core principle:
 
 > Leverage is only used after trend confirmation. It is not used for bottom
 > fishing, averaging down, emotional chase trades, or rescuing a wrong view.
 
-## Repository boundary
+## Repository boundary and command
+
+Run the overlay separately:
+
+```bash
+quant decision leverage-overlay \
+  --date 2026-08-07 \
+  --underlying MU \
+  --leveraged-etf MUU \
+  --sector-etf SOXX \
+  --catalyst-review-needed
+```
+
+It writes `leverage_overlay.json`, `leverage_overlay.md`, and
+`leverage_overlay_prompt.md` under the daily report directory.
 
 - 2x ETF ideas are manual-only tactical overlays.
 - They do not bypass canonical Buy-the-Dip rules, sector confirmation,
   reversal/repair context, news review, or position-risk controls.
-- The system may help create a checklist or research prompt, but it must not
-  auto-approve 2x exposure.
+- The system creates a checklist and catalyst prompt, but it must not
+  place orders or modify main-strategy candidates.
 - If the user wants long-term company exposure, prefer the common stock or
   unlevered ETF.
 - If the setup is only "interesting" but not confirmed, use the research list,
   not a 2x ETF.
+
+The overlay action labels are:
+
+- `ALLOW_MANUAL_REVIEW`: all checklist items, including catalyst, passed.
+- `NEED_CATALYST_REVIEW`: technical and risk gates passed, but catalyst/news
+  still needs manual validation.
+- `COMMON_STOCK_PREFERRED`: setup is interesting, but not strong enough for 2x.
+- `NO_2X_TRADE`: one or more critical leverage gates failed.
 
 ## 1. Most important rule
 

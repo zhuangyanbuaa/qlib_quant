@@ -64,19 +64,43 @@ Copy `news_research_prompt.md` into a browsing-capable Codex session to summariz
 recent news for the listed symbols. The prompt requires source links and dates
 and asks for `重点研究` / `继续观察` / `暂时跳过`, not buy/sell instructions.
 
-## Occasional 2x leveraged ETF overlay
+## Occasional 2x leveraged ETF overlay strategy
 
-If you occasionally consider 2x long ETFs, use the separate manual framework:
+If you occasionally consider 2x long ETFs, use the separate subsidiary strategy:
+
+```bash
+quant decision leverage-overlay \
+  --date 2026-08-07 \
+  --underlying MU \
+  --leveraged-etf MUU \
+  --sector-etf SOXX \
+  --catalyst-review-needed
+```
+
+The command writes:
+
+```text
+data/reports/daily/<date>/<run_id>/leverage_overlay.json
+data/reports/daily/<date>/<run_id>/leverage_overlay.md
+data/reports/daily/<date>/<run_id>/leverage_overlay_prompt.md
+```
+
+Actions are deliberately manual:
+
+- `ALLOW_MANUAL_REVIEW`: all checklist items, including catalyst, passed.
+- `NEED_CATALYST_REVIEW`: technical and risk gates passed, but catalyst/news
+  still needs manual validation.
+- `COMMON_STOCK_PREFERRED`: setup is interesting, but not strong enough for 2x.
+- `NO_2X_TRADE`: one or more critical leverage gates failed.
+
+This overlay is intentionally outside the main Buy-the-Dip strategy gate. It
+does not add rows to `premarket.candidates`, does not create paper fills, and
+does not override sector confirmation or manual review discipline. The full
+framework lives in:
 
 ```text
 docs/2x-leveraged-etf-framework.md
 ```
-
-This framework is intentionally outside the automated strategy gate. A 2x ETF
-is only a tactical overlay after market risk-on, industry strength, common-stock
-trend confirmation, a good entry structure, a catalyst, and a predefined stop.
-It should not be used for bottom-fishing, averaging down, FOMO, or replacing a
-core common-stock position.
 
 ## Refresh and open gates
 

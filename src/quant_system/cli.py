@@ -19,6 +19,7 @@ from quant_system.decision.gates import (
 )
 from quant_system.decision.hierarchy import run_hierarchy_diagnostics_workflow
 from quant_system.decision.journal import reconstruct_open_positions
+from quant_system.decision.leverage import run_leverage_overlay_workflow
 from quant_system.decision.paper import (
     run_paper_advance_workflow,
     run_paper_update_workflow,
@@ -61,6 +62,7 @@ from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.storage.sqlite import OperationsRegistry
 from quant_system.strategy.config import load_buy_the_dip_config
+from quant_system.strategy.leverage_overlay import load_leverage_overlay_config
 from quant_system.universe.config import load_watchlist_config
 
 app = typer.Typer(
@@ -989,6 +991,71 @@ def decision_research_list(
         else None,
         max_symbols=max_symbols,
         news_summary_days=news_summary_days,
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("leverage-overlay")
+def decision_leverage_overlay(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help="2x overlay signal session in YYYY-MM-DD form.",
+        ),
+    ] = None,
+    underlying: Annotated[
+        str,
+        typer.Option("--underlying", help="Underlying common stock symbol, e.g. MU."),
+    ] = "MU",
+    leveraged_etf: Annotated[
+        str | None,
+        typer.Option("--leveraged-etf", help="Optional 2x ETF symbol, e.g. MUU."),
+    ] = None,
+    sector_etf: Annotated[
+        str,
+        typer.Option("--sector-etf", help="Sector/theme ETF confirmation symbol."),
+    ] = "SOXX",
+    market_symbol: Annotated[
+        str,
+        typer.Option("--market", help="Broad market risk-on proxy."),
+    ] = "QQQ",
+    catalyst_confirmed: Annotated[
+        bool,
+        typer.Option(
+            "--catalyst-confirmed/--catalyst-review-needed",
+            help="Whether human/news review already confirmed a valid catalyst.",
+        ),
+    ] = False,
+    leverage_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--leverage-config",
+            exists=True,
+            dir_okay=False,
+            help="Manual 2x overlay strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "leverage_overlay.yaml",
+) -> None:
+    """Evaluate a subsidiary manual-only 2x ETF overlay."""
+    signal_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_leverage_overlay_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        signal_session=signal_session,
+        underlying_symbol=underlying,
+        leveraged_etf_symbol=leveraged_etf,
+        sector_etf=sector_etf,
+        market_symbol=market_symbol,
+        config=load_leverage_overlay_config(leverage_config_path),
+        catalyst_confirmed=catalyst_confirmed,
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 

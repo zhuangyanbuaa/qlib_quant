@@ -1,0 +1,14 @@
+strategy:
+  default_market_symbol: QQQ
+  default_sector_etf: SOXX
+  minimum_review_score: 7
+  common_stock_preferred_score: 5
+  maximum_stop_pct: 0.08
+  minimum_pullback_pct: 0.015
+  maximum_pullback_pct: 0.10
+  maximum_rsi: 70
+  maximum_return_3d: 0.15
+  maximum_return_5d: 0.20
+  minimum_relative_return_60: 0.0
+  target_risk_reward: 2.0
+  tactical_position_fraction_hint: 0.03
