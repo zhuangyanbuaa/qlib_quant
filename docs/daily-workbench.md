@@ -3,6 +3,11 @@
 Phase 6 turns the project into a daily manual-trading workbench. The system still
 does not place broker orders.
 
+For the day-to-day command sequence, use
+[`docs/daily-runbook.md`](daily-runbook.md) or the Chinese version
+[`docs/daily-runbook.zh.md`](daily-runbook.zh.md). This file describes the
+individual workbench components in more detail.
+
 ## Record manual fills
 
 ```bash
