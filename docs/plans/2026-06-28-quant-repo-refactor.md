@@ -1809,25 +1809,39 @@ quant --help
 
 ---
 
-## 22. 下一步
+## 22. 当前实现状态与下一步
 
-当前状态（2026-08-09）：
+当前状态（2026-08-10）：
 
-- Phase 0–6 已完成第一版：工程基础、统一存储、价格/宏观采集、规则策略、回测、新闻/情绪第一版、LightGBM/Ridge 第一版、每日决策、人工日志、持仓检查、forward paper trading 和本地 Streamlit dashboard。
+- **Phase 0–6 已完成第一版技术闭环。** 当前 repo 已覆盖工程基础、统一 Parquet/DuckDB/SQLite 存储、价格采集和补数、数据质量、规则策略、日线回测、新闻/SEC 事件第一版、LightGBM/Ridge baseline、每日决策、人工日志、持仓检查、forward paper trading、本地 Streamlit dashboard。
+- 这不是“逐字逐项照原计划完成所有未来设想”，而是完成了 Phase 6 以前主线所需的可运行系统。后续 Qlib、Chronos、launchd 自动化属于明确延期或 Phase 7+。
+- 系统边界保持不变：不自动下单；模型只能提供 rank/context 或风险提示；硬规则、数据质量、stale price gate 和人工确认仍是主策略边界。
 - 开盘门禁在没有可靠 intraday point-in-time snapshot 时保守返回 `DEFER`，不伪造盘中成交；若提供 broker snapshot，则只做 `KEEP/DEFER/CANCEL` 决策支持。
 - forward paper trading 写入 `paper_fills`，与人工 `fills_manual` 分离；系统仍不自动下单。
-- 2026 YTD simulation 显示 baseline 规则偏克制，因此已开启 `feat/strategy-calibration`，增加三层市场/板块/个股诊断、板块轮动、`STRICT/BASELINE/RELAXED` 候选和防御 overlay 校准。
-- `feat/strategy-calibration` 已完成 calibration closure：2026 YTD、关键 regime slices 和参数敏感度支持将当前规则作为 conservative calibration 合并；该分支不改变“模型不得绕过硬规则”和“系统不自动下单”的边界。
-- closure 结论：不要继续放宽 `RELAXED`；looser variant 使 manual-review 候选转为负期望，tighter-relaxed 样本更少但质量更好。二三月阴跌仍是主要弱点，应偏向 `STRICT`、降仓或 no-trade。
 
-当前尚未完全完成或明确延期的非运行技术项：
+与原计划相比，已经新增或调整的功能：
 
-- **Qlib export/golden tests：** 计划中要求 curated Parquet 可导出 Qlib bin，并验证 DuckDB 与 Qlib 核心指标一致；当前尚未实现 `qlib_adapter`。
-- **FinBERT 生产化：** 当前 Phase 4 第一版提供 lazy wrapper 和 deterministic fallback；真实 FinBERT 推理启用前必须补齐 article-level cache、超时熔断和 `sentiment_status: DEGRADED` 降级路径。
-- **LightGBM 每日报告接入：** Phase 5 已有训练和对比工作流，但每日 `premarket` 尚未默认使用 LightGBM ranker。
+| 模块 | 当前状态 | 说明 |
+| --- | --- | --- |
+| 三层市场/板块/个股诊断 | 已完成 | 增加大盘、行业 ETF/龙头、个股三层 context，用于识别阴跌、反转和板块轮动。 |
+| 策略校准 closure | 已完成 | 支持 2026 YTD、regime slices、参数敏感度；结论是不继续盲目放宽 `RELAXED`，阴跌阶段偏向 `STRICT`、降仓或 no-trade。 |
+| LightGBM daily rank context | 已完成 | 接入每日 `premarket`；只输出 `model_score`、`model_rank`、`model_rank_context`，不改变动作、不自动放行。 |
+| FinBERT production fallback | 已完成第一版 | 有 article/model key cache、timeout 和 `DEGRADED` fallback；默认仍可用 deterministic scorer 保持每日流程可运行。 |
+| research list + news prompt | 已完成 | 每日生成更宽的人工研究列表和 `news_research_prompt.md`，用于把候选交给具备联网能力的 Codex 总结近期新闻。 |
+| 2x leveraged overlay | 已完成附属策略 | 独立于主 Buy-the-Dip gate，支持具体 2x ETF 与 `generic_2x_watch` 风险收益提示；不进入主策略自动候选。 |
+| daily workbench / daily index | 已完成 | 一键运行 `premarket`、research、2x overlay、positions，并输出 `daily_index.json` / `daily_index.md`。 |
+| Streamlit dashboard | 已完成第一版 | 展示 Today、Candidates、Research、News、2x Overlay、Portfolio、Reports、Data Health。 |
+| Local news tab | 已完成本地展示 | dashboard 只读取本地已抓取 news/SEC parquet；不会自动联网抓新闻。 |
+| Satellite watchlist | 已完成 | 核心 AI watchlist 外增加 satellite layer，用于单独扫描和人工研究。 |
+
+当前明确延期或不在主线 critical path 的项目：
+
+- **Qlib export/golden tests：** 原计划要求 curated Parquet 可导出 Qlib bin，并验证 DuckDB 与 Qlib 核心指标一致。当前尚未实现 `qlib_adapter`，且 Qlib 不在每日 workbench 的关键路径。只有在重新决定继续使用 Qlib workflow 时再补齐。
 - **Chronos-Bolt：** 保持 Phase 8 可选实验；不改善主线质量则不接入。
+- **全自动调度与通知：** Phase 7 才做。进入 launchd/通知之前，应先手动跑至少若干个交易日，观察 `daily_index.md`、dashboard、news prompt 和 2x overlay 的可用性。
+- **新闻自动抓取：** 当前 news 风险层可以接入 provider，但每日 runner/dashboard 不自动抓取新闻。需要先运行 `quant data update-news ...` 把本地 news parquet 补齐，再用 `--news-risk` 生成报告。
 
-Phase 6 完成 gate：
+Phase 6 完成 gate（当前应保持可运行）：
 
 ```bash
 pytest
@@ -1836,21 +1850,19 @@ quant decision premarket --date <known-completed-session> --no-news-risk
 quant decision preopen-refresh --premarket-report <premarket-json>
 quant decision open-gate --minutes 30 --premarket-report <premarket-json>
 quant paper update --premarket-report <premarket-json> --fill-session <next-session>
+python scripts/run_daily_workbench.py --date <known-completed-session> --no-news-risk
+streamlit run apps/decision_dashboard.py
 ```
 
-下一阶段不应直接盲目自动化。策略校准 closure 已支持将当前分支合并为保守人工决策 overlay；合并后再进入 technical closure 或 Phase 7 launchd 自动化与 runbook。
+每日手动运行入口已经整理到：
 
-策略校准完成后建议的顺序：
+```text
+docs/daily-runbook.md
+```
 
-1. 合并 `feat/strategy-calibration` 到 `dev`。
-2. 开 `feat/technical-closure`，决定补齐或延期 Qlib export、FinBERT production cache/timeout、LightGBM daily ranker。
-3. 若每日输出质量稳定，再进入 Phase 7：launchd、日志轮转、失败通知、交易日/夏令时调度和 `daily-runbook.md`。
+建议的下一步顺序：
 
-Technical closure 状态（2026-08-09）：
-
-- `feat/technical-closure` 已从 `dev` 开出。
-- LightGBM daily rank context 已接入 `premarket` 第一版：只生成 `model_score`、`model_rank` 和 `model_rank_context`，不改变规则、动作或人工 review gate。
-- 当成熟训练样本不足、LightGBM 不可用或当天无候选时，报告明确显示 `INSUFFICIENT_TRAINING_ROWS` / `UNAVAILABLE_LIGHTGBM_NOT_INSTALLED` / `SKIPPED_NO_CANDIDATES`，不阻塞日常报告。
-- LightGBM rank context 已增强 Markdown 和 Streamlit 展示：显示 rank、score、status、训练样本、最低样本、scored rows 和 target。
-- FinBERT production cache / timeout / `DEGRADED` fallback 已完成第一版：按 article/model key 缓存，超时或模型不可用时 fallback 到 rule-based scorer，并在 quality report 与 article `quality_flags` 中标记降级。
-- Qlib export/golden tests 暂缓到明确需要 Qlib workflow 时再做；Chronos 继续 postpone。
+1. 用 `docs/daily-runbook.md` 手动运行 1–2 周，记录候选质量、错过机会、误报、新闻 prompt 是否有帮助。
+2. 根据人工反馈微调 strategy calibration，不要仅凭单个强行情日继续放宽规则。
+3. 若每日流程稳定，再进入 Phase 7：launchd、日志轮转、失败通知、交易日/夏令时调度。
+4. 若后续确实重新启用 Qlib，再单独开 technical branch 做 Qlib export/golden tests；否则保持延期。

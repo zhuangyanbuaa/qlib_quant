@@ -30,6 +30,26 @@ uv run ruff check .
 uv run quant --help
 ```
 
+## Daily manual workflow
+
+After the initial data backfill, the normal daily entry point is:
+
+```bash
+uv run quant data update-prices --all-stored
+python scripts/run_daily_workbench.py --no-news-risk
+```
+
+Open the generated `daily_index.md` under
+`data/reports/daily/<date>/<run_id>/`, or launch the local dashboard:
+
+```bash
+streamlit run apps/decision_dashboard.py
+```
+
+The daily command sequence and optional news, position, paper-trading, and
+2x-overlay steps are documented in
+[`docs/daily-runbook.md`](docs/daily-runbook.md).
+
 ## Phase 1 data migration
 
 Legacy CSV data stays local under `legacy/data/csv`. Inventory it before
