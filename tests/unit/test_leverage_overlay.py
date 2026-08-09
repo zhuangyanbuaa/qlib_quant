@@ -102,6 +102,10 @@ def _config():
     return load_leverage_overlay_config(Path("configs/strategy/leverage_overlay.yaml"))
 
 
+def test_leverage_overlay_config_sets_practical_risk_reward_tolerance() -> None:
+    assert _config().strategy.risk_reward_tolerance == 0.001
+
+
 def test_leverage_overlay_requires_catalyst_review_before_allowing_2x() -> None:
     assessment = evaluate_leverage_overlay(
         features=_features(),

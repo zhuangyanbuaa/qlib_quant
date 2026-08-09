@@ -29,7 +29,7 @@ class LeverageOverlayRules(BaseModel):
     maximum_return_5d: float = Field(gt=0, le=1)
     minimum_relative_return_60: float
     target_risk_reward: float = Field(ge=1)
-    risk_reward_tolerance: float = Field(default=0.00001, ge=0, le=0.01)
+    risk_reward_tolerance: float = Field(default=0.001, ge=0, le=0.01)
     tactical_position_fraction_hint: float = Field(gt=0, le=0.20)
 
 
