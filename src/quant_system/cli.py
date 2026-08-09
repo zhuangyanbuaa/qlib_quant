@@ -31,6 +31,7 @@ from quant_system.decision.positions import run_position_check_workflow
 from quant_system.decision.premarket import run_premarket_workflow
 from quant_system.decision.research import run_research_list_workflow
 from quant_system.decision.rotation import run_rotation_diagnostics_workflow
+from quant_system.decision.workbench import run_daily_workbench_workflow
 from quant_system.domain.clocks import NyseSessionClock
 from quant_system.ingestion.alpha_vantage import AlphaVantageNewsAdapter
 from quant_system.ingestion.config import (
@@ -997,6 +998,144 @@ def decision_research_list(
         else None,
         max_symbols=max_symbols,
         news_summary_days=news_summary_days,
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("daily-workbench")
+def decision_daily_workbench(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help="Daily workbench signal session in YYYY-MM-DD form.",
+        ),
+    ] = None,
+    ai_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--ai-universe",
+            exists=True,
+            dir_okay=False,
+            help="AI alpha watchlist YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "ai_watchlist.yaml",
+    hedge_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--hedge-universe",
+            exists=True,
+            dir_okay=False,
+            help="Defensive hedge overlay YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "hedge_overlay.yaml",
+    strategy_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--strategy-config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+    news_risk: Annotated[
+        bool,
+        typer.Option("--news-risk/--no-news-risk", help="Apply Phase 4 news vetoes."),
+    ] = True,
+    news_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--news-config",
+            exists=True,
+            dir_okay=False,
+            help="News-source YAML used for risk lookback settings.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "sources" / "news.yaml",
+    benchmark_path: Annotated[
+        Path,
+        typer.Option(
+            "--benchmarks",
+            exists=True,
+            dir_okay=False,
+            help="Benchmark ETF YAML used by calibration context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "benchmarks.yaml",
+    model_ranking: Annotated[
+        bool,
+        typer.Option(
+            "--model-ranking/--no-model-ranking",
+            help="Attach read-only LightGBM rank context without changing actions.",
+        ),
+    ] = True,
+    model_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--model-config",
+            exists=True,
+            dir_okay=False,
+            help="Ridge + LightGBM ranking YAML used for daily rank context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "models" / "ranking_baseline.yaml",
+    leverage_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--leverage-config",
+            exists=True,
+            dir_okay=False,
+            help="Manual 2x overlay strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "leverage_overlay.yaml",
+    leverage_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--leverage-universe",
+            exists=True,
+            dir_okay=False,
+            help="Manual 2x overlay universe YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "leverage_overlay_universe.yaml",
+    max_research_symbols: Annotated[
+        int,
+        typer.Option("--max-research-symbols", min=1, max=50),
+    ] = 20,
+    news_summary_days: Annotated[
+        int,
+        typer.Option("--news-days", min=1, max=30, help="News prompt lookback days."),
+    ] = 7,
+    positions: Annotated[
+        bool,
+        typer.Option("--positions/--no-positions", help="Include manual position checks."),
+    ] = True,
+) -> None:
+    """Run premarket, research, 2x overlay, positions, and write daily_index."""
+    signal_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    news_source_settings = load_news_source_settings(news_config_path)
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_daily_workbench_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        operations_database_path=settings.resolved_data_dir / "db" / "operations.sqlite",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        signal_session=signal_session,
+        universe_paths=(ai_universe_path, hedge_universe_path),
+        strategy_config=load_buy_the_dip_config(strategy_config_path),
+        include_news_risk=news_risk,
+        news_lookback_hours=news_source_settings.risk.lookback_hours,
+        benchmark_path=benchmark_path,
+        include_model_ranking=model_ranking,
+        model_settings=load_ranking_baseline_settings(model_config_path)
+        if model_ranking
+        else None,
+        leverage_config=load_leverage_overlay_config(leverage_config_path),
+        leverage_universe=load_leverage_overlay_universe_config(leverage_universe_path),
+        max_research_symbols=max_research_symbols,
+        news_summary_days=news_summary_days,
+        include_positions=positions,
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 

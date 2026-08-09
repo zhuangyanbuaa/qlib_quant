@@ -64,6 +64,38 @@ Copy `news_research_prompt.md` into a browsing-capable Codex session to summariz
 recent news for the listed symbols. The prompt requires source links and dates
 and asks for `重点研究` / `继续观察` / `暂时跳过`, not buy/sell instructions.
 
+## One-command daily workbench
+
+Run the full local decision stack with one command:
+
+```bash
+python scripts/run_daily_workbench.py --date 2026-08-07 --no-news-risk
+```
+
+Or call the canonical CLI directly:
+
+```bash
+quant decision daily-workbench --date 2026-08-07 --no-news-risk
+```
+
+The runner uses one shared `run_id` and writes all core reports into one
+directory:
+
+```text
+data/reports/daily/<date>/<run_id>/
+```
+
+The index files are:
+
+```text
+daily_index.json
+daily_index.md
+```
+
+The daily index links the premarket plan, research list, 2x overlay radar,
+optional position check, top research rows, leverage attention rows, and the
+recommended next manual steps. It is an index only; it does not authorize trades.
+
 ## Occasional 2x leveraged ETF overlay strategy
 
 If you occasionally consider 2x long ETFs, use the separate subsidiary strategy:
@@ -179,5 +211,14 @@ Paper fills are stored separately from manual fills in `paper_fills`.
 streamlit run apps/decision_dashboard.py
 ```
 
-The dashboard reads daily reports and `data/db/operations.sqlite`. It is local
-and human-in-the-loop only.
+The dashboard reads `daily_index.json`, daily reports, and
+`data/db/operations.sqlite`. It is local and human-in-the-loop only. The main
+tabs are:
+
+- `Today`: daily index summary and next steps.
+- `Candidates`: premarket and calibration candidates.
+- `Research`: manual research list and buckets.
+- `2x Overlay`: concrete 2x products plus generic risk-on leverage watch rows.
+- `Portfolio`: manual position checks.
+- `Reports`: Markdown artifacts.
+- `Data Health`: report metadata and quality artifacts.
