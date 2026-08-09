@@ -33,6 +33,37 @@ The position check writes JSON, CSV, Markdown, and HTML under
 `HOLD`, `EXIT_STOP`, `EXIT_TARGET`, `EXIT_TIME`, `DEFENSIVE_ROTATION`, or
 `REVIEW_MISSING_PLAN`.
 
+## Generate a manual research list
+
+For hand-trading support, generate a wider research list without widening the
+actual trade gate:
+
+```bash
+quant decision research-list --date 2026-08-07 --no-news-risk --max-symbols 20
+```
+
+The command first builds the usual premarket calibration context, then writes:
+
+```text
+data/reports/daily/<date>/<run_id>/research.json
+data/reports/daily/<date>/<run_id>/research_candidates.csv
+data/reports/daily/<date>/<run_id>/research.md
+data/reports/daily/<date>/<run_id>/news_research_prompt.md
+```
+
+Research buckets are intentionally broader than trade actions:
+
+- `ACTIONABLE_CANDIDATE`: passed the existing action/review path.
+- `RESEARCH_WATCHLIST`: technically interesting enough to research, but still
+  requires manual judgment.
+- `BLOCKED_BUT_INTERESTING`: has a setup worth reading about, but was blocked by
+  defensive context, sector confirmation, or quality gates.
+- `DEFENSIVE_RESEARCH`: defensive overlay context worth checking.
+
+Copy `news_research_prompt.md` into a browsing-capable Codex session to summarize
+recent news for the listed symbols. The prompt requires source links and dates
+and asks for `重点研究` / `继续观察` / `暂时跳过`, not buy/sell instructions.
+
 ## Refresh and open gates
 
 Run a pre-open refresh from the latest premarket report:
