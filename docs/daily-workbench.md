@@ -96,6 +96,23 @@ The daily index links the premarket plan, research list, 2x overlay radar,
 optional position check, top research rows, leverage attention rows, and the
 recommended next manual steps. It is an index only; it does not authorize trades.
 
+To include the local news-risk veto layer, first fetch bounded news for the
+symbols you care about:
+
+```bash
+quant data update-news --symbols NVDA,AMD,ASML,NET --start 2026-08-01T00:00:00Z
+```
+
+Then run without `--no-news-risk`:
+
+```bash
+python scripts/run_daily_workbench.py --date 2026-08-07
+```
+
+News is provider-rate-limited and budgeted by `configs/sources/news.yaml`. If no
+news has been fetched, the dashboard's `News` tab will show an empty local-news
+state rather than inventing summaries.
+
 ## Occasional 2x leveraged ETF overlay strategy
 
 If you occasionally consider 2x long ETFs, use the separate subsidiary strategy:
@@ -218,6 +235,8 @@ tabs are:
 - `Today`: daily index summary and next steps.
 - `Candidates`: premarket and calibration candidates.
 - `Research`: manual research list and buckets.
+- `News`: local point-in-time news articles and SEC/company events for report
+  symbols.
 - `2x Overlay`: concrete 2x products plus generic risk-on leverage watch rows.
 - `Portfolio`: manual position checks.
 - `Reports`: Markdown artifacts.

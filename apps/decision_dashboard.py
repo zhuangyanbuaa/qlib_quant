@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,10 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from quant_system.decision.journal import reconstruct_open_positions  # noqa: E402
+from quant_system.domain.clocks import NyseSessionClock  # noqa: E402
 from quant_system.settings import get_settings  # noqa: E402
+from quant_system.storage.duckdb import DuckDBAnalytics  # noqa: E402
+from quant_system.storage.parquet import ParquetRepository  # noqa: E402
 from quant_system.storage.sqlite import OperationsRegistry  # noqa: E402
 
 
@@ -47,18 +51,26 @@ def main() -> None:
     leverage = _latest_json(date_root, "leverage_overlay_universe.json")
     positions = _latest_json(date_root, "positions.json")
 
-    tab_today, tab_candidates, tab_research, tab_leverage, tab_portfolio, tab_reports, tab_data = (
-        st.tabs(
-            [
-                "Today",
-                "Candidates",
-                "Research",
-                "2x Overlay",
-                "Portfolio",
-                "Reports",
-                "Data Health",
-            ]
-        )
+    (
+        tab_today,
+        tab_candidates,
+        tab_research,
+        tab_news,
+        tab_leverage,
+        tab_portfolio,
+        tab_reports,
+        tab_data,
+    ) = st.tabs(
+        [
+            "Today",
+            "Candidates",
+            "Research",
+            "News",
+            "2x Overlay",
+            "Portfolio",
+            "Reports",
+            "Data Health",
+        ]
     )
     with tab_today:
         _render_today(index_report, premarket, positions, leverage)
@@ -66,6 +78,16 @@ def main() -> None:
         _render_candidates(premarket)
     with tab_research:
         _render_research(research, index_report)
+    with tab_news:
+        _render_news(
+            index_report=index_report,
+            premarket=premarket,
+            research=research,
+            leverage=leverage,
+            positions=positions,
+            data_root=data_root,
+            selected_date=selected_date,
+        )
     with tab_leverage:
         _render_leverage(leverage, index_report)
     with tab_portfolio:
@@ -204,12 +226,12 @@ def _render_candidates(premarket: dict[str, Any] | None) -> None:
             )
             if column in calibration.columns
         ]
-        st.dataframe(calibration[display_columns], use_container_width=True)
+        st.dataframe(calibration[display_columns], width="stretch")
     if candidates.empty:
         st.info("No rules-approved candidates in this report.")
         return
     st.subheader("Rules-approved candidates")
-    st.dataframe(candidates, use_container_width=True)
+    st.dataframe(candidates, width="stretch")
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("By Universe Role")
@@ -259,7 +281,7 @@ def _render_research(
         )
         if column in frame.columns
     ]
-    st.dataframe(frame[display_columns], use_container_width=True)
+    st.dataframe(frame[display_columns], width="stretch")
     if "research_bucket" in frame.columns:
         st.subheader("Research buckets")
         st.bar_chart(frame["research_bucket"].value_counts())
@@ -328,7 +350,105 @@ def _render_leverage(
         )
         if column in frame.columns
     ]
-    st.dataframe(frame[display_columns], use_container_width=True)
+    st.dataframe(frame[display_columns], width="stretch")
+
+
+def _render_news(
+    *,
+    index_report: dict[str, Any] | None,
+    premarket: dict[str, Any] | None,
+    research: dict[str, Any] | None,
+    leverage: dict[str, Any] | None,
+    positions: dict[str, Any] | None,
+    data_root: Path,
+    selected_date: str,
+) -> None:
+    st.header("News")
+    st.caption(
+        "Local point-in-time news and SEC events already stored in Parquet. "
+        "If this is empty, run `quant data update-news` first."
+    )
+    symbols = _symbols_for_news(
+        index_report=index_report,
+        premarket=premarket,
+        research=research,
+        leverage=leverage,
+        positions=positions,
+    )
+    if not symbols:
+        st.info("No report symbols available for news lookup.")
+        return
+    default_symbols = symbols[: min(20, len(symbols))]
+    selected_symbols = st.multiselect("Symbols", symbols, default=default_symbols)
+    lookback_hours = st.slider("Lookback hours", min_value=24, max_value=336, value=168, step=24)
+    if not selected_symbols:
+        st.info("Select at least one symbol.")
+        return
+    articles, events = _load_local_news(
+        data_root=data_root,
+        selected_date=selected_date,
+        symbols=tuple(selected_symbols),
+        lookback_hours=lookback_hours,
+    )
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Symbols", len(selected_symbols))
+    col2.metric("Articles", len(articles))
+    col3.metric("SEC events", len(events))
+
+    if articles.empty and events.empty:
+        st.warning(
+            "No local news/events found for these symbols and cutoff. "
+            "Fetch news with `quant data update-news --symbols ...` or run the "
+            "daily workbench with `--news-risk` after configuring providers."
+        )
+        return
+
+    if not articles.empty:
+        st.subheader("Articles")
+        article_frame = _prepare_news_frame(articles)
+        severities = sorted(article_frame["severity"].dropna().unique())
+        selected_severities = st.multiselect(
+            "Article severity",
+            severities,
+            default=severities,
+        )
+        if selected_severities:
+            article_frame = article_frame.loc[
+                article_frame["severity"].isin(selected_severities)
+            ]
+        display_columns = [
+            column
+            for column in (
+                "published_at_utc",
+                "matched_symbols",
+                "severity",
+                "sentiment_label",
+                "sentiment_score",
+                "event_type",
+                "title",
+                "source_domain",
+                "url",
+            )
+            if column in article_frame.columns
+        ]
+        st.dataframe(article_frame[display_columns], width="stretch")
+
+    if not events.empty:
+        st.subheader("SEC / company events")
+        event_frame = _prepare_events_frame(events)
+        display_columns = [
+            column
+            for column in (
+                "accepted_at_utc",
+                "symbol",
+                "form_type",
+                "severity",
+                "event_type",
+                "filing_url",
+            )
+            if column in event_frame.columns
+        ]
+        st.dataframe(event_frame[display_columns], width="stretch")
 
 
 def _render_model_rank_context(premarket: dict[str, Any]) -> None:
@@ -358,13 +478,13 @@ def _render_portfolio(positions: dict[str, Any] | None, data_root: Path) -> None
     if rows.empty:
         st.success("No open positions are recorded.")
         return
-    st.dataframe(rows, use_container_width=True)
+    st.dataframe(rows, width="stretch")
     required = rows.loc[rows["recommended_action"] != "HOLD"]
     if not required.empty:
         st.warning("Some positions require manual review.")
         st.dataframe(
             required[["symbol", "recommended_action", "primary_reason"]],
-            use_container_width=True,
+            width="stretch",
         )
     st.subheader("Unrealized PnL")
     st.bar_chart(rows.set_index("symbol")["unrealized_pnl"])
@@ -411,7 +531,111 @@ def _render_live_journal(data_root: Path) -> None:
         st.info("No open manual positions in the SQLite journal.")
     else:
         st.subheader("Current SQLite Journal Positions")
-        st.dataframe(rows, use_container_width=True)
+        st.dataframe(rows, width="stretch")
+
+
+def _symbols_for_news(
+    *,
+    index_report: dict[str, Any] | None,
+    premarket: dict[str, Any] | None,
+    research: dict[str, Any] | None,
+    leverage: dict[str, Any] | None,
+    positions: dict[str, Any] | None,
+) -> list[str]:
+    symbols: list[str] = []
+    if research is not None:
+        symbols.extend(row.get("symbol", "") for row in research.get("research_candidates", []))
+    if premarket is not None:
+        symbols.extend(row.get("symbol", "") for row in premarket.get("candidates", []))
+        symbols.extend(
+            row.get("symbol", "")
+            for row in premarket.get("calibration_candidate_tiers", [])[:20]
+        )
+    if leverage is not None:
+        symbols.extend(
+            row.get("underlying_symbol", "")
+            for row in leverage.get("assessments", [])
+            if row.get("attention_status") != "NO_LEVERAGE_ATTENTION"
+        )
+    if positions is not None:
+        symbols.extend(row.get("symbol", "") for row in positions.get("positions", []))
+    if index_report is not None:
+        symbols.extend(row.get("symbol", "") for row in index_report.get("top_research", []))
+        symbols.extend(
+            row.get("underlying_symbol", "")
+            for row in index_report.get("leverage_attention", [])
+        )
+        symbols.extend(row.get("symbol", "") for row in index_report.get("position_actions", []))
+    normalized = [
+        str(symbol).upper().replace(".", "-")
+        for symbol in symbols
+        if symbol is not None and str(symbol).strip()
+    ]
+    return sorted(dict.fromkeys(normalized))
+
+
+def _load_local_news(
+    *,
+    data_root: Path,
+    selected_date: str,
+    symbols: tuple[str, ...],
+    lookback_hours: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    repository = ParquetRepository(data_root)
+    database_path = data_root / "db" / "analytics.duckdb"
+    cutoff = _news_cutoff(selected_date)
+    with DuckDBAnalytics(
+        database_path,
+        repository.daily_prices_root,
+        repository.news_articles_root,
+        repository.company_events_root,
+    ) as analytics:
+        analytics.refresh_views()
+        articles = analytics.query_news_articles(
+            symbols,
+            cutoff_utc=cutoff,
+            lookback_hours=lookback_hours,
+        )
+        events = analytics.query_company_events(
+            symbols,
+            cutoff_utc=cutoff,
+            lookback_hours=lookback_hours,
+        )
+    return articles, events
+
+
+def _news_cutoff(selected_date: str) -> datetime:
+    session = date.fromisoformat(selected_date)
+    try:
+        return NyseSessionClock().available_at_utc(session)
+    except Exception:
+        return datetime.fromisoformat(f"{selected_date}T23:59:59+00:00").astimezone(UTC)
+
+
+def _prepare_news_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    prepared = frame.copy()
+    if "matched_symbols" in prepared.columns:
+        prepared["matched_symbols"] = prepared["matched_symbols"].map(_join_list_value)
+    if "raw_topics" in prepared.columns:
+        prepared["raw_topics"] = prepared["raw_topics"].map(_join_list_value)
+    return prepared.sort_values(["published_at_utc", "title"], ascending=[False, True])
+
+
+def _prepare_events_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    return frame.copy().sort_values(["accepted_at_utc", "symbol"], ascending=[False, True])
+
+
+def _join_list_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, list | tuple):
+        return ",".join(str(item) for item in value)
+    try:
+        if pd.isna(value):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    return str(value)
 
 
 if __name__ == "__main__":
