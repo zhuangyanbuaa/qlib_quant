@@ -165,6 +165,22 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
         ),
         "",
     ]
+    reversal_context = strategy_context.get("reversal_context")
+    if reversal_context:
+        lines.extend(
+            [
+                "### Reversal / repair context",
+                "",
+                f"- Status: `{reversal_context.get('status', 'UNKNOWN')}`",
+                f"- Action hint: `{reversal_context.get('action_hint', 'UNKNOWN')}`",
+                f"- AI leader repair fraction: "
+                f"`{_format_optional_float(reversal_context.get('ai_leader_repair_fraction'))}`",
+                f"- AI leader drift fraction: "
+                f"`{_format_optional_float(reversal_context.get('ai_leader_drift_fraction'))}`",
+                reversal_context.get("message", ""),
+                "",
+            ]
+        )
     if model_rank_context:
         lines.extend(
             [
@@ -203,15 +219,17 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
                 "### Tiered candidates",
                 "",
                 "| Rank | Symbol | Role | Tier | Passed tiers | Score | "
-                "Sector ETF | Sector OK | Model rank | Model score | Model status | "
+                "Reversal | Repair score | Sector ETF | Sector OK | "
+                "Model rank | Model score | Model status | "
                 "Review | Action |",
-                "|---:|---|---|---|---|---:|---|---|---:|---:|---|---|---|",
+                "|---:|---|---|---|---|---:|---|---:|---|---|---:|---:|---|---|---|",
             ]
         )
         for row in calibration_rows:
             lines.append(
                 "| {rank} | {symbol} | {role} | {tier} | {passed} | {score:.4f} | "
-                "{benchmark_etf} | {sector_ok} | {model_rank} | {model_score} | "
+                "{reversal_phase} | {reversal_score} | {benchmark_etf} | {sector_ok} | "
+                "{model_rank} | {model_score} | "
                 "{model_status} | {review} | {action} |".format(
                     rank=row["calibration_rank"],
                     symbol=row["symbol"],
@@ -219,6 +237,8 @@ def _render_markdown(report: dict[str, Any], candidate_rows: list[dict[str, Any]
                     tier=row["calibration_tier"],
                     passed=row["passed_tiers"],
                     score=row["score"],
+                    reversal_phase=row.get("reversal_phase", ""),
+                    reversal_score=_format_optional_float(row.get("reversal_score")),
                     benchmark_etf=row.get("benchmark_etf", ""),
                     sector_ok=_format_bool(row.get("sector_confirmation_pass")),
                     model_rank=_format_optional_int(row.get("model_rank")),

@@ -432,10 +432,14 @@ def _calibration_candidate_rows(
         if row.get("group_type") and row.get("group")
     }
     for row, tiered in zip(rows, tiered_candidates, strict=True):
+        symbol_state = hierarchy_by_symbol.get(str(row["symbol"]), {})
         row["calibration_rank"] = row.pop("rank")
         row["calibration_tier"] = tiered.calibration_tier
         row["passed_tiers"] = ";".join(tiered.passed_tiers)
         row["context_tier"] = context_tier
+        row["reversal_phase"] = symbol_state.get("reversal_phase", "UNKNOWN")
+        row["reversal_score"] = symbol_state.get("reversal_score")
+        row["reversal_reasons"] = symbol_state.get("reversal_reasons", "")
         row["baseline_candidate"] = "BASELINE" in tiered.passed_tiers
         relaxed_quality_pass, relaxed_quality_reasons = _relaxed_quality_gate(
             row=row,
