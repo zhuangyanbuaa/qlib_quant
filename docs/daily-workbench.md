@@ -64,6 +64,20 @@ Copy `news_research_prompt.md` into a browsing-capable Codex session to summariz
 recent news for the listed symbols. The prompt requires source links and dates
 and asks for `重点研究` / `继续观察` / `暂时跳过`, not buy/sell instructions.
 
+## Occasional 2x leveraged ETF overlay
+
+If you occasionally consider 2x long ETFs, use the separate manual framework:
+
+```text
+docs/2x-leveraged-etf-framework.md
+```
+
+This framework is intentionally outside the automated strategy gate. A 2x ETF
+is only a tactical overlay after market risk-on, industry strength, common-stock
+trend confirmation, a good entry structure, a catalyst, and a predefined stop.
+It should not be used for bottom-fishing, averaging down, FOMO, or replacing a
+core common-stock position.
+
 ## Refresh and open gates
 
 Run a pre-open refresh from the latest premarket report:
