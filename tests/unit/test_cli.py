@@ -55,6 +55,7 @@ def test_decision_help_lists_phase_six_commands() -> None:
     assert "premarket" in result.stdout
     assert "satellite" in result.stdout
     assert "research-list" in result.stdout
+    assert "daily-workbench" in result.stdout
     assert "leverage-overlay" in result.stdout
     assert "positions" in result.stdout
     assert "rotation" in result.stdout
