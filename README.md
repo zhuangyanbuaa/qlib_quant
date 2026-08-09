@@ -48,7 +48,8 @@ streamlit run apps/decision_dashboard.py
 
 The daily command sequence and optional news, position, paper-trading, and
 2x-overlay steps are documented in
-[`docs/daily-runbook.md`](docs/daily-runbook.md).
+[`docs/daily-runbook.md`](docs/daily-runbook.md) and
+[`docs/daily-runbook.zh.md`](docs/daily-runbook.zh.md).
 
 ## Phase 1 data migration
 

@@ -1858,6 +1858,7 @@ streamlit run apps/decision_dashboard.py
 
 ```text
 docs/daily-runbook.md
+docs/daily-runbook.zh.md
 ```
 
 建议的下一步顺序：
