@@ -14,6 +14,11 @@ THEMATIC_SATELLITE_PATHS = (
     Path("configs/universe/raw_review_watchlist.yaml"),
 )
 
+RAW_CANDIDATE_SYMBOL_EXCLUSIONS = {
+    # Futu concept label, not a Yahoo/US tradable ticker.
+    "LIST2152",
+}
+
 
 def test_ai_watchlist_is_forward_only_and_has_required_size() -> None:
     watchlist = load_watchlist_config(Path("configs/universe/ai_watchlist.yaml"))
@@ -85,7 +90,8 @@ def test_thematic_satellite_watchlists_cover_remaining_raw_candidates() -> None:
         | thematic_symbols
         | declared
     )
-    assert set(pool.member_symbols).issubset(formal_symbols)
+    assert set(pool.member_symbols).issubset(formal_symbols | RAW_CANDIDATE_SYMBOL_EXCLUSIONS)
+    assert RAW_CANDIDATE_SYMBOL_EXCLUSIONS.isdisjoint(formal_symbols)
     assert thematic_symbols.isdisjoint(set(ai_watchlist.member_symbols))
     assert thematic_symbols.isdisjoint(set(ai_satellite.member_symbols))
     assert thematic_symbols.isdisjoint(set(hedge_overlay.member_symbols))

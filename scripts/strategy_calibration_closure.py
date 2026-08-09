@@ -171,6 +171,18 @@ def run_closure(inputs: ClosureInputs) -> dict[str, Any]:
                     "ai_vs_hedge_spread_20d"
                 ),
                 "rotation_status": context_payload["rotation_summary"].get("status"),
+                "reversal_status": context_payload["strategy_context"]
+                .get("reversal_context", {})
+                .get("status"),
+                "reversal_action_hint": context_payload["strategy_context"]
+                .get("reversal_context", {})
+                .get("action_hint"),
+                "ai_leader_repair_fraction": context_payload["strategy_context"]
+                .get("reversal_context", {})
+                .get("ai_leader_repair_fraction"),
+                "ai_leader_drift_fraction": context_payload["strategy_context"]
+                .get("reversal_context", {})
+                .get("ai_leader_drift_fraction"),
             }
         )
         for variant in variants:
@@ -499,6 +511,9 @@ def _candidate_records(
                     row.get("sector_confirmation_pass", True)
                 ),
                 "sector_confirmation_reasons": row.get("sector_confirmation_reasons"),
+                "reversal_phase": row.get("reversal_phase"),
+                "reversal_score": row.get("reversal_score"),
+                "reversal_reasons": row.get("reversal_reasons"),
                 "score": float(row["score"]),
                 "signal_close": signal_close,
                 "target_session": target_session.isoformat()
@@ -604,6 +619,7 @@ def _summarize_slice(
         "action_counts": dict(Counter(frame["calibration_action"])),
         "context_counts": dict(Counter(frame["context_tier"])),
         "tier_counts": dict(Counter(frame["calibration_tier"])),
+        "reversal_phase_counts": _counter_if_present(frame, "reversal_phase"),
         "sector_confirmation": _sector_confirmation_summary(frame),
         "manual_review_stats": _return_stats(manual, return_col, relative_col),
         "all_candidate_stats": _return_stats(matured, return_col, relative_col),
@@ -621,6 +637,7 @@ def _empty_summary() -> dict[str, Any]:
         "action_counts": {},
         "context_counts": {},
         "tier_counts": {},
+        "reversal_phase_counts": {},
         "sector_confirmation": {
             "ai_rows": 0,
             "ai_pass_count": 0,
@@ -631,6 +648,12 @@ def _empty_summary() -> dict[str, Any]:
         "manual_review_stats": _empty_stats(),
         "all_candidate_stats": _empty_stats(),
     }
+
+
+def _counter_if_present(frame: pd.DataFrame, column: str) -> dict[str, int]:
+    if column not in frame.columns:
+        return {}
+    return dict(Counter(frame[column].dropna()))
 
 
 def _sector_confirmation_summary(frame: pd.DataFrame) -> dict[str, Any]:
@@ -700,10 +723,15 @@ def _empty_stats() -> dict[str, Any]:
 def _context_distribution(frame: pd.DataFrame) -> dict[str, Any]:
     if frame.empty:
         return {}
-    return {
+    payload = {
         "candidate_tier_context": dict(Counter(frame["candidate_tier_context"])),
         "rotation_status": dict(Counter(frame["rotation_status"])),
     }
+    if "reversal_status" in frame.columns:
+        payload["reversal_status"] = dict(Counter(frame["reversal_status"]))
+    if "reversal_action_hint" in frame.columns:
+        payload["reversal_action_hint"] = dict(Counter(frame["reversal_action_hint"]))
+    return payload
 
 
 def _recommendation(payload: dict[str, Any]) -> dict[str, Any]:

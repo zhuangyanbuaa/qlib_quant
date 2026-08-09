@@ -177,6 +177,38 @@ calibration posture:
 This layer is intentionally read-only. It calibrates the daily workbench context
 before the canonical Buy-the-Dip rule thresholds are changed.
 
+### Reversal / repair context
+
+The hierarchy layer also emits a read-only `reversal_context` that separates
+"price bounced" from "the group is actually repaired." This was added after the
+2026 March and July reversal reviews showed that the old report could identify
+some reversals but did not explain why the system stayed defensive.
+
+Per symbol, the hierarchy CSV/JSON now includes:
+
+- `reversal_phase`: `CAPITULATION_WASHOUT`, `DRIFTING_LOWER`,
+  `REPAIR_ATTEMPT`, `CONFIRMED_REPAIR`, `WEAKENING`, `LAGGING`, or
+  `INSUFFICIENT_DATA`;
+- `reversal_score`: a bounded diagnostic score based on short-window rebound,
+  MA20/MA50 repair, 20-session relative strength, RSI recovery, reclaimed prior
+  high, persistent down days, and drawdown depth;
+- `reversal_reasons`: semicolon-separated explanation tags.
+
+At the session level, `strategy_context.reversal_context` reports:
+
+- `DOWNTREND_OR_WASHOUT`: AI leaders are still broadly drifting or washed out;
+- `EARLY_REPAIR`: the market and enough AI leaders are attempting repair, but
+  hard rules still need to confirm candidates;
+- `CONFIRMED_REPAIR`: repair breadth is broad enough that existing gates should
+  be allowed to work;
+- `DEFENSIVE_REPAIR_LEADING`: defensive overlays are repairing more clearly
+  than AI leaders;
+- `NO_CLEAR_REPAIR`: no useful reversal signal.
+
+This context is intentionally not a new buy gate. It is displayed in premarket
+reports and calibration closure outputs so the user can see when the chart is
+bouncing but the system still wants defense or smaller risk.
+
 ## Tiered candidate scan
 
 `quant decision premarket` now attaches read-only tiered candidates by default.
@@ -262,7 +294,7 @@ summarizes:
 Latest local run:
 
 ```text
-data/reports/simulations/calibration_closure/20260808T154501Z/summary.md
+data/reports/simulations/calibration_closure/20260809T122906Z/summary.md
 ```
 
 Important scope limits:
@@ -277,11 +309,21 @@ Summary from the latest run:
 
 | slice / variant | candidate rows | manual rows | matured manual | avg 5d | median 5d | win | avg relative |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| current YTD | 700 | 45 | 44 | 0.49% | 0.92% | 54.55% | 0.16% |
+| current YTD | 759 | 45 | 45 | 0.57% | 1.13% | 55.56% | 0.35% |
 | Feb/Mar drift-down | 289 | 11 | 11 | -1.93% | -1.32% | 36.36% | -1.06% |
-| Jun/Jul drift-down | 195 | 10 | 9 | -0.04% | 2.31% | 66.67% | 2.04% |
-| relaxed tighter | 311 | 19 | 19 | 1.36% | 2.31% | 63.16% | 1.37% |
-| relaxed looser | 853 | 57 | 56 | -0.45% | -0.42% | 46.43% | -0.61% |
+| Jun/Jul drift-down | 195 | 10 | 10 | 0.40% | 2.80% | 70.00% | 2.75% |
+| relaxed tighter | 345 | 19 | 19 | 1.36% | 2.31% | 63.16% | 1.37% |
+| relaxed looser | 930 | 57 | 56 | -0.28% | -0.23% | 48.21% | -0.42% |
+
+Reversal context distribution in the same run:
+
+| status | sessions |
+|---|---:|
+| `EARLY_REPAIR` | 65 |
+| `DOWNTREND_OR_WASHOUT` | 49 |
+| `CONFIRMED_REPAIR` | 29 |
+| `DEFENSIVE_REPAIR_LEADING` | 6 |
+| `NO_CLEAR_REPAIR` | 1 |
 
 Closure decision:
 
@@ -296,8 +338,9 @@ Closure decision:
   toward `STRICT`, smaller size, or no new AI alpha rather than trying to catch
   every dip.
 - Late-March and late-July reversal slices had too few mature candidates in the
-  current local dataset to justify custom reversal-specific thresholds. Do not
-  optimize rules to those two windows.
+  current local dataset to justify custom reversal-specific buy thresholds. The
+  new repair context should be used as explanation/monitoring first, not as a
+  direct permission to override sector confirmation.
 
 Final recommendation: keep the strategy-calibration branch as a conservative
 manual-review overlay, not an alpha expansion. After merging, continue

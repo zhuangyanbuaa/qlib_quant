@@ -4,6 +4,7 @@ from pathlib import Path
 
 from quant_system.decision.hierarchy import (
     calibrate_strategy_context,
+    classify_reversal_context,
     classify_trend_state,
     load_hierarchy_proxies,
 )
@@ -68,6 +69,29 @@ def test_classify_trend_state_detects_confirmed_reversal() -> None:
     assert state == "CONFIRMED_REVERSAL"
 
 
+def test_classify_reversal_context_explains_repair_attempt() -> None:
+    context = classify_reversal_context(
+        {
+            "return_5d": 0.04,
+            "return_20d": 0.02,
+            "relative_return_20d": 0.03,
+            "drawdown_20d": 0.04,
+            "drawdown_60d": 0.10,
+            "rsi14": 52,
+            "ma20_slope_5d": 0.01,
+            "down_day_ratio_20d": 0.45,
+            "above_ma20": True,
+            "above_ma50": False,
+            "reclaimed_previous_high": True,
+        },
+        "REVERSAL_ATTEMPT",
+    )
+
+    assert context["reversal_phase"] == "REPAIR_ATTEMPT"
+    assert context["reversal_score"] >= 3.5
+    assert "trend_reversal_attempt" in context["reversal_reasons"]
+
+
 def test_calibration_context_turns_defensive_when_ai_leaders_drift_and_defense_leads() -> None:
     context = calibrate_strategy_context(
         state_by_symbol={
@@ -75,6 +99,7 @@ def test_calibration_context_turns_defensive_when_ai_leaders_drift_and_defense_l
             "SPY": {"trend_state": "UPTREND", "layer": "market"},
             "NVDA": {
                 "trend_state": "DRIFT_DOWN",
+                "reversal_phase": "DRIFTING_LOWER",
                 "universe_role": "ai_alpha",
                 "role": "leader_stock",
                 "above_ma20": False,
@@ -82,6 +107,7 @@ def test_calibration_context_turns_defensive_when_ai_leaders_drift_and_defense_l
             },
             "AVGO": {
                 "trend_state": "WEAKENING",
+                "reversal_phase": "WEAKENING",
                 "universe_role": "ai_alpha",
                 "role": "leader_stock",
                 "above_ma20": False,
@@ -89,6 +115,7 @@ def test_calibration_context_turns_defensive_when_ai_leaders_drift_and_defense_l
             },
             "COST": {
                 "trend_state": "UPTREND",
+                "reversal_phase": "REPAIR_ATTEMPT",
                 "universe_role": "hedge_overlay",
                 "role": "leader_stock",
                 "above_ma20": True,
@@ -107,6 +134,7 @@ def test_calibration_context_turns_defensive_when_ai_leaders_drift_and_defense_l
 
     assert context["candidate_tier_context"] == "DEFENSIVE"
     assert context["risk_multiplier_hint"] == 0.0
+    assert context["reversal_context"]["status"] == "DOWNTREND_OR_WASHOUT"
 
 
 def test_calibration_context_allows_relaxed_watchlist_on_leader_reversal() -> None:
@@ -116,6 +144,7 @@ def test_calibration_context_allows_relaxed_watchlist_on_leader_reversal() -> No
             "SPY": {"trend_state": "UPTREND", "layer": "market"},
             "NVDA": {
                 "trend_state": "CONFIRMED_REVERSAL",
+                "reversal_phase": "CONFIRMED_REPAIR",
                 "universe_role": "ai_alpha",
                 "role": "leader_stock",
                 "above_ma20": True,
@@ -123,6 +152,7 @@ def test_calibration_context_allows_relaxed_watchlist_on_leader_reversal() -> No
             },
             "AVGO": {
                 "trend_state": "REVERSAL_ATTEMPT",
+                "reversal_phase": "REPAIR_ATTEMPT",
                 "universe_role": "ai_alpha",
                 "role": "leader_stock",
                 "above_ma20": True,
@@ -141,3 +171,4 @@ def test_calibration_context_allows_relaxed_watchlist_on_leader_reversal() -> No
 
     assert context["candidate_tier_context"] == "RELAXED_WATCHLIST"
     assert context["ai_leader_breadth"]["reversal_or_confirmed_fraction"] == 1.0
+    assert context["reversal_context"]["status"] == "EARLY_REPAIR"

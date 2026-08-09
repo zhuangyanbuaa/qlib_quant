@@ -19,12 +19,17 @@ from quant_system.decision.gates import (
 )
 from quant_system.decision.hierarchy import run_hierarchy_diagnostics_workflow
 from quant_system.decision.journal import reconstruct_open_positions
+from quant_system.decision.leverage import (
+    run_leverage_overlay_universe_workflow,
+    run_leverage_overlay_workflow,
+)
 from quant_system.decision.paper import (
     run_paper_advance_workflow,
     run_paper_update_workflow,
 )
 from quant_system.decision.positions import run_position_check_workflow
 from quant_system.decision.premarket import run_premarket_workflow
+from quant_system.decision.research import run_research_list_workflow
 from quant_system.decision.rotation import run_rotation_diagnostics_workflow
 from quant_system.domain.clocks import NyseSessionClock
 from quant_system.ingestion.alpha_vantage import AlphaVantageNewsAdapter
@@ -60,6 +65,10 @@ from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.storage.sqlite import OperationsRegistry
 from quant_system.strategy.config import load_buy_the_dip_config
+from quant_system.strategy.leverage_overlay import (
+    load_leverage_overlay_config,
+    load_leverage_overlay_universe_config,
+)
 from quant_system.universe.config import load_watchlist_config
 
 app = typer.Typer(
@@ -877,6 +886,211 @@ def decision_satellite(
         report_stem="satellite",
         report_title="AI Satellite Scan",
     )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("research-list")
+def decision_research_list(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help="Research-list signal session in YYYY-MM-DD form.",
+        ),
+    ] = None,
+    ai_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--ai-universe",
+            exists=True,
+            dir_okay=False,
+            help="AI alpha watchlist YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "ai_watchlist.yaml",
+    hedge_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--hedge-universe",
+            exists=True,
+            dir_okay=False,
+            help="Defensive hedge overlay YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "hedge_overlay.yaml",
+    strategy_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--strategy-config",
+            exists=True,
+            dir_okay=False,
+            help="Buy-the-Dip strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml",
+    news_risk: Annotated[
+        bool,
+        typer.Option("--news-risk/--no-news-risk", help="Apply Phase 4 news vetoes."),
+    ] = True,
+    news_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--news-config",
+            exists=True,
+            dir_okay=False,
+            help="News-source YAML used for risk lookback settings.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "sources" / "news.yaml",
+    benchmark_path: Annotated[
+        Path,
+        typer.Option(
+            "--benchmarks",
+            exists=True,
+            dir_okay=False,
+            help="Benchmark ETF YAML used by calibration context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "benchmarks.yaml",
+    model_ranking: Annotated[
+        bool,
+        typer.Option(
+            "--model-ranking/--no-model-ranking",
+            help="Attach read-only LightGBM rank context without changing actions.",
+        ),
+    ] = True,
+    model_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--model-config",
+            exists=True,
+            dir_okay=False,
+            help="Ridge + LightGBM ranking YAML used for daily rank context.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "models" / "ranking_baseline.yaml",
+    max_symbols: Annotated[
+        int,
+        typer.Option("--max-symbols", min=1, max=50, help="Maximum research symbols."),
+    ] = 20,
+    news_summary_days: Annotated[
+        int,
+        typer.Option("--news-days", min=1, max=30, help="News prompt lookback days."),
+    ] = 7,
+) -> None:
+    """Generate a wider manual research list and copy/paste news prompt."""
+    signal_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    news_source_settings = load_news_source_settings(news_config_path)
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    report, _artifacts = run_research_list_workflow(
+        repository=repository,
+        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+        report_root=settings.resolved_data_dir / "reports" / "daily",
+        universe_paths=(ai_universe_path, hedge_universe_path),
+        signal_session=signal_session,
+        config=load_buy_the_dip_config(strategy_config_path),
+        include_news_risk=news_risk,
+        news_lookback_hours=news_source_settings.risk.lookback_hours,
+        benchmark_path=benchmark_path,
+        include_model_ranking=model_ranking,
+        model_settings=load_ranking_baseline_settings(model_config_path)
+        if model_ranking
+        else None,
+        max_symbols=max_symbols,
+        news_summary_days=news_summary_days,
+    )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("leverage-overlay")
+def decision_leverage_overlay(
+    as_of: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date",
+            help="2x overlay signal session in YYYY-MM-DD form.",
+        ),
+    ] = None,
+    underlying: Annotated[
+        str,
+        typer.Option("--underlying", help="Underlying common stock symbol, e.g. MU."),
+    ] = "MU",
+    leveraged_etf: Annotated[
+        str | None,
+        typer.Option("--leveraged-etf", help="Optional 2x ETF symbol, e.g. MUU."),
+    ] = None,
+    sector_etf: Annotated[
+        str,
+        typer.Option("--sector-etf", help="Sector/theme ETF confirmation symbol."),
+    ] = "SOXX",
+    market_symbol: Annotated[
+        str,
+        typer.Option("--market", help="Broad market risk-on proxy."),
+    ] = "QQQ",
+    catalyst_confirmed: Annotated[
+        bool,
+        typer.Option(
+            "--catalyst-confirmed/--catalyst-review-needed",
+            help="Whether human/news review already confirmed a valid catalyst.",
+        ),
+    ] = False,
+    leverage_config_path: Annotated[
+        Path,
+        typer.Option(
+            "--leverage-config",
+            exists=True,
+            dir_okay=False,
+            help="Manual 2x overlay strategy YAML.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "strategy" / "leverage_overlay.yaml",
+    scan_all: Annotated[
+        bool,
+        typer.Option(
+            "--all/--single",
+            help="Scan the configured manual 2x overlay universe instead of one pair.",
+        ),
+    ] = False,
+    leverage_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--leverage-universe",
+            exists=True,
+            dir_okay=False,
+            help="Manual 2x overlay universe YAML used with --all.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "leverage_overlay_universe.yaml",
+) -> None:
+    """Evaluate a subsidiary manual-only 2x ETF overlay."""
+    signal_session = (
+        as_of.date()
+        if as_of is not None
+        else NyseSessionClock().latest_completed_session(datetime.now(UTC))
+    )
+    settings = get_settings()
+    repository = ParquetRepository(settings.resolved_data_dir)
+    config = load_leverage_overlay_config(leverage_config_path)
+    if scan_all:
+        report, _artifacts = run_leverage_overlay_universe_workflow(
+            repository=repository,
+            database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+            report_root=settings.resolved_data_dir / "reports" / "daily",
+            signal_session=signal_session,
+            config=config,
+            universe=load_leverage_overlay_universe_config(leverage_universe_path),
+            catalyst_confirmed=catalyst_confirmed,
+        )
+    else:
+        report, _artifacts = run_leverage_overlay_workflow(
+            repository=repository,
+            database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+            report_root=settings.resolved_data_dir / "reports" / "daily",
+            signal_session=signal_session,
+            underlying_symbol=underlying,
+            leveraged_etf_symbol=leveraged_etf,
+            sector_etf=sector_etf,
+            market_symbol=market_symbol,
+            config=config,
+            catalyst_confirmed=catalyst_confirmed,
+        )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 

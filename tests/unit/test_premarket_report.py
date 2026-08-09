@@ -181,6 +181,9 @@ def test_relaxed_leader_reversal_passes_quality_gate() -> None:
                 "symbol": "NVDA",
                 "role": "leader_stock",
                 "trend_state": "REVERSAL_ATTEMPT",
+                "reversal_phase": "REPAIR_ATTEMPT",
+                "reversal_score": 6.25,
+                "reversal_reasons": "trend_reversal_attempt;above_ma20",
                 "theme": "ai_chips",
                 "sector": "Information Technology",
             }
@@ -190,6 +193,8 @@ def test_relaxed_leader_reversal_passes_quality_gate() -> None:
 
     assert rows[0]["relaxed_quality_pass"] is True
     assert rows[0]["relaxed_quality_reasons"] == "leader_stock_REVERSAL_ATTEMPT"
+    assert rows[0]["reversal_phase"] == "REPAIR_ATTEMPT"
+    assert rows[0]["reversal_score"] == 6.25
     assert rows[0]["manual_review_allowed"] is True
     assert rows[0]["calibration_action"] == "RELAXED_WATCHLIST_REVIEW_ONLY"
 
@@ -633,6 +638,13 @@ def test_write_premarket_report_includes_calibration_section(tmp_path) -> None:
         "strategy_context": {
             "candidate_tier_context": "RELAXED_WATCHLIST",
             "message": "AI leaders show reversal breadth.",
+            "reversal_context": {
+                "status": "EARLY_REPAIR",
+                "action_hint": "WATCH_FOR_CONFIRMATION",
+                "ai_leader_repair_fraction": 0.42,
+                "ai_leader_drift_fraction": 0.10,
+                "message": "Market and AI leaders are attempting repair.",
+            },
         },
         "calibration_candidate_tiers": [
             {
@@ -642,6 +654,8 @@ def test_write_premarket_report_includes_calibration_section(tmp_path) -> None:
                 "calibration_tier": "RELAXED",
                 "passed_tiers": "RELAXED",
                 "score": -0.01,
+                "reversal_phase": "REPAIR_ATTEMPT",
+                "reversal_score": 6.25,
                 "manual_review_allowed": True,
                 "calibration_action": "RELAXED_WATCHLIST_REVIEW_ONLY",
             }
@@ -659,6 +673,8 @@ def test_write_premarket_report_includes_calibration_section(tmp_path) -> None:
 
     assert "Strategy calibration" in markdown
     assert "RELAXED_WATCHLIST" in markdown
+    assert "EARLY_REPAIR" in markdown
+    assert "REPAIR_ATTEMPT" in markdown
     assert "RELAXED_WATCHLIST_REVIEW_ONLY" in markdown
 
 

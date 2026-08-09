@@ -25,6 +25,8 @@ from quant_system.universe.config import load_benchmark_config, load_watchlist_c
 
 MARKET_PROXY_SYMBOLS = ("QQQ", "SPY")
 LEADER_LIQUIDITY_TIERS = {"mega", "high"}
+REPAIR_STATES = {"REVERSAL_ATTEMPT", "CONFIRMED_REVERSAL", "UPTREND"}
+DOWN_STATES = {"DRIFT_DOWN", "WASHOUT", "LAGGING"}
 
 
 @dataclass(frozen=True)
@@ -203,6 +205,7 @@ def compute_symbol_states(
     for proxy in proxies:
         proxy_metrics = metrics.get(proxy.symbol, {})
         state = classify_trend_state(proxy_metrics)
+        reversal_context = classify_reversal_context(proxy_metrics, state)
         states[proxy.symbol] = {
             "symbol": proxy.symbol,
             "layer": proxy.layer,
@@ -214,6 +217,7 @@ def compute_symbol_states(
             "theme": proxy.theme,
             "subtheme": proxy.subtheme,
             "trend_state": state,
+            **reversal_context,
             **proxy_metrics,
         }
     return states
@@ -264,6 +268,106 @@ def classify_trend_state(metrics: dict[str, Any]) -> str:
     return "LAGGING"
 
 
+def classify_reversal_context(metrics: dict[str, Any], trend_state: str) -> dict[str, Any]:
+    """Explain whether a symbol is still drifting lower or trying to repair.
+
+    This is read-only diagnostic context. It does not approve trades by itself; the
+    existing hard strategy rules, sector confirmation, and manual-review gates stay
+    responsible for candidate eligibility.
+    """
+    if trend_state == "INSUFFICIENT_DATA":
+        return {
+            "reversal_phase": "INSUFFICIENT_DATA",
+            "reversal_score": None,
+            "reversal_reasons": "",
+        }
+
+    return_5d = _float_or_none(metrics.get("return_5d"))
+    return_20d = _float_or_none(metrics.get("return_20d"))
+    relative_20d = _float_or_none(metrics.get("relative_return_20d"))
+    drawdown_20d = _float_or_none(metrics.get("drawdown_20d"))
+    drawdown_60d = _float_or_none(metrics.get("drawdown_60d"))
+    rsi14 = _float_or_none(metrics.get("rsi14"))
+    ma20_slope_5d = _float_or_none(metrics.get("ma20_slope_5d"))
+    down_day_ratio_20d = _float_or_none(metrics.get("down_day_ratio_20d"))
+    above_ma20 = bool(metrics.get("above_ma20"))
+    above_ma50 = bool(metrics.get("above_ma50"))
+    reclaimed_previous_high = bool(metrics.get("reclaimed_previous_high"))
+
+    score = 0.0
+    reasons: list[str] = []
+    if trend_state == "CONFIRMED_REVERSAL":
+        score += 3.0
+        reasons.append("trend_confirmed_reversal")
+    elif trend_state == "REVERSAL_ATTEMPT":
+        score += 2.0
+        reasons.append("trend_reversal_attempt")
+    elif trend_state == "UPTREND":
+        score += 1.5
+        reasons.append("trend_uptrend")
+    elif trend_state in {"DRIFT_DOWN", "WASHOUT"}:
+        score -= 2.0
+        reasons.append(f"trend_{trend_state.lower()}")
+    elif trend_state == "WEAKENING":
+        score -= 0.5
+        reasons.append("trend_weakening")
+
+    if _positive(return_5d):
+        score += 1.0
+        reasons.append("positive_5d")
+    if _positive(return_20d):
+        score += 1.0
+        reasons.append("positive_20d")
+    if _positive(relative_20d):
+        score += 1.0
+        reasons.append("beating_benchmark_20d")
+    if above_ma20:
+        score += 1.0
+        reasons.append("above_ma20")
+    if above_ma50:
+        score += 0.5
+        reasons.append("above_ma50")
+    if _positive(ma20_slope_5d):
+        score += 0.75
+        reasons.append("ma20_slope_turning_up")
+    if reclaimed_previous_high:
+        score += 0.75
+        reasons.append("reclaimed_previous_high")
+    if rsi14 is not None and rsi14 >= 45:
+        score += 0.5
+        reasons.append("rsi_recovered")
+
+    if drawdown_20d is not None and drawdown_20d >= 0.08:
+        score -= 0.75
+        reasons.append("deep_20d_drawdown")
+    if drawdown_60d is not None and drawdown_60d >= 0.18:
+        score -= 0.75
+        reasons.append("deep_60d_drawdown")
+    if down_day_ratio_20d is not None and down_day_ratio_20d >= 0.55:
+        score -= 0.75
+        reasons.append("persistent_down_days")
+
+    phase = "NEUTRAL"
+    if trend_state == "WASHOUT":
+        phase = "CAPITULATION_WASHOUT"
+    elif trend_state == "DRIFT_DOWN":
+        phase = "DRIFTING_LOWER"
+    elif trend_state == "CONFIRMED_REVERSAL" and score >= 5.0:
+        phase = "CONFIRMED_REPAIR"
+    elif trend_state in {"REVERSAL_ATTEMPT", "CONFIRMED_REVERSAL", "UPTREND"} and score >= 3.5:
+        phase = "REPAIR_ATTEMPT"
+    elif trend_state == "WEAKENING":
+        phase = "WEAKENING"
+    elif trend_state == "LAGGING":
+        phase = "LAGGING"
+
+    return {
+        "reversal_phase": phase,
+        "reversal_score": _round_or_none(max(0.0, min(score, 10.0))),
+        "reversal_reasons": ";".join(reasons),
+    }
+
+
 def calibrate_strategy_context(
     *,
     state_by_symbol: dict[str, dict[str, Any]],
@@ -283,6 +387,12 @@ def calibrate_strategy_context(
     ]
     ai_breadth = _breadth(ai_states)
     hedge_breadth = _breadth(hedge_states)
+    reversal_context = _reversal_context(
+        qqq_state=qqq_state,
+        spy_state=spy_state,
+        ai_states=ai_states,
+        hedge_states=hedge_states,
+    )
     ai_vs_hedge = _find_spread(pair_spreads, "ai_alpha_vs_hedge_overlay")
     spread_20d = ai_vs_hedge.get("spread_relative_20d") if ai_vs_hedge else None
     spread_60d = ai_vs_hedge.get("spread_relative_60d") if ai_vs_hedge else None
@@ -332,6 +442,7 @@ def calibrate_strategy_context(
         },
         "ai_leader_breadth": ai_breadth,
         "hedge_breadth": hedge_breadth,
+        "reversal_context": reversal_context,
         "ai_vs_hedge_spread_20d": spread_20d,
         "ai_vs_hedge_spread_60d": spread_60d,
     }
@@ -438,6 +549,82 @@ def _breadth(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _reversal_context(
+    *,
+    qqq_state: str,
+    spy_state: str,
+    ai_states: list[dict[str, Any]],
+    hedge_states: list[dict[str, Any]],
+) -> dict[str, Any]:
+    ai_repair_fraction = _phase_fraction(
+        ai_states,
+        {"REPAIR_ATTEMPT", "CONFIRMED_REPAIR"},
+    )
+    ai_confirmed_fraction = _phase_fraction(ai_states, {"CONFIRMED_REPAIR"})
+    ai_drift_fraction = _phase_fraction(
+        ai_states,
+        {"DRIFTING_LOWER", "CAPITULATION_WASHOUT"},
+    )
+    hedge_repair_fraction = _phase_fraction(
+        hedge_states,
+        {"REPAIR_ATTEMPT", "CONFIRMED_REPAIR"},
+    )
+    market_repairing = qqq_state in REPAIR_STATES and spy_state not in DOWN_STATES
+    market_hostile = qqq_state in DOWN_STATES and spy_state in DOWN_STATES
+
+    if market_hostile or (ai_drift_fraction is not None and ai_drift_fraction >= 0.45):
+        status = "DOWNTREND_OR_WASHOUT"
+        action_hint = "DEFENSE_FIRST"
+        message = (
+            "AI leaders are still drifting or washed out; reversal entries need "
+            "more confirmation."
+        )
+    elif (
+        market_repairing
+        and ai_repair_fraction is not None
+        and ai_repair_fraction >= 0.35
+    ):
+        status = "EARLY_REPAIR"
+        action_hint = "WATCH_FOR_CONFIRMATION"
+        message = (
+            "Market and AI leaders are attempting repair; keep this as watch "
+            "context until hard rules confirm."
+        )
+    elif ai_confirmed_fraction is not None and ai_confirmed_fraction >= 0.35:
+        status = "CONFIRMED_REPAIR"
+        action_hint = "ALLOW_EXISTING_GATES_TO_WORK"
+        message = (
+            "A meaningful share of AI leaders is in confirmed repair; existing "
+            "gates may surface candidates."
+        )
+    elif hedge_repair_fraction is not None and hedge_repair_fraction >= 0.35:
+        status = "DEFENSIVE_REPAIR_LEADING"
+        action_hint = "REVIEW_DEFENSIVE_OVERLAY"
+        message = "Defensive overlays show stronger repair than AI leaders."
+    else:
+        status = "NO_CLEAR_REPAIR"
+        action_hint = "BASELINE_DISCIPLINE"
+        message = "No broad repair signal; use baseline discipline."
+
+    return {
+        "status": status,
+        "action_hint": action_hint,
+        "message": message,
+        "market_repairing": market_repairing,
+        "market_hostile": market_hostile,
+        "ai_leader_repair_fraction": ai_repair_fraction,
+        "ai_leader_confirmed_fraction": ai_confirmed_fraction,
+        "ai_leader_drift_fraction": ai_drift_fraction,
+        "hedge_repair_fraction": hedge_repair_fraction,
+    }
+
+
+def _phase_fraction(rows: list[dict[str, Any]], phases: set[str]) -> float | None:
+    if not rows:
+        return None
+    return _round_or_none(sum(row.get("reversal_phase") in phases for row in rows) / len(rows))
+
+
 def _counts(rows: list[dict[str, Any]]) -> dict[str, int]:
     return {
         "row_count": len(rows),
@@ -452,6 +639,12 @@ def _counts(rows: list[dict[str, Any]]) -> dict[str, int]:
         ),
         "confirmed_reversal_count": sum(
             row["trend_state"] == "CONFIRMED_REVERSAL" for row in rows
+        ),
+        "repair_attempt_count": sum(
+            row["reversal_phase"] == "REPAIR_ATTEMPT" for row in rows
+        ),
+        "confirmed_repair_count": sum(
+            row["reversal_phase"] == "CONFIRMED_REPAIR" for row in rows
         ),
     }
 
@@ -548,6 +741,16 @@ def _is_positive(value: object) -> bool:
 
 def _is_negative(value: object) -> bool:
     return value is not None and float(value) < 0
+
+
+def _positive(value: float | None) -> bool:
+    return value is not None and value > 0
+
+
+def _float_or_none(value: object) -> float | None:
+    if value is None:
+        return None
+    return float(value)
 
 
 def _ensure_utc(value: datetime) -> datetime:

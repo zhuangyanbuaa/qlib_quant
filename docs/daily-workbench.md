@@ -33,6 +33,108 @@ The position check writes JSON, CSV, Markdown, and HTML under
 `HOLD`, `EXIT_STOP`, `EXIT_TARGET`, `EXIT_TIME`, `DEFENSIVE_ROTATION`, or
 `REVIEW_MISSING_PLAN`.
 
+## Generate a manual research list
+
+For hand-trading support, generate a wider research list without widening the
+actual trade gate:
+
+```bash
+quant decision research-list --date 2026-08-07 --no-news-risk --max-symbols 20
+```
+
+The command first builds the usual premarket calibration context, then writes:
+
+```text
+data/reports/daily/<date>/<run_id>/research.json
+data/reports/daily/<date>/<run_id>/research_candidates.csv
+data/reports/daily/<date>/<run_id>/research.md
+data/reports/daily/<date>/<run_id>/news_research_prompt.md
+```
+
+Research buckets are intentionally broader than trade actions:
+
+- `ACTIONABLE_CANDIDATE`: passed the existing action/review path.
+- `RESEARCH_WATCHLIST`: technically interesting enough to research, but still
+  requires manual judgment.
+- `BLOCKED_BUT_INTERESTING`: has a setup worth reading about, but was blocked by
+  defensive context, sector confirmation, or quality gates.
+- `DEFENSIVE_RESEARCH`: defensive overlay context worth checking.
+
+Copy `news_research_prompt.md` into a browsing-capable Codex session to summarize
+recent news for the listed symbols. The prompt requires source links and dates
+and asks for `重点研究` / `继续观察` / `暂时跳过`, not buy/sell instructions.
+
+## Occasional 2x leveraged ETF overlay strategy
+
+If you occasionally consider 2x long ETFs, use the separate subsidiary strategy:
+
+```bash
+quant decision leverage-overlay \
+  --date 2026-08-07 \
+  --underlying MU \
+  --leveraged-etf MUU \
+  --sector-etf SOXX \
+  --catalyst-review-needed
+```
+
+To scan the configured 2x overlay radar across common watchlist-backed products:
+
+```bash
+quant decision leverage-overlay \
+  --date 2026-08-07 \
+  --all \
+  --catalyst-review-needed
+```
+
+The command writes:
+
+```text
+data/reports/daily/<date>/<run_id>/leverage_overlay.json
+data/reports/daily/<date>/<run_id>/leverage_overlay.md
+data/reports/daily/<date>/<run_id>/leverage_overlay_prompt.md
+```
+
+Batch mode writes:
+
+```text
+data/reports/daily/<date>/<run_id>/leverage_overlay_universe.json
+data/reports/daily/<date>/<run_id>/leverage_overlay_universe.md
+data/reports/daily/<date>/<run_id>/leverage_overlay_universe_prompt.md
+data/reports/daily/<date>/<run_id>/leverage_overlay_universe_candidates.csv
+```
+
+Some batch rows may show `generic_2x_watch` instead of a concrete 2x ETF ticker.
+Those rows mean the underlying stock/index has a potentially attractive
+risk-on setup for manual leverage research. They do not assert that a specific
+leveraged product exists or is liquid enough to trade.
+
+Batch reports also include `attention_status`:
+
+- `FORMAL_2X_REVIEW`: the row reached the normal 2x review gate.
+- `GENERIC_2X_RISKON_WATCH`: no product ticker is specified, but the underlying
+  risk-on score is high enough to research a 2x expression manually.
+- `UNDERLYING_RISKON_WATCH`: a concrete product row did not pass the full gate,
+  but the underlying still deserves attention.
+- `NO_LEVERAGE_ATTENTION`: no leverage-specific follow-up.
+
+Actions are deliberately manual:
+
+- `ALLOW_MANUAL_REVIEW`: all checklist items, including catalyst, passed.
+- `NEED_CATALYST_REVIEW`: technical and risk gates passed, but catalyst/news
+  still needs manual validation.
+- `COMMON_STOCK_PREFERRED`: setup is interesting, but not strong enough for 2x.
+- `NO_2X_TRADE`: one or more critical leverage gates failed.
+
+This overlay is intentionally outside the main Buy-the-Dip strategy gate. It
+does not add rows to `premarket.candidates`, does not create paper fills, and
+does not override sector confirmation or manual review discipline. The full
+framework and batch universe live in:
+
+```text
+docs/2x-leveraged-etf-framework.md
+configs/universe/leverage_overlay_universe.yaml
+```
+
 ## Refresh and open gates
 
 Run a pre-open refresh from the latest premarket report:
