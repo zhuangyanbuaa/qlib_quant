@@ -77,12 +77,30 @@ quant decision leverage-overlay \
   --catalyst-review-needed
 ```
 
+To scan the configured 2x overlay radar across common watchlist-backed products:
+
+```bash
+quant decision leverage-overlay \
+  --date 2026-08-07 \
+  --all \
+  --catalyst-review-needed
+```
+
 The command writes:
 
 ```text
 data/reports/daily/<date>/<run_id>/leverage_overlay.json
 data/reports/daily/<date>/<run_id>/leverage_overlay.md
 data/reports/daily/<date>/<run_id>/leverage_overlay_prompt.md
+```
+
+Batch mode writes:
+
+```text
+data/reports/daily/<date>/<run_id>/leverage_overlay_universe.json
+data/reports/daily/<date>/<run_id>/leverage_overlay_universe.md
+data/reports/daily/<date>/<run_id>/leverage_overlay_universe_prompt.md
+data/reports/daily/<date>/<run_id>/leverage_overlay_universe_candidates.csv
 ```
 
 Actions are deliberately manual:
@@ -96,10 +114,11 @@ Actions are deliberately manual:
 This overlay is intentionally outside the main Buy-the-Dip strategy gate. It
 does not add rows to `premarket.candidates`, does not create paper fills, and
 does not override sector confirmation or manual review discipline. The full
-framework lives in:
+framework and batch universe live in:
 
 ```text
 docs/2x-leveraged-etf-framework.md
+configs/universe/leverage_overlay_universe.yaml
 ```
 
 ## Refresh and open gates

@@ -1,0 +1,286 @@
+version: '2026-08-09'
+universe_type: LEVERAGE_OVERLAY
+description: Manual-only 2x long product overlay universe. This is a subsidiary
+  tactical radar and must not be merged into the main Buy-the-Dip strategy.
+selection_policy:
+  start_date_rule: Every mapping starts no earlier than the overlay selection date.
+  market_proxy: QQQ
+  use_case: Manual review of occasional 2x long expression after the underlying,
+    market, sector, stop, risk/reward, and catalyst gates are satisfied.
+  hard_boundary: This universe does not authorize automatic orders and does not
+    modify main-strategy candidates.
+  source_basis:
+  - Selected only when the underlying already exists in the repository watchlists
+    or benchmark layer.
+  - Product availability was cross-checked with issuer/product metadata and
+    recent quote availability on 2026-08-09; revalidate before live use because
+    single-stock leveraged products can change quickly.
+  - Direxion leveraged single-stock products are used where they are the clearest
+    canonical mapping for this watchlist.
+  - GraniteShares and T-Rex alternatives are listed for manual comparison when
+    common alternatives exist.
+pairs:
+- underlying_symbol: NVDA
+  leveraged_etf_symbol: NVDL
+  alternative_leveraged_etfs:
+  - NVDU
+  - NVDX
+  sector_etf: SOXX
+  market_symbol: QQQ
+  tier: primary
+  provider: GraniteShares
+  product_type: single_stock_2x
+  universe_role: ai_alpha
+  notes: NVIDIA is the primary AI accelerator leader; use 2x only when QQQ,
+    SOXX, and NVDA all confirm.
+  source_urls:
+  - https://graniteshares.com/institutional/us/en-us/etfs/
+- underlying_symbol: AMD
+  leveraged_etf_symbol: AMDL
+  alternative_leveraged_etfs: []
+  sector_etf: SOXX
+  market_symbol: QQQ
+  tier: primary
+  provider: GraniteShares
+  product_type: single_stock_2x
+  universe_role: ai_alpha
+  notes: AMD AI accelerator and CPU exposure; keep below NVDA conviction unless
+    relative strength improves.
+  source_urls:
+  - https://graniteshares.com/institutional/us/en-us/etfs/
+- underlying_symbol: AVGO
+  leveraged_etf_symbol: AVGU
+  alternative_leveraged_etfs:
+  - AVGX
+  sector_etf: SOXX
+  market_symbol: QQQ
+  tier: primary
+  provider: GraniteShares
+  product_type: single_stock_2x
+  universe_role: ai_alpha
+  notes: Broadcom custom silicon/networking exposure; suitable only as a tactical
+    expression after semiconductor sector confirmation.
+  source_urls:
+  - https://graniteshares.com/institutional/us/en-us/etfs/
+- underlying_symbol: MU
+  leveraged_etf_symbol: MUU
+  alternative_leveraged_etfs: []
+  sector_etf: SOXX
+  market_symbol: QQQ
+  tier: primary
+  provider: Direxion
+  product_type: single_stock_2x
+  universe_role: ai_alpha
+  notes: Memory-cycle 2x expression; requires especially strong catalyst review
+    because memory names can gap violently.
+  source_urls:
+  - https://www.direxion.com/
+- underlying_symbol: PLTR
+  leveraged_etf_symbol: PTIR
+  alternative_leveraged_etfs:
+  - PLTU
+  sector_etf: IGV
+  market_symbol: QQQ
+  tier: primary
+  provider: GraniteShares
+  product_type: single_stock_2x
+  universe_role: ai_satellite
+  notes: AI software/platform momentum product; not part of hardware core.
+  source_urls:
+  - https://graniteshares.com/institutional/us/en-us/etfs/
+- underlying_symbol: SMCI
+  leveraged_etf_symbol: SMCX
+  alternative_leveraged_etfs:
+  - SMCL
+  sector_etf: DTCR
+  market_symbol: QQQ
+  tier: satellite
+  provider: Defiance
+  product_type: single_stock_2x
+  universe_role: ai_alpha
+  notes: Server and data-center infrastructure beta; require extra accounting and
+    headline-risk review.
+  source_urls:
+  - https://www.defianceetfs.com/
+- underlying_symbol: DELL
+  leveraged_etf_symbol: DLLL
+  alternative_leveraged_etfs: []
+  sector_etf: DTCR
+  market_symbol: QQQ
+  tier: satellite
+  provider: GraniteShares
+  product_type: single_stock_2x
+  universe_role: ai_alpha
+  notes: AI server infrastructure expression; use only after data-center hardware
+    breadth confirms.
+  source_urls:
+  - https://graniteshares.com/institutional/us/en-us/etfs/
+- underlying_symbol: MRVL
+  leveraged_etf_symbol: MVLL
+  alternative_leveraged_etfs: []
+  sector_etf: SOXX
+  market_symbol: QQQ
+  tier: satellite
+  provider: GraniteShares
+  product_type: single_stock_2x
+  universe_role: ai_alpha
+  notes: Networking/custom-silicon satellite; demand catalyst review before
+    leverage.
+  source_urls:
+  - https://graniteshares.com/institutional/us/en-us/etfs/
+- underlying_symbol: VRT
+  leveraged_etf_symbol: VRTL
+  alternative_leveraged_etfs: []
+  sector_etf: DTCR
+  market_symbol: QQQ
+  tier: satellite
+  provider: GraniteShares
+  product_type: single_stock_2x
+  universe_role: ai_alpha
+  notes: Data-center power/cooling leader; 2x overlay only when DTCR and QQQ are
+    risk-on.
+  source_urls:
+  - https://graniteshares.com/institutional/us/en-us/etfs/
+- underlying_symbol: NBIS
+  leveraged_etf_symbol: NBIL
+  alternative_leveraged_etfs: []
+  sector_etf: DTCR
+  market_symbol: QQQ
+  tier: watch_only
+  provider: GraniteShares
+  product_type: single_stock_2x
+  universe_role: ai_alpha
+  notes: Very high-beta AI infrastructure satellite; keep as watch-only unless
+    liquidity and catalyst are unusually clean.
+  source_urls:
+  - https://graniteshares.com/institutional/us/en-us/etfs/
+- underlying_symbol: AAPL
+  leveraged_etf_symbol: AAPU
+  alternative_leveraged_etfs:
+  - AAPB
+  sector_etf: QQQ
+  market_symbol: QQQ
+  tier: satellite
+  provider: Direxion
+  product_type: single_stock_2x
+  universe_role: internet_platform_satellite
+  notes: Mega-cap platform/consumer hardware beta; lower AI-hardware priority.
+  source_urls:
+  - https://www.direxion.com/
+- underlying_symbol: AMZN
+  leveraged_etf_symbol: AMZU
+  alternative_leveraged_etfs:
+  - AMZZ
+  sector_etf: QQQ
+  market_symbol: QQQ
+  tier: satellite
+  provider: Direxion
+  product_type: single_stock_2x
+  universe_role: ai_satellite
+  notes: AWS/platform beta; treat as platform satellite rather than hardware core.
+  source_urls:
+  - https://www.direxion.com/
+- underlying_symbol: GOOGL
+  leveraged_etf_symbol: GGLL
+  alternative_leveraged_etfs:
+  - GOOX
+  sector_etf: QQQ
+  market_symbol: QQQ
+  tier: satellite
+  provider: Direxion
+  product_type: single_stock_2x
+  universe_role: ai_satellite
+  notes: Search/cloud/AI platform beta; use only when platform rotation is risk-on.
+  source_urls:
+  - https://www.direxion.com/
+- underlying_symbol: MSFT
+  leveraged_etf_symbol: MSFU
+  alternative_leveraged_etfs:
+  - MSFL
+  sector_etf: IGV
+  market_symbol: QQQ
+  tier: satellite
+  provider: Direxion
+  product_type: single_stock_2x
+  universe_role: ai_satellite
+  notes: Cloud/software AI platform beta; confirm IGV and QQQ first.
+  source_urls:
+  - https://www.direxion.com/
+- underlying_symbol: META
+  leveraged_etf_symbol: METU
+  alternative_leveraged_etfs:
+  - FBL
+  sector_etf: QQQ
+  market_symbol: QQQ
+  tier: satellite
+  provider: Direxion
+  product_type: single_stock_2x
+  universe_role: ai_satellite
+  notes: Mega-cap internet/AI capex beta; not an AI hardware core signal.
+  source_urls:
+  - https://www.direxion.com/
+- underlying_symbol: TSLA
+  leveraged_etf_symbol: TSLL
+  alternative_leveraged_etfs:
+  - TSLR
+  - TSLT
+  sector_etf: QQQ
+  market_symbol: QQQ
+  tier: watch_only
+  provider: Direxion
+  product_type: single_stock_2x
+  universe_role: internet_platform_satellite
+  notes: High-beta consumer/robotics/EV name; keep watch-only due to event and
+    headline volatility.
+  source_urls:
+  - https://www.direxion.com/
+- underlying_symbol: COIN
+  leveraged_etf_symbol: CONL
+  alternative_leveraged_etfs: []
+  sector_etf: QQQ
+  market_symbol: QQQ
+  tier: watch_only
+  provider: GraniteShares
+  product_type: single_stock_2x
+  universe_role: crypto_compute_satellite
+  notes: Crypto beta dominates; require BTC/regulatory catalyst review.
+  source_urls:
+  - https://graniteshares.com/institutional/us/en-us/etfs/
+- underlying_symbol: MSTR
+  leveraged_etf_symbol: MSTU
+  alternative_leveraged_etfs:
+  - MSTX
+  sector_etf: QQQ
+  market_symbol: QQQ
+  tier: watch_only
+  provider: T-Rex
+  product_type: single_stock_2x
+  universe_role: crypto_compute_satellite
+  notes: Bitcoin treasury beta; treat as speculative overlay only.
+  source_urls:
+  - https://www.rexshares.com/
+- underlying_symbol: QQQ
+  leveraged_etf_symbol: QLD
+  alternative_leveraged_etfs: []
+  sector_etf: QQQ
+  market_symbol: QQQ
+  tier: index
+  provider: ProShares
+  product_type: index_2x
+  universe_role: benchmark
+  notes: 2x Nasdaq-100 expression for broad risk-on tape; not stock-specific.
+  source_urls:
+  - https://www.proshares.com/
+- underlying_symbol: SOXX
+  leveraged_etf_symbol: USD
+  alternative_leveraged_etfs: []
+  sector_etf: SOXX
+  market_symbol: QQQ
+  tier: index
+  provider: ProShares
+  product_type: sector_2x
+  universe_role: semiconductor_sector
+  notes: 2x semiconductor sector expression; useful when single-stock idiosyncratic
+    risk is too high.
+  source_urls:
+  - https://www.proshares.com/

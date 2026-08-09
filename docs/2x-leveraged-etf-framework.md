@@ -22,8 +22,26 @@ quant decision leverage-overlay \
   --catalyst-review-needed
 ```
 
+Scan the full manual 2x overlay radar:
+
+```bash
+quant decision leverage-overlay \
+  --date 2026-08-07 \
+  --all \
+  --catalyst-review-needed
+```
+
 It writes `leverage_overlay.json`, `leverage_overlay.md`, and
 `leverage_overlay_prompt.md` under the daily report directory.
+Batch mode writes `leverage_overlay_universe.json`,
+`leverage_overlay_universe.md`, `leverage_overlay_universe_prompt.md`, and
+`leverage_overlay_universe_candidates.csv`.
+
+The configured batch radar is in:
+
+```text
+configs/universe/leverage_overlay_universe.yaml
+```
 
 - 2x ETF ideas are manual-only tactical overlays.
 - They do not bypass canonical Buy-the-Dip rules, sector confirmation,
@@ -34,6 +52,9 @@ It writes `leverage_overlay.json`, `leverage_overlay.md`, and
   unlevered ETF.
 - If the setup is only "interesting" but not confirmed, use the research list,
   not a 2x ETF.
+- Batch mode evaluates the underlying stock/index and sector context. It does
+  not prove that the leveraged product itself has acceptable live spreads,
+  liquidity, fees, or issuer notices; those remain manual checks.
 
 The overlay action labels are:
 

@@ -63,6 +63,14 @@ def test_decision_help_lists_phase_six_commands() -> None:
     assert "open-gate" in result.stdout
 
 
+def test_leverage_overlay_help_lists_batch_option() -> None:
+    result = runner.invoke(app, ["decision", "leverage-overlay", "--help"])
+
+    assert result.exit_code == 0
+    assert "--all" in result.stdout
+    assert "universe YAML" in result.stdout
+
+
 def test_journal_help_lists_phase_six_commands() -> None:
     result = runner.invoke(app, ["journal", "--help"])
 

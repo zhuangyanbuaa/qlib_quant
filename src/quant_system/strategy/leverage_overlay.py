@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class LeverageOverlayRules(BaseModel):
@@ -29,6 +29,7 @@ class LeverageOverlayRules(BaseModel):
     maximum_return_5d: float = Field(gt=0, le=1)
     minimum_relative_return_60: float
     target_risk_reward: float = Field(ge=1)
+    risk_reward_tolerance: float = Field(default=0.00001, ge=0, le=0.01)
     tactical_position_fraction_hint: float = Field(gt=0, le=0.20)
 
 
@@ -38,6 +39,62 @@ class LeverageOverlayConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     strategy: LeverageOverlayRules
+
+
+class LeverageOverlayUniverseMember(BaseModel):
+    """One manual-only leveraged-product mapping."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    underlying_symbol: str
+    leveraged_etf_symbol: str
+    alternative_leveraged_etfs: tuple[str, ...] = ()
+    sector_etf: str
+    market_symbol: str | None = None
+    tier: Literal["primary", "satellite", "index", "watch_only"]
+    provider: str
+    product_type: Literal["single_stock_2x", "sector_2x", "index_2x"]
+    universe_role: str
+    notes: str
+    source_urls: tuple[str, ...] = ()
+
+    @field_validator(
+        "underlying_symbol",
+        "leveraged_etf_symbol",
+        "sector_etf",
+        "market_symbol",
+        mode="before",
+    )
+    @classmethod
+    def normalize_optional_symbol(cls, value: str | None) -> str | None:
+        return value.upper().replace(".", "-") if isinstance(value, str) else value
+
+    @field_validator("alternative_leveraged_etfs", mode="before")
+    @classmethod
+    def normalize_alternatives(cls, value: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+        return tuple(symbol.upper().replace(".", "-") for symbol in value)
+
+
+class LeverageOverlayUniverseConfig(BaseModel):
+    """Batch scan universe for manual 2x overlay candidates."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: str
+    universe_type: Literal["LEVERAGE_OVERLAY"]
+    description: str
+    selection_policy: dict[str, Any]
+    pairs: tuple[LeverageOverlayUniverseMember, ...]
+
+    @model_validator(mode="after")
+    def pairs_are_unique(self) -> LeverageOverlayUniverseConfig:
+        keys = [
+            (member.underlying_symbol, member.leveraged_etf_symbol)
+            for member in self.pairs
+        ]
+        if len(keys) != len(set(keys)):
+            raise ValueError("leverage overlay pairs must be unique")
+        return self
 
 
 @dataclass(frozen=True)
@@ -94,6 +151,15 @@ def load_leverage_overlay_config(path: Path) -> LeverageOverlayConfig:
     if config.strategy.common_stock_preferred_score > config.strategy.minimum_review_score:
         raise ValueError("common_stock_preferred_score must not exceed minimum_review_score")
     return config
+
+
+def load_leverage_overlay_universe_config(path: Path) -> LeverageOverlayUniverseConfig:
+    """Load the manual 2x overlay batch universe from YAML."""
+    with path.open(encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"leverage overlay universe config must be a mapping: {path}")
+    return LeverageOverlayUniverseConfig.model_validate(payload)
 
 
 def evaluate_leverage_overlay(
@@ -200,7 +266,9 @@ def evaluate_leverage_overlay(
         ),
         _check(
             "risk_reward",
-            stop_ok and risk_reward is not None and risk_reward >= rules.target_risk_reward,
+            stop_ok
+            and risk_reward is not None
+            and risk_reward >= rules.target_risk_reward - rules.risk_reward_tolerance,
             "Draft risk/reward is acceptable.",
             "Draft risk/reward is not acceptable.",
         ),

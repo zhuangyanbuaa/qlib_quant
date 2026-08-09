@@ -19,7 +19,10 @@ from quant_system.decision.gates import (
 )
 from quant_system.decision.hierarchy import run_hierarchy_diagnostics_workflow
 from quant_system.decision.journal import reconstruct_open_positions
-from quant_system.decision.leverage import run_leverage_overlay_workflow
+from quant_system.decision.leverage import (
+    run_leverage_overlay_universe_workflow,
+    run_leverage_overlay_workflow,
+)
 from quant_system.decision.paper import (
     run_paper_advance_workflow,
     run_paper_update_workflow,
@@ -62,7 +65,10 @@ from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.storage.sqlite import OperationsRegistry
 from quant_system.strategy.config import load_buy_the_dip_config
-from quant_system.strategy.leverage_overlay import load_leverage_overlay_config
+from quant_system.strategy.leverage_overlay import (
+    load_leverage_overlay_config,
+    load_leverage_overlay_universe_config,
+)
 from quant_system.universe.config import load_watchlist_config
 
 app = typer.Typer(
@@ -1036,6 +1042,22 @@ def decision_leverage_overlay(
             help="Manual 2x overlay strategy YAML.",
         ),
     ] = PROJECT_ROOT / "configs" / "strategy" / "leverage_overlay.yaml",
+    scan_all: Annotated[
+        bool,
+        typer.Option(
+            "--all/--single",
+            help="Scan the configured manual 2x overlay universe instead of one pair.",
+        ),
+    ] = False,
+    leverage_universe_path: Annotated[
+        Path,
+        typer.Option(
+            "--leverage-universe",
+            exists=True,
+            dir_okay=False,
+            help="Manual 2x overlay universe YAML used with --all.",
+        ),
+    ] = PROJECT_ROOT / "configs" / "universe" / "leverage_overlay_universe.yaml",
 ) -> None:
     """Evaluate a subsidiary manual-only 2x ETF overlay."""
     signal_session = (
@@ -1045,18 +1067,30 @@ def decision_leverage_overlay(
     )
     settings = get_settings()
     repository = ParquetRepository(settings.resolved_data_dir)
-    report, _artifacts = run_leverage_overlay_workflow(
-        repository=repository,
-        database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
-        report_root=settings.resolved_data_dir / "reports" / "daily",
-        signal_session=signal_session,
-        underlying_symbol=underlying,
-        leveraged_etf_symbol=leveraged_etf,
-        sector_etf=sector_etf,
-        market_symbol=market_symbol,
-        config=load_leverage_overlay_config(leverage_config_path),
-        catalyst_confirmed=catalyst_confirmed,
-    )
+    config = load_leverage_overlay_config(leverage_config_path)
+    if scan_all:
+        report, _artifacts = run_leverage_overlay_universe_workflow(
+            repository=repository,
+            database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+            report_root=settings.resolved_data_dir / "reports" / "daily",
+            signal_session=signal_session,
+            config=config,
+            universe=load_leverage_overlay_universe_config(leverage_universe_path),
+            catalyst_confirmed=catalyst_confirmed,
+        )
+    else:
+        report, _artifacts = run_leverage_overlay_workflow(
+            repository=repository,
+            database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
+            report_root=settings.resolved_data_dir / "reports" / "daily",
+            signal_session=signal_session,
+            underlying_symbol=underlying,
+            leveraged_etf_symbol=leveraged_etf,
+            sector_etf=sector_etf,
+            market_symbol=market_symbol,
+            config=config,
+            catalyst_confirmed=catalyst_confirmed,
+        )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
