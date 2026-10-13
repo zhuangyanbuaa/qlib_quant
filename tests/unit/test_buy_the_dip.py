@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from quant_system.domain.enums import EventSeverity, MarketRegime
 from quant_system.sentiment.risk import NewsRiskAssessment
@@ -63,7 +64,7 @@ def test_strategy_generates_next_session_signal_from_yesterday_dip() -> None:
     assert signal.signal_session == date(2026, 6, 26)
     assert signal.earliest_order_session == date(2026, 6, 29)
     assert signal.market_regime is MarketRegime.GREEN
-    assert signal.data_cutoff_utc < signal.signal_time_utc < signal.earliest_order_time_utc
+    assert signal.data_cutoff_utc == signal.signal_time_utc < signal.earliest_order_time_utc
 
 
 def test_red_market_blocks_candidate() -> None:
@@ -123,3 +124,24 @@ def test_medium_news_risk_is_attached_but_not_vetoed() -> None:
     assert len(signals) == 1
     assert signals[0].news_risk == "MEDIUM"
     assert signals[0].news_references[0]["article_id"] == "a1"
+
+
+@pytest.mark.parametrize("blocked_day", [25, 26])
+def test_stale_dip_or_confirmation_bar_cannot_generate_signal(blocked_day) -> None:
+    features = feature_rows()
+    features["is_stale"] = False
+    features.loc[
+        (features["symbol"] == "AAPL") & (features["session_date_ny"].dt.day == blocked_day),
+        "is_stale",
+    ] = True
+    config = load_buy_the_dip_config(Path("configs/strategy/buy_the_dip.yaml"))
+    assert BuyTheDipStrategy(config.strategy).generate_signals(features) == []
+
+
+def test_missing_previous_session_cannot_turn_an_older_dip_into_yesterday() -> None:
+    features = feature_rows()
+    features.loc[features["session_date_ny"].dt.day == 25, "session_date_ny"] = pd.Timestamp(
+        "2026-06-24"
+    )
+    config = load_buy_the_dip_config(Path("configs/strategy/buy_the_dip.yaml"))
+    assert BuyTheDipStrategy(config.strategy).generate_signals(features) == []

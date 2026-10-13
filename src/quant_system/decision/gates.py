@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import csv
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
+from math import isfinite
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from pydantic import ValidationError
+
 from quant_system.decision.reports import DailyReportArtifacts, write_decision_table_report
+from quant_system.domain.clocks import NyseSessionClock
+from quant_system.domain.snapshots import IntradaySnapshot
 
 
 def load_json_report(path: Path) -> dict[str, Any]:
@@ -30,7 +35,7 @@ def latest_report_path(root: Path, *, stem: str) -> Path | None:
 def load_snapshot(path: Path | None) -> dict[str, dict[str, Any]]:
     """Load optional broker snapshot rows keyed by symbol.
 
-    Supported columns: symbol, last_price, news_risk, liquidity_status, note.
+    Rows must satisfy IntradaySnapshot, including complete provenance.
     JSON may be either a list of rows or an object containing a "rows" list.
     """
     if path is None:
@@ -47,11 +52,17 @@ def load_snapshot(path: Path | None) -> dict[str, dict[str, Any]]:
     for row in rows:
         if not isinstance(row, dict) or not row.get("symbol"):
             continue
-        normalized = dict(row)
-        normalized["symbol"] = str(row["symbol"]).upper()
-        if normalized.get("last_price") not in (None, ""):
-            normalized["last_price"] = float(normalized["last_price"])
-        snapshot[normalized["symbol"]] = normalized
+        symbol = str(row["symbol"]).strip().upper()
+        if symbol in snapshot:
+            snapshot[symbol] = {"snapshot_error": "duplicate_snapshot_symbol"}
+            continue
+        try:
+            normalized = dict(row)
+            if isinstance(normalized.get("quality_flags"), str):
+                normalized["quality_flags"] = json.loads(normalized["quality_flags"])
+            snapshot[symbol] = IntradaySnapshot.model_validate(normalized).model_dump(mode="python")
+        except (ValidationError, json.JSONDecodeError):
+            snapshot[symbol] = {"snapshot_error": "invalid_snapshot_contract"}
     return snapshot
 
 
@@ -68,11 +79,15 @@ def run_preopen_refresh_workflow(
     generated_at_utc = _ensure_utc(generated_at_utc or datetime.now(UTC))
     premarket = load_json_report(premarket_report_path)
     snapshot = load_snapshot(snapshot_path)
+    order_session, gate_cutoff, context_error = _gate_context(premarket, -10, generated_at_utc)
     rows = [
         evaluate_gate_row(
             candidate,
             snapshot=snapshot.get(candidate["symbol"]),
             minutes_before_or_after_open=-10,
+            order_session=order_session,
+            gate_cutoff_utc=gate_cutoff,
+            context_error=context_error,
         )
         for candidate in premarket.get("candidates", [])
     ]
@@ -86,6 +101,9 @@ def run_preopen_refresh_workflow(
         minutes_before_or_after_open=-10,
         rows=rows,
         snapshot_path=snapshot_path,
+    )
+    report["metadata"].update(
+        order_session=order_session.isoformat(), gate_cutoff_utc=gate_cutoff.isoformat()
     )
     artifacts = _write_with_artifacts(
         report=report,
@@ -115,11 +133,15 @@ def run_open_gate_workflow(
     generated_at_utc = _ensure_utc(generated_at_utc or datetime.now(UTC))
     premarket = load_json_report(premarket_report_path)
     snapshot = load_snapshot(snapshot_path)
+    order_session, gate_cutoff, context_error = _gate_context(premarket, minutes, generated_at_utc)
     rows = [
         evaluate_gate_row(
             candidate,
             snapshot=snapshot.get(candidate["symbol"]),
             minutes_before_or_after_open=minutes,
+            order_session=order_session,
+            gate_cutoff_utc=gate_cutoff,
+            context_error=context_error,
         )
         for candidate in premarket.get("candidates", [])
     ]
@@ -133,6 +155,9 @@ def run_open_gate_workflow(
         minutes_before_or_after_open=minutes,
         rows=rows,
         snapshot_path=snapshot_path,
+    )
+    report["metadata"].update(
+        order_session=order_session.isoformat(), gate_cutoff_utc=gate_cutoff.isoformat()
     )
     artifacts = _write_with_artifacts(
         report=report,
@@ -151,12 +176,16 @@ def evaluate_gate_row(
     *,
     snapshot: dict[str, Any] | None,
     minutes_before_or_after_open: int,
+    order_session: date | None = None,
+    gate_cutoff_utc: datetime | None = None,
+    context_error: str = "",
 ) -> dict[str, Any]:
     """Return KEEP/REDUCE/DEFER/CANCEL for one candidate."""
     symbol = str(candidate["symbol"]).upper()
     base = {
         "symbol": symbol,
         "signal_id": candidate.get("signal_id"),
+        "decision_id": candidate.get("decision_id", candidate.get("signal_id")),
         "gate_minute": minutes_before_or_after_open,
         "universe_role": candidate.get("universe_role", "unclassified"),
         "planned_action": candidate.get("recommended_action"),
@@ -174,10 +203,63 @@ def evaluate_gate_row(
     if snapshot is None:
         return base
 
+    error = context_error or snapshot.get("snapshot_error", "")
+    if not order_session or gate_cutoff_utc is None:
+        error = error or "missing_gate_time_context"
+    if error:
+        base["reason"] = error
+        return base
+    try:
+        fact = IntradaySnapshot.model_validate(snapshot)
+    except ValidationError:
+        base["reason"] = "invalid_snapshot_contract"
+        return base
+    if fact.symbol != symbol or fact.session_date_ny != order_session:
+        base["reason"] = "snapshot_session_or_symbol_mismatch"
+        return base
+    if max(fact.available_at_utc, fact.quote_at_utc, fact.fetched_at_utc) > gate_cutoff_utc:
+        base["reason"] = "snapshot_after_gate_cutoff"
+        return base
+    if gate_cutoff_utc - fact.quote_at_utc > timedelta(minutes=5):
+        base["reason"] = "stale_snapshot_quote"
+        return base
+    if fact.is_stale or any(
+        flag == "quality_blocked" or flag.startswith("invalid_") for flag in fact.quality_flags
+    ):
+        base["reason"] = "unreliable_snapshot_quality"
+        return base
+    base.update(
+        snapshot_source=fact.source,
+        snapshot_source_version=fact.source_version,
+        snapshot_quote_at_utc=fact.quote_at_utc.isoformat(),
+        snapshot_available_at_utc=fact.available_at_utc.isoformat(),
+        snapshot_fetched_at_utc=fact.fetched_at_utc.isoformat(),
+        snapshot_ingestion_run_id=str(fact.ingestion_run_id),
+        snapshot_quality_flags=list(fact.quality_flags),
+    )
+    snapshot = fact.model_dump(mode="python")
+    if candidate.get("recommended_action") != "PREPARE_MANUAL_CONDITIONAL_ORDER":
+        base["reason"] = "plan_requires_manual_review"
+        return base
+    if candidate.get("news_risk") == "UNKNOWN":
+        base["reason"] = "unverified_plan_news_coverage"
+        return base
+    try:
+        upper = float(candidate["max_gap_up_price"])
+        lower = float(candidate["gap_down_cancel_below"])
+        if not (isfinite(upper) and isfinite(lower) and 0 < lower < upper):
+            raise ValueError
+    except (KeyError, TypeError, ValueError):
+        base["reason"] = "invalid_plan_price_bounds"
+        return base
+
     base["last_price"] = snapshot.get("last_price")
     base["note"] = snapshot.get("note", "")
-    snapshot_news = str(snapshot.get("news_risk", candidate.get("news_risk", "LOW"))).upper()
-    liquidity = str(snapshot.get("liquidity_status", "OK")).upper()
+    snapshot_news = str(snapshot["news_risk"]).upper()
+    liquidity = str(snapshot["liquidity_status"]).upper()
+    if snapshot_news == "UNKNOWN":
+        base["reason"] = "unknown_snapshot_news_risk"
+        return base
     if snapshot_news == "HIGH":
         base["decision"] = "CANCEL"
         base["reason"] = "high_news_risk_snapshot"
@@ -208,6 +290,27 @@ def evaluate_gate_row(
     base["decision"] = "KEEP"
     base["reason"] = "within_price_and_risk_bounds"
     return base
+
+
+def _gate_context(premarket: dict[str, Any], minutes: int, generated: datetime):
+    clock = NyseSessionClock()
+    signal = date.fromisoformat(premarket["metadata"]["signal_session"])
+    order_session = clock.next_session(signal)
+    cutoff = clock.session_open_utc(order_session) + timedelta(minutes=minutes)
+    planned = premarket["metadata"].get("earliest_order_session")
+    error = ""
+    news_time = premarket["metadata"].get("news_cutoff_utc")
+    if news_time and datetime.fromisoformat(news_time.replace("Z", "+00:00")) > cutoff:
+        return order_session, cutoff, "plan_news_after_gate_cutoff"
+    if planned is not None and planned != order_session.isoformat():
+        error = "plan_order_session_mismatch"
+    elif generated < cutoff:
+        error = "gate_not_reached"
+    elif generated >= clock.session_close_utc(order_session):
+        error = "order_session_expired"
+    elif generated > cutoff + timedelta(minutes=5):
+        error = "gate_window_expired"
+    return order_session, cutoff, error
 
 
 def _decision_report(
@@ -283,6 +386,5 @@ def _write_with_artifacts(
 
 def _ensure_utc(value: datetime) -> datetime:
     if value.utcoffset() is None:
-        return value.replace(tzinfo=UTC)
+        raise ValueError("gate timestamps must be timezone-aware")
     return value.astimezone(UTC)
-

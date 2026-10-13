@@ -1,6 +1,8 @@
 from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
+import pytest
+
 from quant_system.domain.models import DailyPrice
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
@@ -58,3 +60,62 @@ def test_views_can_bootstrap_before_parquet_exists(tmp_path) -> None:
         analytics.refresh_views()
 
         assert analytics.query_daily_prices("AAPL").empty
+
+
+def test_historical_snapshot_filters_before_selecting_revision(tmp_path) -> None:
+    repository = ParquetRepository(tmp_path)
+    original = make_price(uuid4(), fetched_offset_days=1, close=101.0)
+    revision = make_price(uuid4(), fetched_offset_days=4, close=103.0).model_copy(
+        update={"available_at_utc": datetime(2026, 6, 29, 20, 30, tzinfo=UTC)}
+    )
+    for price in (original, revision):
+        repository.write_daily_prices([price], run_id=price.ingestion_run_id)
+
+    with DuckDBAnalytics(tmp_path / "analytics.duckdb", repository.daily_prices_root) as db:
+        db.refresh_views()
+        before = db.query_price_history(
+            ("AAPL",),
+            start_date=date(2026, 6, 26),
+            end_date=date(2026, 6, 26),
+            cutoff_utc=datetime(2026, 6, 27, 21, tzinfo=UTC),
+        )
+        boundary = db.query_price_history(
+            ("AAPL",),
+            start_date=date(2026, 6, 26),
+            end_date=date(2026, 6, 26),
+            cutoff_utc=revision.available_at_utc,
+        )
+        invisible = db.query_price_history(
+            ("AAPL",),
+            start_date=date(2026, 6, 26),
+            end_date=date(2026, 6, 26),
+            cutoff_utc=original.timestamp_utc,
+        )
+        latest = db.query_daily_prices("AAPL")
+        versions = db.query_price_versions(
+            ("AAPL",),
+            start_date=date(2026, 6, 26),
+            end_date=date(2026, 6, 26),
+            cutoff_utc=revision.available_at_utc,
+        )
+
+    assert before["close"].tolist() == [101.0]
+    assert before.iloc[0]["ingestion_run_id"] == str(original.ingestion_run_id)
+    assert before.iloc[0]["source_version"] == original.source_version
+    assert boundary["close"].tolist() == [103.0]
+    assert invisible.empty
+    assert latest["close"].tolist() == [103.0]
+    assert len(versions) == 2
+    assert "available_at_utc" in versions
+
+
+def test_historical_price_query_rejects_naive_cutoff(tmp_path) -> None:
+    with DuckDBAnalytics(tmp_path / "analytics.duckdb", tmp_path / "raw" / "prices") as db:
+        db.refresh_views()
+        with pytest.raises(ValueError, match="timezone-aware"):
+            db.query_price_history(
+                ("AAPL",),
+                start_date=date(2026, 6, 26),
+                end_date=date(2026, 6, 26),
+                cutoff_utc=datetime(2026, 6, 26, 21),
+            )

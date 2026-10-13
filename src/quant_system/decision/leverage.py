@@ -86,7 +86,7 @@ def run_leverage_overlay_workflow(
             "run_id": str(run_id),
             "generated_at_utc": generated_at_utc.isoformat(),
             "signal_session": signal_session.isoformat(),
-            "data_cutoff_utc": clock.session_close_utc(signal_session).isoformat(),
+            "data_cutoff_utc": clock.available_at_utc(signal_session).isoformat(),
             "earliest_order_session": earliest_order_session.isoformat(),
             "earliest_order_time_utc": clock.session_open_utc(
                 earliest_order_session
@@ -211,7 +211,7 @@ def run_leverage_overlay_universe_workflow(
             "run_id": str(run_id),
             "generated_at_utc": generated_at_utc.isoformat(),
             "signal_session": signal_session.isoformat(),
-            "data_cutoff_utc": clock.session_close_utc(signal_session).isoformat(),
+            "data_cutoff_utc": clock.available_at_utc(signal_session).isoformat(),
             "earliest_order_session": earliest_order_session.isoformat(),
             "earliest_order_time_utc": clock.session_open_utc(
                 earliest_order_session

@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from quant_system.ingestion.alpha_vantage import AlphaVantageNewsAdapter
-from quant_system.ingestion.base import TransientProviderError
+from quant_system.ingestion.base import ProviderError, TransientProviderError
 
 
 def test_alpha_vantage_news_adapter_parses_feed_and_time_bounds() -> None:
@@ -61,3 +61,38 @@ def test_alpha_vantage_note_is_transient() -> None:
             start_utc=datetime(2026, 7, 1, tzinfo=UTC),
             end_utc=datetime(2026, 7, 2, tzinfo=UTC),
         )
+
+
+@pytest.mark.parametrize("payload", [{}, {"feed": None}, {"feed": {}}])
+def test_missing_feed_cannot_be_classified_as_successful_empty(payload):
+    adapter = AlphaVantageNewsAdapter(
+        api_key="fixture", timeout_seconds=1, limit_per_call=1, transport=lambda *_: payload
+    )
+    assert adapter.version == "NEWS_SENTIMENT-v3"
+    with pytest.raises(ProviderError):
+        adapter.fetch_news(
+            ("NVDA",),
+            start_utc=datetime(2026, 7, 1, tzinfo=UTC),
+            end_utc=datetime(2026, 7, 2, tzinfo=UTC),
+        )
+
+
+def test_response_at_limit_cannot_certify_full_news_coverage():
+    payload = {
+        "feed": [
+            {
+                "title": "Nvidia update",
+                "url": "https://example.com/news",
+                "time_published": "20260701T120000",
+            }
+        ]
+    }
+    adapter = AlphaVantageNewsAdapter(
+        api_key="fixture", timeout_seconds=1, limit_per_call=1, transport=lambda *_: payload
+    )
+    result = adapter.fetch_news(
+        ("NVDA",),
+        start_utc=datetime(2026, 7, 1, tzinfo=UTC),
+        end_utc=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+    assert result.warnings["coverage"] == "response_limit_reached"

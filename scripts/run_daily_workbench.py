@@ -41,6 +41,8 @@ def main() -> None:
         "decision",
         "daily-workbench",
     ]
+    if args.manual_news:
+        command.append("--manual-news")
     if args.date:
         command.extend(["--date", args.date])
     command.append("--news-risk" if args.news_risk else "--no-news-risk")
@@ -53,24 +55,29 @@ def main() -> None:
     src_root = PROJECT_ROOT / "src"
     existing_pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = (
-        str(src_root)
-        if not existing_pythonpath
-        else f"{src_root}{os.pathsep}{existing_pythonpath}"
+        str(src_root) if not existing_pythonpath else f"{src_root}{os.pathsep}{existing_pythonpath}"
     )
     result = subprocess.run(
         command,
         cwd=PROJECT_ROOT,
         env=env,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
+    if result.returncode:
+        if result.stdout:
+            print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        raise SystemExit(result.returncode)
     report = json.loads(result.stdout)
     print(json.dumps(_summary(report), indent=2, sort_keys=True))
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the daily quant workbench.")
+    parser.add_argument("--manual-news", action="store_true", help="Export manual news research.")
     parser.add_argument("--date", help="Signal session in YYYY-MM-DD form.")
     parser.add_argument(
         "--news-risk",
@@ -100,11 +107,13 @@ def _summary(report: dict[str, object]) -> dict[str, object]:
     metadata = report.get("metadata", {})
     summary = report.get("summary", {})
     return {
-        "status": "COMPLETED",
+        "status": report.get("status", "COMPLETED"),
         "signal_session": metadata.get("signal_session"),
         "run_id": metadata.get("run_id"),
         "summary": summary,
         "daily_index": artifacts,
+        "data_health": report.get("data_health", {}),
+        "manual_research": report.get("manual_research"),
     }
 
 

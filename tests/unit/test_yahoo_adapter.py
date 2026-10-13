@@ -1,6 +1,7 @@
 from datetime import date
 
 import pandas as pd
+import pytest
 
 from quant_system.ingestion.yahoo import YahooFinancePriceAdapter
 
@@ -66,3 +67,68 @@ def test_adapter_reports_empty_and_invalid_symbols_without_losing_good_data() ->
     assert len(result.bars) == 1
     assert result.empty_symbols == ("MSFT",)
     assert result.warnings == {"AAPL": "dropped_invalid_rows:1"}
+
+
+@pytest.mark.parametrize("column,value", [("Low", 100.0 + 1e-9), ("High", 102.0 - 1e-9)])
+def test_adapter_rejects_tiny_ohlc_violations_before_domain_validation(column, value) -> None:
+    frame = make_download_frame()
+    frame.loc[pd.Timestamp("2026-06-26"), ("AAPL", column)] = value
+    adapter = YahooFinancePriceAdapter(download=lambda *_args, **_kwargs: frame)
+
+    result = adapter.fetch_daily(
+        ("AAPL", "MSFT"),
+        start=date(2026, 6, 26),
+        end_exclusive=date(2026, 6, 30),
+    )
+
+    assert len(result.bars) == 3
+    assert result.warnings == {"AAPL": "dropped_invalid_rows:1"}
+    assert result.errors == {}
+    for bar in result.bars:
+        assert bar.low <= min(bar.open, bar.close)
+        assert bar.high >= max(bar.open, bar.close)
+
+
+def test_adapter_version_records_normalization_revision(monkeypatch) -> None:
+    monkeypatch.setattr("quant_system.ingestion.yahoo.version", lambda _package: "1.2.3")
+
+    assert YahooFinancePriceAdapter().version == "yfinance-1.2.3/adapter-3"
+
+
+def test_padded_symbol_is_empty_and_action_only_is_separate():
+    frame = make_download_frame()
+    frame["MSFT"] = float("nan")
+    frame.loc[pd.Timestamp("2026-06-29"), ("MSFT", "Volume")] = 0
+    frame.loc[pd.Timestamp("2026-06-29"), ("MSFT", "Dividends")] = 0.7025
+    result = YahooFinancePriceAdapter(download=lambda *_args, **_kwargs: frame).fetch_daily(
+        ("AAPL", "MSFT"), start=date(2026, 6, 26), end_exclusive=date(2026, 6, 30)
+    )
+    assert len(result.bars) == 2
+    assert result.empty_symbols == ("MSFT",)
+    assert not result.errors
+    assert result.warnings == {"MSFT": "padded_rows:1;action_only_rows:1"}
+
+
+@pytest.mark.parametrize(
+    "column,value",
+    [("Open", 0), ("High", float("inf")), ("Volume", float("inf")), ("Open", float("nan"))],
+)
+def test_genuine_invalid_ohlcv_remains_failure(column, value):
+    frame = make_download_frame().iloc[:1].astype(float).copy()
+    frame.loc[:, ("AAPL", column)] = value
+    result = YahooFinancePriceAdapter(download=lambda *_args, **_kwargs: frame).fetch_daily(
+        ("AAPL", "MSFT"), start=date(2026, 6, 26), end_exclusive=date(2026, 6, 30)
+    )
+    assert "AAPL" in result.errors
+    assert result.empty_symbols == ()
+    assert len(result.bars) == 1
+
+
+def test_missing_columns_isolated_and_zero_volume_flagged():
+    frame = make_download_frame().drop(columns=[("MSFT", "Open")])
+    frame.loc[:, ("AAPL", "Volume")] = 0
+    result = YahooFinancePriceAdapter(download=lambda *_args, **_kwargs: frame).fetch_daily(
+        ("AAPL", "MSFT"), start=date(2026, 6, 26), end_exclusive=date(2026, 6, 30)
+    )
+    assert result.errors == {"MSFT": "missing Yahoo columns: ['Open']"}
+    assert all("zero_volume_review" in bar.quality_flags for bar in result.bars)

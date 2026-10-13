@@ -27,6 +27,24 @@ class Settings(BaseSettings):
     sec_user_agent: str = "qlib_quant/0.1 contact@example.com"
 
     @property
+    def alpha_vantage_key_configured(self) -> bool:
+        return bool(
+            self.alpha_vantage_api_key
+            and self.alpha_vantage_api_key.strip().lower()
+            not in {"demo", "your_api_key", "placeholder"}
+        )
+
+    @property
+    def sec_contact_configured(self) -> bool:
+        import re
+
+        return bool(
+            self.sec_user_agent
+            and "example.com" not in self.sec_user_agent.lower()
+            and re.search(r"[^\s@]+@[^\s@]+\.[^\s@]+", self.sec_user_agent)
+        )
+
+    @property
     def resolved_data_dir(self) -> Path:
         """Return an absolute runtime data directory."""
         if self.data_dir.is_absolute():
@@ -40,7 +58,7 @@ class Settings(BaseSettings):
             "data_dir": str(self.resolved_data_dir),
             "log_level": self.log_level,
             "alpha_vantage_api_key": "***" if self.alpha_vantage_api_key else "",
-            "sec_user_agent_configured": str(bool(self.sec_user_agent)),
+            "sec_user_agent_configured": str(self.sec_contact_configured),
         }
 
 

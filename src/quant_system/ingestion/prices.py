@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from quant_system.domain.clocks import NyseSessionClock
 from quant_system.domain.models import DailyPrice
@@ -17,6 +18,7 @@ from quant_system.logging import get_logger
 from quant_system.quality.reports import PipelineStatus, PriceUpdateReport
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
+from quant_system.universe.lifecycle import LifecycleResolver
 
 logger = get_logger(__name__)
 
@@ -74,7 +76,7 @@ class PriceUpdateService:
         """Execute one bounded update and return its persisted quality report."""
         started_at = self._normalize_now(now_utc)
         run_id = run_id or uuid4()
-        provider_calls_before = self.guard.budget.used
+        provider_calls_before = self.guard.attempts_used
         requested = tuple(
             sorted(
                 set(symbol.upper() for symbol in symbols)
@@ -84,6 +86,29 @@ class PriceUpdateService:
         if not requested:
             raise ValueError("at least one symbol is required")
         expected_session = self.clock.latest_completed_session(started_at)
+        original_requested = requested
+        resolver = LifecycleResolver.from_repository(self.repository)
+        lifecycle_as_of = started_at.astimezone(ZoneInfo("America/New_York")).date()
+        mappings = {}
+        inactive = {}
+        event_ids = {}
+        targets = set()
+        for symbol in requested:
+            resolved = resolver.resolve(symbol, as_of=lifecycle_as_of, cutoff_utc=started_at)
+            if resolved.event_ids:
+                event_ids[symbol] = resolved.event_ids
+            if symbol in self.config.core_symbols and (
+                not resolved.active or resolved.symbol != symbol
+            ):
+                inactive[symbol] = resolved.reason or "core_symbol_changed"
+                targets.add(symbol)  # Keep critical failures in the gate and denominator.
+            elif not resolved.active:
+                inactive[symbol] = resolved.reason
+            else:
+                targets.add(resolved.symbol)
+                if resolved.symbol != symbol:
+                    mappings[symbol] = resolved.symbol
+        requested = tuple(sorted(targets))
         logger.info(
             "price_update_started",
             extra={
@@ -104,9 +129,11 @@ class PriceUpdateService:
         up_to_date = tuple(
             symbol
             for symbol in requested
-            if latest_before.get(symbol, date.min) >= expected_session
+            if latest_before.get(symbol, date.min) >= expected_session and symbol not in inactive
         )
-        lagging = tuple(symbol for symbol in requested if symbol not in up_to_date)
+        lagging = tuple(
+            symbol for symbol in requested if symbol not in up_to_date and symbol not in inactive
+        )
         batches = self._build_batches(lagging, latest_before)
         logger.info(
             "price_update_batches_planned",
@@ -129,8 +156,13 @@ class PriceUpdateService:
             warnings.update(result.warnings)
 
         records: list[DailyPrice] = []
+        rejected_lifecycle_rows: dict[str, int] = {}
         for bar in provider_bars:
             if bar.symbol not in requested or bar.session_date > expected_session:
+                continue
+            if not resolver.is_tradable(bar.symbol, as_of=bar.session_date, cutoff_utc=started_at):
+                rejected_lifecycle_rows[bar.symbol] = rejected_lifecycle_rows.get(bar.symbol, 0) + 1
+                warnings[bar.symbol] = "dropped_nontradable_lifecycle_rows"
                 continue
             available_at = self.clock.available_at_utc(bar.session_date)
             if available_at > started_at:
@@ -200,6 +232,10 @@ class PriceUpdateService:
             expected_session=expected_session,
             failed=failed,
             empty=empty,
+        ) + tuple(
+            f"core_symbol_inactive:{symbol}"
+            for symbol in self.config.core_symbols
+            if symbol in inactive
         )
         if blocked_reasons:
             status = PipelineStatus.BLOCKED
@@ -227,8 +263,13 @@ class PriceUpdateService:
             warnings=dict(sorted(warnings.items())),
             rows_written=len(records),
             parquet_files_written=len(written_files),
-            provider_calls=self.guard.budget.used - provider_calls_before,
+            provider_calls=self.guard.attempts_used - provider_calls_before,
             blocked_reasons=blocked_reasons,
+            original_requested_symbols=original_requested,
+            resolved_symbols=mappings,
+            skipped_inactive_symbols=inactive,
+            lifecycle_event_ids=event_ids,
+            rejected_lifecycle_rows=rejected_lifecycle_rows,
         )
         report_path = report.write(self.report_directory)
         logger.info(
@@ -327,11 +368,9 @@ class PriceUpdateService:
             elif latest_after.get(symbol) != expected_session:
                 reasons.append(f"core_symbol_not_current:{symbol}")
         failed_or_empty = set(failed) | empty
-        failure_fraction = len(failed_or_empty) / len(requested)
+        failure_fraction = len(failed_or_empty) / len(requested) if requested else 0.0
         if failure_fraction > self.config.max_failure_fraction:
-            reasons.append(
-                f"failure_fraction_exceeded:{len(failed_or_empty)}/{len(requested)}"
-            )
+            reasons.append(f"failure_fraction_exceeded:{len(failed_or_empty)}/{len(requested)}")
         return tuple(reasons)
 
     @staticmethod

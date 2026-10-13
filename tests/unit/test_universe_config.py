@@ -41,6 +41,21 @@ def test_ai_watchlist_benchmarks_are_declared() -> None:
     assert {member.benchmark_etf for member in watchlist.symbols}.issubset(declared)
 
 
+def test_watchlist_dates_are_inclusive_without_changing_inventory():
+    from datetime import date
+
+    watchlist = load_watchlist_config(Path("configs/universe/ai_watchlist.yaml"))
+    first = watchlist.symbols[0].model_copy(
+        update={"start_date": date(2026, 6, 29), "end_date": date(2026, 6, 30)}
+    )
+    dated = watchlist.model_copy(update={"symbols": (first,)})
+    assert dated.active_members(date(2026, 6, 26)) == ()
+    assert dated.active_members(date(2026, 6, 29)) == (first,)
+    assert dated.active_members(date(2026, 6, 30)) == (first,)
+    assert dated.active_members(date(2026, 7, 1)) == ()
+    assert dated.member_symbols == (first.symbol,)
+
+
 def test_ai_satellite_watchlist_is_separate_forward_only_layer() -> None:
     satellite = load_watchlist_config(Path("configs/universe/ai_satellite_watchlist.yaml"))
     ai_watchlist = load_watchlist_config(Path("configs/universe/ai_watchlist.yaml"))
@@ -50,9 +65,7 @@ def test_ai_satellite_watchlist_is_separate_forward_only_layer() -> None:
 
     assert satellite.universe_type == "AI_SATELLITE"
     assert 40 <= len(satellite.symbols) <= 120
-    assert {"MXL", "NVTS", "CDNS", "SNPS", "ONTO", "CAMT"}.issubset(
-        set(satellite.member_symbols)
-    )
+    assert {"MXL", "NVTS", "CDNS", "SNPS", "ONTO", "CAMT"}.issubset(set(satellite.member_symbols))
     assert set(satellite.benchmark_symbols).issubset(declared)
     assert {member.benchmark_etf for member in satellite.symbols}.issubset(declared)
     assert set(satellite.member_symbols).isdisjoint(set(ai_watchlist.member_symbols))
@@ -107,9 +120,7 @@ def test_hedge_overlay_is_separate_from_ai_alpha_watchlist() -> None:
     assert 20 <= len(hedge_overlay.symbols) <= 60
     assert set(hedge_overlay.benchmark_symbols).issubset(declared)
     assert {member.benchmark_etf for member in hedge_overlay.symbols}.issubset(declared)
-    assert {"COST", "WMT", "PG", "JNJ", "SO", "DUK"}.issubset(
-        set(hedge_overlay.member_symbols)
-    )
+    assert {"COST", "WMT", "PG", "JNJ", "SO", "DUK"}.issubset(set(hedge_overlay.member_symbols))
     assert set(ai_watchlist.member_symbols).isdisjoint(set(hedge_overlay.member_symbols))
 
 

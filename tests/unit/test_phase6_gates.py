@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 from quant_system.decision.gates import evaluate_gate_row
@@ -6,6 +6,23 @@ from quant_system.decision.reports import (
     write_decision_table_report,
     write_premarket_report,
 )
+
+
+def valid_snapshot(price, minutes):
+    cutoff = datetime(2026, 6, 29, 13, 30, tzinfo=UTC) + timedelta(minutes=minutes)
+    return dict(
+        symbol="NVDA",
+        last_price=price,
+        news_risk="LOW",
+        liquidity_status="OK",
+        quote_at_utc=cutoff,
+        session_date_ny=date(2026, 6, 29),
+        source="broker_fixture",
+        source_version="1",
+        fetched_at_utc=cutoff,
+        available_at_utc=cutoff,
+        ingestion_run_id=uuid4(),
+    ), cutoff
 
 
 def candidate() -> dict[str, object]:
@@ -32,10 +49,13 @@ def test_gate_without_snapshot_defers_conservatively() -> None:
 
 
 def test_gate_cancels_when_snapshot_gaps_below_plan() -> None:
+    snapshot, cutoff = valid_snapshot(94, 30)
     row = evaluate_gate_row(
         candidate(),
-        snapshot={"symbol": "NVDA", "last_price": 94.0},
+        snapshot=snapshot,
         minutes_before_or_after_open=30,
+        order_session=date(2026, 6, 29),
+        gate_cutoff_utc=cutoff,
     )
 
     assert row["decision"] == "CANCEL"
@@ -43,10 +63,13 @@ def test_gate_cancels_when_snapshot_gaps_below_plan() -> None:
 
 
 def test_gate_keeps_when_snapshot_is_inside_bounds() -> None:
+    snapshot, cutoff = valid_snapshot(101, 60)
     row = evaluate_gate_row(
         candidate(),
-        snapshot={"symbol": "NVDA", "last_price": 101.0, "news_risk": "LOW"},
+        snapshot=snapshot,
         minutes_before_or_after_open=60,
+        order_session=date(2026, 6, 29),
+        gate_cutoff_utc=cutoff,
     )
 
     assert row["decision"] == "KEEP"

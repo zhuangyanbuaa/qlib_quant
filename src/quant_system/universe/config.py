@@ -118,6 +118,14 @@ class WatchlistConfig(BaseModel):
     def member_symbols(self) -> tuple[str, ...]:
         return tuple(member.symbol for member in self.symbols)
 
+    def active_members(self, as_of: date) -> tuple[WatchlistMemberConfig, ...]:
+        """Membership dates are inclusive; the complete inventory is unchanged."""
+        return tuple(
+            member
+            for member in self.symbols
+            if member.start_date <= as_of and (member.end_date is None or as_of <= member.end_date)
+        )
+
     @property
     def benchmark_symbols(self) -> tuple[str, ...]:
         return self.selection_policy.benchmark_symbols

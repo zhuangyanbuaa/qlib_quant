@@ -21,5 +21,5 @@ def test_public_config_exposes_only_runtime_values() -> None:
         "alpha_vantage_api_key": "",
         "data_dir": str(PROJECT_ROOT / "data"),
         "log_level": "INFO",
-        "sec_user_agent_configured": "True",
+        "sec_user_agent_configured": "False",
     }

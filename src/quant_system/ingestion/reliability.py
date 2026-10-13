@@ -86,11 +86,14 @@ class RetryPolicy:
     def __post_init__(self) -> None:
         if self.attempts < 1:
             raise ValueError("attempts must be positive")
-        if min(
-            self.initial_backoff_seconds,
-            self.maximum_backoff_seconds,
-            self.jitter_seconds,
-        ) < 0:
+        if (
+            min(
+                self.initial_backoff_seconds,
+                self.maximum_backoff_seconds,
+                self.jitter_seconds,
+            )
+            < 0
+        ):
             raise ValueError("retry delays must be non-negative")
 
 
@@ -111,12 +114,22 @@ class ProviderGuard:
         self.retry = retry
         self._sleeper = sleeper
         self._random_uniform = random_uniform
+        self._attempts_used = 0
+        self._attempts_lock = threading.Lock()
+
+    @property
+    def attempts_used(self) -> int:
+        """Attempts reserved by this guard, independent of other processes."""
+        with self._attempts_lock:
+            return self._attempts_used
 
     def call(self, operation: Callable[[], T]) -> T:
         last_error: TransientProviderError | None = None
         for attempt in range(self.retry.attempts):
-            self.budget.consume()
             self.limiter.acquire()
+            self.budget.consume()
+            with self._attempts_lock:
+                self._attempts_used += 1
             try:
                 return operation()
             except TransientProviderError as error:

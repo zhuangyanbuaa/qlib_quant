@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any
 
 import pandas as pd
 
+from quant_system.domain.coverage import NewsCoverageObservation
 from quant_system.domain.enums import EventSeverity
+from quant_system.sentiment.coverage import assess_coverage
 
 
 @dataclass(frozen=True)
@@ -23,6 +25,18 @@ class NewsRiskAssessment:
     article_references: tuple[dict[str, Any], ...] = ()
     event_references: tuple[dict[str, Any], ...] = ()
     reasons: tuple[str, ...] = ()
+    coverage_status: str = "NOT_QUERIED"
+    source_coverage: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def coverage_current(self) -> bool:
+        return self.coverage_status == "CURRENT"
+
+    @property
+    def risk_level(self) -> str:
+        if self.severity is EventSeverity.LOW and not self.coverage_current:
+            return "UNKNOWN"
+        return self.severity.value
 
     @property
     def is_veto(self) -> bool:
@@ -31,7 +45,10 @@ class NewsRiskAssessment:
     def to_dict(self) -> dict[str, object]:
         return {
             "symbol": self.symbol,
-            "severity": self.severity.value,
+            "severity": self.risk_level,
+            "observed_severity": self.severity.value,
+            "coverage_status": self.coverage_status,
+            "source_coverage": self.source_coverage,
             "average_sentiment_score": self.average_sentiment_score,
             "article_count": self.article_count,
             "event_count": self.event_count,
@@ -49,6 +66,7 @@ def assess_news_risk(
     events: pd.DataFrame,
     cutoff_utc: datetime,
     lookback_hours: int,
+    coverage: tuple[NewsCoverageObservation, ...] = (),
 ) -> dict[str, NewsRiskAssessment]:
     """Aggregate deduplicated news and SEC events using only visible facts."""
     start_utc = cutoff_utc - timedelta(hours=lookback_hours)
@@ -56,7 +74,21 @@ def assess_news_risk(
     for symbol in tuple(dict.fromkeys(symbol.upper() for symbol in symbols)):
         symbol_articles = _filter_articles(articles, symbol, start_utc, cutoff_utc)
         symbol_events = _filter_events(events, symbol, start_utc, cutoff_utc)
-        results[symbol] = _assess_symbol(symbol, symbol_articles, symbol_events)
+        availability = assess_coverage(
+            coverage, symbol=symbol, cutoff_utc=cutoff_utc, lookback_hours=lookback_hours
+        )
+        assessment = _assess_symbol(symbol, symbol_articles, symbol_events)
+        results[symbol] = replace(
+            assessment,
+            coverage_status=availability["status"],
+            source_coverage=availability,
+            reasons=assessment.reasons
+            + (
+                (f"news_coverage:{availability['status']}",)
+                if availability["status"] != "CURRENT"
+                else ()
+            ),
+        )
     return results
 
 

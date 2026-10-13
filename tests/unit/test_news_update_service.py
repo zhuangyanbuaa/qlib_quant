@@ -1,5 +1,7 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+import pytest
 
 from quant_system.ingestion.base import (
     ProviderCompanyEvent,
@@ -63,6 +65,155 @@ def guard() -> ProviderGuard:
         limiter=NoopLimiter(),
         retry=RetryPolicy(attempts=1),
     )
+
+
+def test_empty_success_missing_cik_and_dry_run_coverage(tmp_path):
+    class EmptyNews(FakeNewsProvider):
+        def fetch_news(self, symbols, **kwargs):
+            return ProviderNewsResult()
+
+    class MissingCik(FakeEventProvider):
+        def fetch_events(self, symbols, **kwargs):
+            return ProviderCompanyEventResult(warnings={symbols[0]: "missing_cik"})
+
+    repository = ParquetRepository(tmp_path)
+    service = NewsUpdateService(
+        repository=repository,
+        report_directory=tmp_path / "reports",
+        resolver=AliasResolver((CompanyMapping(symbol="NVDA", aliases=("Nvidia",)),)),
+        scorer=RuleBasedSentimentScorer(),
+        config=NewsUpdateConfig(),
+        news_provider=EmptyNews(),
+        news_guard=guard(),
+        event_provider=MissingCik(),
+        event_guard=guard(),
+    )
+    kwargs = dict(
+        start_utc=datetime(2026, 7, 1, tzinfo=UTC), end_utc=datetime(2026, 7, 2, tzinfo=UTC)
+    )
+    dry, _ = service.run(("NVDA",), **kwargs, dry_run=True)
+    assert dry.coverage_rows_written == 0
+    assert repository.read_news_coverage().num_rows == 0
+    report, _ = service.run(("NVDA",), **kwargs)
+    assert report.coverage_results == {"news:NVDA": "EMPTY", "sec:NVDA": "UNAVAILABLE"}
+    assert report.status is PipelineStatus.DEGRADED
+    records = repository.read_news_coverage().to_pylist()
+    assert len(records) == 2
+    assert all(record["available_at_utc"] >= report.started_at_utc for record in records)
+
+
+def test_news_provider_failure_and_absent_sources_never_certify_empty(tmp_path):
+    from quant_system.ingestion.base import ProviderError
+
+    class FailedNews(FakeNewsProvider):
+        def fetch_news(self, *args, **kwargs):
+            raise ProviderError("unavailable")
+
+    repository = ParquetRepository(tmp_path)
+    service = NewsUpdateService(
+        repository=repository,
+        report_directory=tmp_path / "reports",
+        resolver=AliasResolver((CompanyMapping(symbol="NVDA"),)),
+        scorer=RuleBasedSentimentScorer(),
+        config=NewsUpdateConfig(),
+        news_provider=FailedNews(),
+        news_guard=guard(),
+    )
+    report, _ = service.run(
+        ("NVDA",),
+        start_utc=datetime(2026, 7, 1, tzinfo=UTC),
+        end_utc=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+    assert report.coverage_results == {"news:NVDA": "FAILED", "sec:NVDA": "UNAVAILABLE"}
+    assert report.status is PipelineStatus.BLOCKED
+
+
+def test_news_intersection_adapter_queries_each_mapped_symbol_and_skips_unmapped(tmp_path):
+    from urllib.parse import parse_qs, urlsplit
+
+    from quant_system.ingestion.alpha_vantage import AlphaVantageNewsAdapter
+
+    calls = []
+    adapter = AlphaVantageNewsAdapter(
+        api_key="fixture",
+        timeout_seconds=1,
+        limit_per_call=50,
+        topics=("technology",),
+        transport=lambda url, _: (
+            calls.append(parse_qs(urlsplit(url).query)["tickers"]) or {"feed": []}
+        ),
+    )
+    service = NewsUpdateService(
+        repository=ParquetRepository(tmp_path),
+        report_directory=tmp_path / "reports",
+        resolver=AliasResolver((CompanyMapping(symbol="NVDA"), CompanyMapping(symbol="AAPL"))),
+        scorer=RuleBasedSentimentScorer(),
+        config=NewsUpdateConfig(alpha_vantage_batch_size=10),
+        news_provider=adapter,
+        news_guard=guard(),
+    )
+    report, _ = service.run(
+        ("NVDA", "AAPL", "MISSING"),
+        start_utc=datetime(2026, 7, 1, tzinfo=UTC),
+        end_utc=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+    assert calls == [["NVDA"], ["AAPL"]]
+    assert report.alpha_vantage_calls == 2
+    assert report.coverage_results["news:MISSING"] == "UNAVAILABLE"
+    assert report.coverage_results["news:NVDA"] == "PARTIAL"
+    assert report.coverage_results["news:AAPL"] == "PARTIAL"
+
+
+def test_news_entitlement_error_stops_sample_without_retry_or_key_disclosure(tmp_path):
+    from quant_system.ingestion.alpha_vantage import AlphaVantageNewsAdapter
+
+    calls = []
+    adapter = AlphaVantageNewsAdapter(
+        api_key="secret-fixture",
+        timeout_seconds=1,
+        limit_per_call=50,
+        transport=lambda *args: (
+            calls.append(True) or {"Information": "Premium endpoint unavailable for secret-fixture"}
+        ),
+    )
+    source_guard = ProviderGuard(
+        budget=DailyCallBudget(10), limiter=NoopLimiter(), retry=RetryPolicy(attempts=3)
+    )
+    service = NewsUpdateService(
+        repository=ParquetRepository(tmp_path),
+        report_directory=tmp_path / "reports",
+        resolver=AliasResolver((CompanyMapping(symbol="NVDA"), CompanyMapping(symbol="AAPL"))),
+        scorer=RuleBasedSentimentScorer(),
+        config=NewsUpdateConfig(),
+        news_provider=adapter,
+        news_guard=source_guard,
+    )
+    report, path = service.run(
+        ("NVDA", "AAPL"),
+        start_utc=datetime(2026, 7, 1, tzinfo=UTC),
+        end_utc=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+    assert len(calls) == report.alpha_vantage_calls == 1
+    assert set(report.coverage_results.values()) == {"UNAVAILABLE"}
+    assert "secret-fixture" not in path.read_text()
+
+
+def test_future_coverage_window_rejected_before_provider_request(tmp_path):
+    repository = ParquetRepository(tmp_path)
+    service = NewsUpdateService(
+        repository=repository,
+        report_directory=tmp_path / "reports",
+        resolver=AliasResolver((CompanyMapping(symbol="NVDA"),)),
+        scorer=RuleBasedSentimentScorer(),
+        config=NewsUpdateConfig(),
+        news_provider=FakeNewsProvider(),
+        news_guard=guard(),
+    )
+    now = datetime.now(UTC)
+    with pytest.raises(ValueError, match="future interval"):
+        service.run(("NVDA",), start_utc=now, end_utc=now + timedelta(days=1))
+    assert service.news_guard.attempts_used == 0
+    assert repository.read_news_coverage().num_rows == 0
 
 
 class NoopLimiter:

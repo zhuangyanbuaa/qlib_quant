@@ -27,6 +27,12 @@ def test_load_hierarchy_proxies_assigns_three_layers() -> None:
     assert by_symbol["NVDA"].proxy_for == "ai_chips"
 
 
+def test_no_active_leaders_has_conservative_context():
+    context = calibrate_strategy_context(state_by_symbol={}, rotation_summary={}, pair_spreads=[])
+    assert context["candidate_tier_context"] == "INSUFFICIENT_DATA"
+    assert context["risk_multiplier_hint"] == 0
+
+
 def test_classify_trend_state_detects_drift_down() -> None:
     state = classify_trend_state(
         {

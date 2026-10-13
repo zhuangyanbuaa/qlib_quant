@@ -10,6 +10,7 @@ import pandas as pd
 from quant_system.domain.clocks import NyseSessionClock
 from quant_system.domain.enums import MarketRegime
 from quant_system.domain.trading import CandidateSignal
+from quant_system.quality.prices import price_quality_mask
 from quant_system.sentiment.risk import NewsRiskAssessment
 from quant_system.strategy.config import RulesConfig
 from quant_system.strategy.market_regime import classify_market_regime
@@ -38,12 +39,14 @@ class BuyTheDipStrategy:
         frame = self.annotate(features)
         candidates = frame.loc[frame["is_candidate"]].copy()
         if as_of is not None:
-            candidates = candidates.loc[
-                candidates["session_date_ny"].dt.date == as_of
-            ]
+            candidates = candidates.loc[candidates["session_date_ny"].dt.date == as_of]
         signals = []
         for _, row in candidates.iterrows():
-            assessment = news_risk.get(row["symbol"]) if news_risk else None
+            assessment = (
+                news_risk.get(row["symbol"], NewsRiskAssessment(symbol=row["symbol"]))
+                if news_risk is not None
+                else None
+            )
             if assessment and assessment.is_veto:
                 continue
             signals.append(self._to_signal(row, news_risk=assessment))
@@ -60,9 +63,10 @@ class BuyTheDipStrategy:
         """Attach regime and rule booleans for scans, backtests, and diagnostics."""
         frame = features.copy()
         frame["session_date_ny"] = pd.to_datetime(frame["session_date_ny"])
-        benchmark = frame.loc[
-            frame["symbol"] == self.config.benchmark_symbol.upper()
-        ].copy()
+        reliable = price_quality_mask(frame)
+        if "critical_prices_available" in frame:
+            reliable &= frame["critical_prices_available"].fillna(False).astype(bool)
+        benchmark = frame.loc[frame["symbol"] == self.config.benchmark_symbol.upper()].copy()
         if benchmark.empty:
             raise ValueError(f"benchmark missing: {self.config.benchmark_symbol}")
         benchmark["market_regime"] = classify_market_regime(
@@ -70,22 +74,16 @@ class BuyTheDipStrategy:
             yellow_maximum_ma50_decline=self.config.yellow_maximum_ma50_decline,
         )
         regimes = benchmark.set_index("session_date_ny")["market_regime"]
-        frame["market_regime"] = frame["session_date_ny"].map(regimes).fillna(
-            MarketRegime.RED
-        )
+        frame["market_regime"] = frame["session_date_ny"].map(regimes).fillna(MarketRegime.RED)
 
-        atr_drawdown = (
-            frame["rolling_high20"] - frame["close"]
-        ) / frame["atr20"].replace(0, pd.NA)
+        atr_drawdown = (frame["rolling_high20"] - frame["close"]) / frame["atr20"].replace(0, pd.NA)
         dip = (
-            frame["feature_ready"]
+            reliable
+            & frame["feature_ready"]
             & (frame["avg_dollar_volume20"] >= self.config.min_average_dollar_volume)
             & (frame["close"] > frame["ma200"])
             & (frame["ma50_slope20"] >= self.config.minimum_ma50_slope)
-            & (
-                frame["relative_return60"]
-                >= self.config.minimum_relative_return_60
-            )
+            & (frame["relative_return60"] >= self.config.minimum_relative_return_60)
             & frame["drawdown_from_high20"].between(
                 self.config.minimum_drawdown,
                 self.config.maximum_drawdown,
@@ -107,13 +105,24 @@ class BuyTheDipStrategy:
         frame["dip_yesterday"] = (
             frame.groupby("symbol", sort=False)["dip_condition"].shift(1).fillna(False)
         )
+        previous_dates = frame.groupby("symbol", sort=False)["session_date_ny"].shift(1).dt.date
+        expected_previous = {
+            session: self.clock.calendar.previous_session(pd.Timestamp(session)).date()
+            if self.clock.calendar.is_session(pd.Timestamp(session))
+            else None
+            for session in frame["session_date_ny"].dt.date.unique()
+        }
+        frame["dip_yesterday"] &= previous_dates == frame["session_date_ny"].dt.date.map(
+            expected_previous
+        )
         reclaimed_ma5 = (frame["close"] > frame["ma5"]) & (
             frame["previous_close"] <= frame["previous_ma5"]
         )
         broke_previous_high = frame["close"] > frame["previous_high"]
         frame["confirmation"] = reclaimed_ma5 | broke_previous_high
         frame["is_candidate"] = (
-            frame["dip_yesterday"]
+            reliable
+            & frame["dip_yesterday"]
             & frame["confirmation"]
             & frame["feature_ready"]
             & (frame["market_regime"] != MarketRegime.RED)
@@ -130,10 +139,10 @@ class BuyTheDipStrategy:
         signal_session = row["session_date_ny"].date()
         next_session = self.clock.next_session(signal_session)
         news_references = ()
-        news_risk_level = "LOW"
+        news_risk_level = "DISABLED"
         reasons = ["dip_yesterday", "daily_confirmation", "market_regime_open"]
         if news_risk:
-            news_risk_level = news_risk.severity.value
+            news_risk_level = news_risk.risk_level
             news_references = (
                 *news_risk.article_references,
                 *news_risk.event_references,
@@ -147,7 +156,7 @@ class BuyTheDipStrategy:
             ),
             symbol=row["symbol"],
             signal_session=signal_session,
-            data_cutoff_utc=self.clock.session_close_utc(signal_session),
+            data_cutoff_utc=self.clock.available_at_utc(signal_session),
             signal_time_utc=self.clock.available_at_utc(signal_session),
             earliest_order_session=next_session,
             earliest_order_time_utc=self.clock.session_open_utc(next_session),

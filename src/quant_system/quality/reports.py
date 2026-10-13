@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -42,6 +42,11 @@ class PriceUpdateReport:
     parquet_files_written: int
     provider_calls: int
     blocked_reasons: tuple[str, ...]
+    original_requested_symbols: tuple[str, ...] = ()
+    resolved_symbols: dict[str, str] = field(default_factory=dict)
+    skipped_inactive_symbols: dict[str, str] = field(default_factory=dict)
+    lifecycle_event_ids: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    rejected_lifecycle_rows: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -88,6 +93,8 @@ class NewsUpdateReport:
     warnings: dict[str, str]
     failed_sources: dict[str, str]
     blocked_reasons: tuple[str, ...]
+    coverage_rows_written: int = 0
+    coverage_results: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)

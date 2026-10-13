@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 import pandas as pd
 
+from quant_system.backtest.workflow import load_price_snapshot
 from quant_system.decision.reports import DailyReportArtifacts, write_decision_table_report
 from quant_system.decision.rotation import (
     DEFAULT_ROTATION_PERIODS,
@@ -19,9 +20,10 @@ from quant_system.decision.rotation import (
     rotation_posture,
 )
 from quant_system.domain.clocks import NyseSessionClock
-from quant_system.storage.duckdb import DuckDBAnalytics
+from quant_system.quality.prices import price_quality_mask
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.universe.config import load_benchmark_config, load_watchlist_config
+from quant_system.universe.lifecycle import LifecycleResolver, decision_members
 
 MARKET_PROXY_SYMBOLS = ("QQQ", "SPY")
 LEADER_LIQUIDITY_TIERS = {"mega", "high"}
@@ -48,6 +50,8 @@ def load_hierarchy_proxies(
     *,
     universe_paths: tuple[Path, ...],
     benchmark_path: Path,
+    as_of: date | None = None,
+    resolver: LifecycleResolver | None = None,
 ) -> tuple[HierarchyProxy, ...]:
     """Load market, ETF, leader, and stock proxies from existing configs."""
     proxies: dict[tuple[str, str, str], HierarchyProxy] = {}
@@ -65,12 +69,8 @@ def load_hierarchy_proxies(
     for path in universe_paths:
         config = load_watchlist_config(path)
         universe_role = _universe_role(config.universe_type)
-        for member in config.symbols:
-            role = (
-                "leader_stock"
-                if member.liquidity_tier in LEADER_LIQUIDITY_TIERS
-                else "stock"
-            )
+        for member in decision_members(config, as_of=as_of, resolver=resolver):
+            role = "leader_stock" if member.liquidity_tier in LEADER_LIQUIDITY_TIERS else "stock"
             proxies[("stock", member.symbol, universe_role)] = HierarchyProxy(
                 symbol=member.symbol,
                 layer="stock",
@@ -109,22 +109,24 @@ def run_hierarchy_diagnostics_workflow(
     run_id = run_id or uuid4()
     generated_at_utc = _ensure_utc(generated_at_utc or datetime.now(UTC))
     benchmark_symbol = benchmark_symbol.upper()
+    resolver = LifecycleResolver.from_repository(repository)
     proxies = load_hierarchy_proxies(
         universe_paths=universe_paths,
         benchmark_path=benchmark_path,
+        as_of=as_of,
+        resolver=resolver,
     )
-    rotation_members = load_rotation_members(universe_paths)
-    requested_symbols = tuple(
-        sorted({benchmark_symbol, *(proxy.symbol for proxy in proxies)})
-    )
+    rotation_members = load_rotation_members(universe_paths, as_of=as_of, resolver=resolver)
+    requested_symbols = tuple(sorted({benchmark_symbol, *(proxy.symbol for proxy in proxies)}))
 
-    with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
-        analytics.refresh_views()
-        prices = analytics.query_price_history(
-            requested_symbols,
-            start_date=as_of - timedelta(days=320),
-            end_date=as_of,
-        )
+    prices = load_price_snapshot(
+        repository=repository,
+        database_path=database_path,
+        symbols=requested_symbols,
+        start=as_of - timedelta(days=320),
+        end=as_of,
+        benchmark_symbol=benchmark_symbol,
+    )
 
     state_by_symbol = compute_symbol_states(
         prices=prices,
@@ -152,7 +154,7 @@ def run_hierarchy_diagnostics_workflow(
             "run_id": str(run_id),
             "generated_at_utc": generated_at_utc.isoformat(),
             "as_of": as_of.isoformat(),
-            "data_cutoff_utc": NyseSessionClock().session_close_utc(as_of).isoformat(),
+            "data_cutoff_utc": NyseSessionClock().available_at_utc(as_of).isoformat(),
             "benchmark_symbol": benchmark_symbol,
             "universe_history_policy": "CURRENT_SNAPSHOT_FORWARD_ONLY_FOR_DIAGNOSTICS",
             "decision_scope": "READ_ONLY_STRATEGY_CALIBRATION_CONTEXT",
@@ -401,14 +403,17 @@ def calibrate_strategy_context(
         "WASHOUT",
         "LAGGING",
     }
-    ai_reversal = ai_breadth["reversal_or_confirmed_fraction"] >= 0.45
-    ai_down = ai_breadth["drift_or_washout_fraction"] >= 0.45
+    ai_reversal = (ai_breadth["reversal_or_confirmed_fraction"] or 0.0) >= 0.45
+    ai_down = (ai_breadth["drift_or_washout_fraction"] or 0.0) >= 0.45
     defensive_leadership = _is_negative(spread_20d) and (
-        _is_negative(spread_60d)
-        or rotation_summary.get("status") == "AI_MOMENTUM_WEAKENING"
+        _is_negative(spread_60d) or rotation_summary.get("status") == "AI_MOMENTUM_WEAKENING"
     )
 
-    if market_risk_off or (ai_down and defensive_leadership):
+    if not ai_states:
+        tier = "INSUFFICIENT_DATA"
+        risk_multiplier = 0.0
+        message = "No active AI leaders with reliable prices; review only."
+    elif market_risk_off or (ai_down and defensive_leadership):
         tier = "DEFENSIVE"
         risk_multiplier = 0.0
         message = "Market and/or AI leadership is hostile; review cash and defensive overlays."
@@ -456,12 +461,10 @@ def _symbol_metrics(
 ) -> dict[str, dict[str, Any]]:
     if prices.empty:
         return {}
-    frame = prices.copy()
+    frame = prices.loc[price_quality_mask(prices)].copy()
     frame["symbol"] = frame["symbol"].str.upper()
     frame["session_date_ny"] = pd.to_datetime(frame["session_date_ny"]).dt.date
-    frame = frame.loc[frame["session_date_ny"] <= as_of].sort_values(
-        ["symbol", "session_date_ny"]
-    )
+    frame = frame.loc[frame["session_date_ny"] <= as_of].sort_values(["symbol", "session_date_ny"])
     raw_metrics: dict[str, dict[str, Any]] = {}
     for symbol, symbol_frame in frame.groupby("symbol", sort=True):
         raw_metrics[symbol] = _single_symbol_metrics(symbol_frame)

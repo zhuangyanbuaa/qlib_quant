@@ -16,6 +16,63 @@ INGESTION_FIELDS = [
     pa.field("quality_flags", pa.list_(pa.string()), nullable=False),
 ]
 
+COMPANY_MAPPING_SCHEMA = pa.schema(
+    [
+        pa.field(name, pa.string(), nullable=False)
+        for name in ("mapping_id", "symbol", "cik", "source_url")
+    ]
+    + [pa.field("aliases", pa.list_(pa.string()), nullable=False), *INGESTION_FIELDS],
+    metadata={b"schema_name": b"company_mappings", b"schema_version": b"1"},
+)
+
+MANUAL_RESEARCH_SCHEMA = pa.schema(
+    [
+        pa.field(name, pa.string(), nullable=False)
+        for name in (
+            "review_id",
+            "package_id",
+            "package_sha256",
+            "parent_run_id",
+            "result_sha256",
+            "result_json",
+            "reviewed_by",
+        )
+    ]
+    + [pa.field("signal_session", pa.date32(), nullable=False), *INGESTION_FIELDS],
+    metadata={b"schema_name": b"manual_research", b"schema_version": b"1"},
+)
+
+SECURITY_LIFECYCLE_SCHEMA = pa.schema(
+    [
+        pa.field(name, pa.string(), nullable=False)
+        for name in (
+            "event_id",
+            "security_id",
+            "symbol",
+            "event_type",
+            "successor_symbol",
+            "successor_security_id",
+            "source_url",
+        )
+    ]
+    + [pa.field("effective_session", pa.date32(), nullable=False), *INGESTION_FIELDS],
+    metadata={b"schema_name": b"security_lifecycle", b"schema_version": b"1"},
+)
+
+NEWS_COVERAGE_SCHEMA = pa.schema(
+    [
+        pa.field(name, pa.string(), nullable=False)
+        for name in ("coverage_id", "symbol", "channel", "result", "reason")
+    ]
+    + [
+        pa.field("window_start_utc", pa.timestamp("us", tz="UTC"), nullable=False),
+        pa.field("window_end_utc", pa.timestamp("us", tz="UTC"), nullable=False),
+        pa.field("rows_returned", pa.int64(), nullable=False),
+        *INGESTION_FIELDS,
+    ],
+    metadata={b"schema_name": b"news_coverage", b"schema_version": b"1"},
+)
+
 DAILY_PRICE_SCHEMA = pa.schema(
     [
         pa.field("symbol", pa.string(), nullable=False),

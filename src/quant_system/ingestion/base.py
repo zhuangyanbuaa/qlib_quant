@@ -15,6 +15,10 @@ class TransientProviderError(ProviderError):
     """A provider failure that may succeed after backoff."""
 
 
+class ProviderUnavailableError(ProviderError):
+    """Credentials or endpoint entitlement are unavailable; retrying cannot fix them."""
+
+
 @dataclass(frozen=True)
 class ProviderBar:
     """Provider-normalized daily bar before local lineage is attached."""

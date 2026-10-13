@@ -12,12 +12,16 @@ from quant_system.backtest.engine import BacktestEngine
 from quant_system.backtest.metrics import calculate_metrics
 from quant_system.backtest.reports import BacktestArtifacts, write_backtest_report
 from quant_system.backtest.stress import run_stress_grid
-from quant_system.features.technical import build_technical_features
+from quant_system.domain.clocks import NyseSessionClock
+from quant_system.features.point_in_time import build_point_in_time_features
+from quant_system.quality.prices import critical_symbols, require_critical_prices
+from quant_system.sentiment.coverage import load_coverage
 from quant_system.sentiment.risk import NewsRiskAssessment, assess_news_risk
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.strategy.buy_the_dip import BuyTheDipStrategy
 from quant_system.strategy.config import BuyTheDipConfig
+from quant_system.universe.lifecycle import LifecycleResolver, apply_lifecycle_quality
 
 
 def load_feature_history(
@@ -31,17 +35,69 @@ def load_feature_history(
     warmup_calendar_days: int = 450,
 ) -> pd.DataFrame:
     """Load enough pre-start history to build 200-session causal features."""
-    requested = tuple(sorted(set(symbols) | {benchmark_symbol.upper()}))
+    clock = NyseSessionClock()
+    requested = tuple(sorted(set(symbols) | set(critical_symbols(benchmark_symbol))))
+    with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
+        analytics.refresh_views()
+        prices = analytics.query_price_versions(
+            requested,
+            start_date=start - timedelta(days=warmup_calendar_days),
+            end_date=end,
+            cutoff_utc=clock.available_at_utc(end),
+        )
+    features = build_point_in_time_features(prices, benchmark_symbol=benchmark_symbol, clock=clock)
+    features = apply_lifecycle_quality(features, LifecycleResolver.from_repository(repository))
+    if not features.empty:
+        required = set(critical_symbols(benchmark_symbol))
+        reliable = (
+            features.loc[features["price_quality_pass"]]
+            .groupby("session_date_ny")["symbol"]
+            .agg(set)
+        )
+        features["critical_prices_available"] = (
+            features["session_date_ny"]
+            .map(reliable.map(required.issubset))
+            .fillna(False)
+            .astype(bool)
+        )
+    for session in clock.calendar.sessions_in_range(start, end):
+        require_critical_prices(
+            features,
+            session=session.date(),
+            benchmark_symbol=benchmark_symbol,
+            clock=clock,
+        )
+    return features
+
+
+def load_price_snapshot(
+    *,
+    repository: ParquetRepository,
+    database_path: Path,
+    symbols: tuple[str, ...],
+    start: date,
+    end: date,
+    benchmark_symbol: str = "QQQ",
+) -> pd.DataFrame:
+    """Load visible history and apply the shared critical-price gate."""
+    clock = NyseSessionClock()
+    requested = tuple(sorted(set(symbols) | set(critical_symbols(benchmark_symbol))))
     with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
         analytics.refresh_views()
         prices = analytics.query_price_history(
             requested,
-            start_date=start - timedelta(days=warmup_calendar_days),
+            start_date=start,
             end_date=end,
+            cutoff_utc=clock.available_at_utc(end),
         )
-    if prices.empty:
-        raise ValueError("no daily prices found for requested symbols and period")
-    return build_technical_features(prices, benchmark_symbol=benchmark_symbol)
+    prices = apply_lifecycle_quality(
+        prices,
+        LifecycleResolver.from_repository(repository),
+        as_of=end,
+        cutoff_utc=clock.available_at_utc(end),
+    )
+    require_critical_prices(prices, session=end, benchmark_symbol=benchmark_symbol, clock=clock)
+    return prices
 
 
 def run_backtest_workflow(
@@ -136,12 +192,11 @@ def scan_workflow(
     )
     news_risk: dict[str, NewsRiskAssessment] | None = None
     if include_news_risk:
-        from quant_system.domain.clocks import NyseSessionClock
-
         cutoff = NyseSessionClock().available_at_utc(as_of)
         with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
             analytics.refresh_views()
             news_risk = assess_news_risk(
+                coverage=load_coverage(repository),
                 symbols=symbols,
                 articles=analytics.query_news_articles(
                     symbols,

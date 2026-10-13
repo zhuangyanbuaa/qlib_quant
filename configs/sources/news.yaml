@@ -5,10 +5,8 @@ alpha_vantage:
   timeout_seconds: 20
   batch_size: 10
   limit_per_call: 50
-  topics:
-    - technology
-    - earnings
-    - financial_markets
+  # Topic/ticker lists are intersection filters, not unions.
+  topics: []
   retry:
     attempts: 3
     initial_backoff_seconds: 1

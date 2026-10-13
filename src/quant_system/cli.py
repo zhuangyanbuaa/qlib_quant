@@ -6,9 +6,10 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import typer
+from typer.core import TyperGroup
 
 from quant_system import __version__
 from quant_system.backtest.workflow import run_backtest_workflow, scan_workflow
@@ -23,6 +24,7 @@ from quant_system.decision.leverage import (
     run_leverage_overlay_universe_workflow,
     run_leverage_overlay_workflow,
 )
+from quant_system.decision.manual_research import combine_manual_research, import_manual_research
 from quant_system.decision.paper import (
     run_paper_advance_workflow,
     run_paper_update_workflow,
@@ -33,19 +35,20 @@ from quant_system.decision.research import run_research_list_workflow
 from quant_system.decision.rotation import run_rotation_diagnostics_workflow
 from quant_system.decision.workbench import run_daily_workbench_workflow
 from quant_system.domain.clocks import NyseSessionClock
-from quant_system.ingestion.alpha_vantage import AlphaVantageNewsAdapter
+from quant_system.domain.companies import ReviewedCompanyMapping
+from quant_system.domain.securities import SecurityLifecycleEvent
+from quant_system.ingestion.budgets import SQLiteDailyCallBudget
 from quant_system.ingestion.config import (
     load_news_source_settings,
     load_price_source_settings,
 )
-from quant_system.ingestion.news import NewsUpdateConfig, NewsUpdateService
+from quant_system.ingestion.factory import build_news_service
 from quant_system.ingestion.prices import PriceUpdateService
 from quant_system.ingestion.reliability import (
-    DailyCallBudget,
     ProviderGuard,
     SlidingWindowRateLimiter,
 )
-from quant_system.ingestion.sec import SecCompanyEventAdapter
+from quant_system.ingestion.source_health import check_sources
 from quant_system.ingestion.yahoo import YahooFinancePriceAdapter
 from quant_system.logging import configure_logging, get_logger
 from quant_system.migration.legacy_prices import migrate_legacy_prices
@@ -57,9 +60,11 @@ from quant_system.models.workflow import (
     run_ranking_baseline_workflow,
     run_ridge_baseline_workflow,
 )
+from quant_system.operations.pipeline import run_daily_pipeline
+from quant_system.operations.registry import PipelineBusy, pipeline_lock
+from quant_system.quality.prices import PriceDataBlocked
 from quant_system.quality.reports import PipelineStatus
-from quant_system.sentiment.classifier import FinbertSentimentScorer, RuleBasedSentimentScorer
-from quant_system.sentiment.mapping import AliasResolver
+from quant_system.sentiment.coverage import load_coverage
 from quant_system.sentiment.risk import assess_news_risk
 from quant_system.settings import PROJECT_ROOT, get_settings
 from quant_system.storage.duckdb import DuckDBAnalytics
@@ -72,7 +77,20 @@ from quant_system.strategy.leverage_overlay import (
 )
 from quant_system.universe.config import load_watchlist_config
 
+
+class PriceGateGroup(TyperGroup):
+    """Translate shared price failures into structured CLI gate results."""
+
+    def invoke(self, ctx: typer.Context):
+        try:
+            return super().invoke(ctx)
+        except PriceDataBlocked as error:
+            typer.echo(json.dumps(error.report, indent=2, sort_keys=True))
+            raise typer.Exit(code=2) from error
+
+
 app = typer.Typer(
+    cls=PriceGateGroup,
     name="quant",
     help="Daily quantitative research and trading decision support.",
     no_args_is_help=True,
@@ -199,9 +217,7 @@ def bootstrap_duckdb() -> None:
     database_path = settings.resolved_data_dir / "db" / "analytics.duckdb"
     with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
         analytics.refresh_views()
-        row_count = analytics.connection.execute(
-            "SELECT count(*) FROM daily_prices"
-        ).fetchone()[0]
+        row_count = analytics.connection.execute("SELECT count(*) FROM daily_prices").fetchone()[0]
     typer.echo(json.dumps({"database": str(database_path), "daily_price_rows": row_count}))
 
 
@@ -258,46 +274,112 @@ def update_prices(
     ] = PROJECT_ROOT / "configs" / "sources" / "prices.yaml",
 ) -> None:
     """Incrementally update completed daily bars and emit a quality report."""
-    selected_modes = sum(bool(value) for value in (symbols, all_stored, universe_path))
-    if selected_modes > 1:
-        raise typer.BadParameter("use only one of --symbols, --all-stored, or --universe")
-    source_settings = load_price_source_settings(config_path)
-    settings = get_settings()
-    repository = ParquetRepository(settings.resolved_data_dir)
-    database_path = settings.resolved_data_dir / "db" / "analytics.duckdb"
+    try:
+        with pipeline_lock(get_settings().resolved_data_dir):
+            selected_modes = sum(bool(value) for value in (symbols, all_stored, universe_path))
+            if selected_modes > 1:
+                raise typer.BadParameter("use only one of --symbols, --all-stored, or --universe")
+            source_settings = load_price_source_settings(config_path)
+            settings = get_settings()
+            repository = ParquetRepository(settings.resolved_data_dir)
+            database_path = settings.resolved_data_dir / "db" / "analytics.duckdb"
 
-    if all_stored:
-        with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
-            analytics.refresh_views()
-            requested = tuple(analytics.stored_symbols())
-    elif universe_path is not None:
-        universe = load_watchlist_config(universe_path)
-        requested = tuple(sorted({*universe.member_symbols, *universe.benchmark_symbols}))
-    elif symbols:
-        requested = tuple(part.strip().upper() for part in symbols.split(",") if part.strip())
-    else:
-        requested = source_settings.default_symbols
+            if all_stored:
+                with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
+                    analytics.refresh_views()
+                    requested = tuple(analytics.stored_symbols())
+            elif universe_path is not None:
+                universe = load_watchlist_config(universe_path)
+                as_of = NyseSessionClock().latest_completed_session(datetime.now(UTC))
+                requested = tuple(
+                    sorted(
+                        {
+                            *(member.symbol for member in universe.active_members(as_of)),
+                            *universe.benchmark_symbols,
+                        }
+                    )
+                )
+            elif symbols:
+                requested = tuple(
+                    part.strip().upper() for part in symbols.split(",") if part.strip()
+                )
+            else:
+                requested = source_settings.default_symbols
 
-    provider = YahooFinancePriceAdapter(timeout_seconds=source_settings.timeout_seconds)
-    guard = ProviderGuard(
-        budget=DailyCallBudget(source_settings.daily_call_budget),
-        limiter=SlidingWindowRateLimiter(source_settings.calls_per_minute),
-        retry=source_settings.retry.to_policy(),
-    )
-    service = PriceUpdateService(
-        provider=provider,
-        guard=guard,
-        repository=repository,
-        database_path=database_path,
-        report_directory=settings.resolved_data_dir / "reports" / "quality",
-        config=source_settings.to_update_config(),
-    )
-    report, report_path = service.run(requested)
-    output = report.to_dict()
-    output["report_path"] = str(report_path)
-    typer.echo(json.dumps(output, indent=2, sort_keys=True))
-    if report.status is PipelineStatus.BLOCKED:
-        raise typer.Exit(code=2)
+            provider = YahooFinancePriceAdapter(timeout_seconds=source_settings.timeout_seconds)
+            guard = ProviderGuard(
+                budget=SQLiteDailyCallBudget(
+                    source_settings.daily_call_budget,
+                    database_path=settings.resolved_data_dir / "db" / "operations.sqlite",
+                    provider=provider.name,
+                ),
+                limiter=SlidingWindowRateLimiter(source_settings.calls_per_minute),
+                retry=source_settings.retry.to_policy(),
+            )
+            service = PriceUpdateService(
+                provider=provider,
+                guard=guard,
+                repository=repository,
+                database_path=database_path,
+                report_directory=settings.resolved_data_dir / "reports" / "quality",
+                config=source_settings.to_update_config(),
+            )
+            report, report_path = service.run(requested)
+            output = report.to_dict()
+            output["report_path"] = str(report_path)
+            typer.echo(json.dumps(output, indent=2, sort_keys=True))
+            if report.status is PipelineStatus.BLOCKED:
+                raise typer.Exit(code=2)
+    except PipelineBusy:
+        typer.echo(
+            json.dumps({"status": "BLOCKED", "blocked_reasons": ["pipeline_already_running"]})
+        )
+        raise typer.Exit(2) from None
+
+
+@data_app.command("import-lifecycle")
+def import_lifecycle(
+    manifest: Annotated[Path, typer.Option("--manifest", exists=True, dir_okay=False)],
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+) -> None:
+    """Append a reviewed local JSON manifest; preserve event provenance and history."""
+    try:
+        with pipeline_lock(get_settings().resolved_data_dir):
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            events = tuple(SecurityLifecycleEvent.model_validate(row) for row in payload["events"])
+            repository = ParquetRepository(get_settings().resolved_data_dir)
+            existing = {
+                event.model_dump_json()
+                for event in (
+                    SecurityLifecycleEvent.model_validate(row)
+                    for row in repository.read_security_lifecycle().to_pylist()
+                )
+            }
+            additions = []
+            for event in events:
+                serialized = event.model_dump_json()
+                if serialized not in existing:
+                    additions.append(event)
+                    existing.add(serialized)
+            files = (
+                [] if dry_run else repository.write_security_lifecycle(additions, run_id=uuid4())
+            )
+            typer.echo(
+                json.dumps(
+                    {
+                        "status": "DRY_RUN" if dry_run else "COMPLETED",
+                        "events_in_manifest": len(events),
+                        "new_events": len(additions),
+                        "files_written": len(files),
+                    },
+                    indent=2,
+                )
+            )
+    except PipelineBusy:
+        typer.echo(
+            json.dumps({"status": "BLOCKED", "blocked_reasons": ["pipeline_already_running"]})
+        )
+        raise typer.Exit(2) from None
 
 
 @data_app.command("update-news")
@@ -329,92 +411,181 @@ def update_news(
     ] = PROJECT_ROOT / "configs" / "sources" / "news.yaml",
 ) -> None:
     """Incrementally update point-in-time news and SEC event records."""
-    requested = _parse_symbols(symbols)
-    source_settings = load_news_source_settings(config_path)
+    try:
+        with pipeline_lock(get_settings().resolved_data_dir):
+            requested = _parse_symbols(symbols)
+            source_settings = load_news_source_settings(config_path)
+            settings = get_settings()
+            repository = ParquetRepository(settings.resolved_data_dir)
+            end_utc = _ensure_utc(end or datetime.now(UTC))
+            start_utc = _ensure_utc(
+                start or (end_utc - timedelta(hours=source_settings.risk.lookback_hours))
+            )
+            service = build_news_service(settings, source_settings, repository)
+            report, report_path = service.run(
+                requested,
+                start_utc=start_utc,
+                end_utc=end_utc,
+                dry_run=dry_run,
+            )
+            output = report.to_dict()
+            output["report_path"] = str(report_path)
+            typer.echo(json.dumps(output, indent=2, sort_keys=True))
+            if report.status is PipelineStatus.BLOCKED:
+                raise typer.Exit(code=2)
+    except PipelineBusy:
+        typer.echo(
+            json.dumps({"status": "BLOCKED", "blocked_reasons": ["pipeline_already_running"]})
+        )
+        raise typer.Exit(2) from None
+
+
+@data_app.command("check-sources")
+def source_check(
+    symbols: Annotated[str, typer.Option("--symbols")] = "AAPL,MSFT,NVDA",
+    config_path: Annotated[
+        Path, typer.Option("--config", exists=True, dir_okay=False)
+    ] = PROJECT_ROOT / "configs/sources/news.yaml",
+) -> None:
     settings = get_settings()
-    repository = ParquetRepository(settings.resolved_data_dir)
-    resolver = AliasResolver(source_settings.companies)
-    end_utc = _ensure_utc(end or datetime.now(UTC))
-    start_utc = _ensure_utc(
-        start or (end_utc - timedelta(hours=source_settings.risk.lookback_hours))
+    result = check_sources(
+        settings,
+        load_news_source_settings(config_path),
+        ParquetRepository(settings.resolved_data_dir),
+        _parse_symbols(symbols),
+        cutoff_utc=datetime.now(UTC),
     )
+    typer.echo(json.dumps(result, indent=2))
 
-    news_provider = None
-    news_guard = None
-    if source_settings.alpha_vantage.enabled and settings.alpha_vantage_api_key:
-        news_provider = AlphaVantageNewsAdapter(
-            api_key=settings.alpha_vantage_api_key,
-            timeout_seconds=source_settings.alpha_vantage.timeout_seconds,
-            limit_per_call=source_settings.alpha_vantage.limit_per_call,
-            topics=source_settings.alpha_vantage.topics,
-        )
-        news_guard = ProviderGuard(
-            budget=DailyCallBudget(source_settings.alpha_vantage.daily_call_budget),
-            limiter=SlidingWindowRateLimiter(source_settings.alpha_vantage.calls_per_minute),
-            retry=source_settings.alpha_vantage.retry.to_policy(),
-        )
 
-    event_provider = None
-    event_guard = None
-    if source_settings.sec.enabled:
-        event_provider = SecCompanyEventAdapter(
-            cik_by_symbol=resolver.cik_by_symbol,
-            user_agent=settings.sec_user_agent,
-            timeout_seconds=source_settings.sec.timeout_seconds,
-            forms=source_settings.sec.forms,
+@data_app.command("import-company-mappings")
+def import_company_mappings(
+    manifest: Annotated[Path, typer.Option("--manifest", exists=True, dir_okay=False)],
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+) -> None:
+    try:
+        with pipeline_lock(get_settings().resolved_data_dir):
+            facts = tuple(
+                ReviewedCompanyMapping.model_validate(row)
+                for row in json.loads(manifest.read_text())["mappings"]
+            )
+            repository = ParquetRepository(get_settings().resolved_data_dir)
+            existing = {
+                ReviewedCompanyMapping.model_validate(row).model_dump_json()
+                for row in repository.read_company_mappings().to_pylist()
+            }
+            additions = []
+            for fact in facts:
+                if fact.available_at_utc > datetime.now(UTC) or fact.fetched_at_utc > datetime.now(
+                    UTC
+                ):
+                    raise typer.BadParameter("reviewed mapping cannot be imported from the future")
+                if fact.model_dump_json() not in existing:
+                    additions.append(fact)
+                    existing.add(fact.model_dump_json())
+            files = [] if dry_run else repository.write_company_mappings(additions, run_id=uuid4())
+            typer.echo(
+                json.dumps(
+                    {
+                        "status": "DRY_RUN" if dry_run else "COMPLETED",
+                        "new_mappings": len(additions),
+                        "files_written": len(files),
+                    }
+                )
+            )
+    except PipelineBusy:
+        typer.echo(
+            json.dumps({"status": "BLOCKED", "blocked_reasons": ["pipeline_already_running"]})
         )
-        event_guard = ProviderGuard(
-            budget=DailyCallBudget(source_settings.sec.daily_call_budget),
-            limiter=SlidingWindowRateLimiter(source_settings.sec.calls_per_minute),
-            retry=source_settings.sec.retry.to_policy(),
-        )
+        raise typer.Exit(2) from None
 
-    if source_settings.sentiment.scorer == "finbert":
-        scorer = FinbertSentimentScorer(
-            model_name=source_settings.sentiment.finbert.model_name,
-            model_revision=source_settings.sentiment.finbert.model_revision,
-            device=source_settings.sentiment.finbert.device,
-        )
-        sentiment_model_key = (
-            "finbert:"
-            f"{source_settings.sentiment.finbert.model_name}:"
-            f"{source_settings.sentiment.finbert.model_revision}"
-        )
-    else:
-        scorer = RuleBasedSentimentScorer()
-        sentiment_model_key = "rule_based:v1"
 
-    service = NewsUpdateService(
-        repository=repository,
-        report_directory=settings.resolved_data_dir / "reports" / "quality",
-        resolver=resolver,
-        scorer=scorer,
-        config=NewsUpdateConfig(
-            alpha_vantage_batch_size=source_settings.alpha_vantage.batch_size,
-            high_severity_veto=source_settings.risk.high_severity_veto,
-            sentiment_cache_directory=settings.resolved_data_dir / "cache" / "sentiment",
-            sentiment_cache_enabled=source_settings.sentiment.finbert.cache_enabled,
-            sentiment_timeout_seconds=(
-                source_settings.sentiment.finbert.inference_timeout_seconds
-            ),
-            sentiment_model_key=sentiment_model_key,
+@data_app.command("verify-news")
+def verify_news(
+    symbols: Annotated[str, typer.Option("--symbols")] = "AAPL,MSFT,NVDA",
+    config_path: Annotated[
+        Path, typer.Option("--config", exists=True, dir_okay=False)
+    ] = PROJECT_ROOT / "configs/sources/news.yaml",
+) -> None:
+    try:
+        with pipeline_lock(get_settings().resolved_data_dir):
+            requested = _parse_symbols(symbols)
+            if len(set(requested)) > 3:
+                raise typer.BadParameter("live verification is limited to three symbols")
+            settings = get_settings()
+            repository = ParquetRepository(settings.resolved_data_dir)
+            config = load_news_source_settings(config_path)
+            ready = check_sources(
+                settings, config, repository, requested, cutoff_utc=datetime.now(UTC)
+            )
+            end = datetime.now(UTC)
+            report, path = build_news_service(settings, config, repository).run(
+                requested, start_utc=end - timedelta(hours=config.risk.lookback_hours), end_utc=end
+            )
+            outcomes = set(report.coverage_results.values())
+            verification = (
+                "SUCCESS"
+                if outcomes and outcomes <= {"SUCCESS", "EMPTY"}
+                else ("UNAVAILABLE" if outcomes == {"UNAVAILABLE"} else "PARTIAL")
+            )
+            result = report.to_dict() | {
+                "readiness": ready,
+                "report_path": str(path),
+                "verification": verification,
+            }
+            typer.echo(json.dumps(result, indent=2))
+    except PipelineBusy:
+        typer.echo(
+            json.dumps({"status": "BLOCKED", "blocked_reasons": ["pipeline_already_running"]})
+        )
+        raise typer.Exit(2) from None
+
+
+@data_app.command("update-daily")
+def update_daily(
+    as_of: Annotated[datetime | None, typer.Option("--date")] = None,
+    manual_news: Annotated[
+        bool,
+        typer.Option("--manual-news", help="Skip news APIs and export a manual research package."),
+    ] = False,
+    replay: Annotated[
+        bool, typer.Option("--replay", help="Historical replay; skip network acquisition.")
+    ] = False,
+    retry: Annotated[
+        bool,
+        typer.Option("--retry", help="Retry the current request with new acquisition attempt IDs."),
+    ] = False,
+    refresh_window: Annotated[
+        datetime | None,
+        typer.Option(
+            "--refresh-window",
+            formats=["%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S"],
         ),
-        news_provider=news_provider,
-        news_guard=news_guard,
-        event_provider=event_provider,
-        event_guard=event_guard,
+    ] = None,
+    universe: Annotated[
+        list[Path] | None, typer.Option("--universe", exists=True, dir_okay=False)
+    ] = None,
+    price_config: Annotated[
+        Path, typer.Option("--price-config", exists=True, dir_okay=False)
+    ] = PROJECT_ROOT / "configs/sources/prices.yaml",
+    news_config: Annotated[
+        Path, typer.Option("--news-config", exists=True, dir_okay=False)
+    ] = PROJECT_ROOT / "configs/sources/news.yaml",
+) -> None:
+    result = run_daily_pipeline(
+        get_settings(),
+        signal_session=as_of.date() if as_of else None,
+        mode="replay" if replay else "live",
+        universe_paths=tuple(universe) if universe else None,
+        price_config_path=price_config,
+        news_config_path=news_config,
+        refresh_window=_ensure_utc(refresh_window) if refresh_window else None,
+        retry=retry,
+        manual_news=manual_news,
     )
-    report, report_path = service.run(
-        requested,
-        start_utc=start_utc,
-        end_utc=end_utc,
-        dry_run=dry_run,
-    )
-    output = report.to_dict()
-    output["report_path"] = str(report_path)
-    typer.echo(json.dumps(output, indent=2, sort_keys=True))
-    if report.status is PipelineStatus.BLOCKED:
-        raise typer.Exit(code=2)
+    typer.echo(json.dumps(result, indent=2, default=str))
+    if result["status"] in {"BLOCKED", "FAILED"}:
+        raise typer.Exit(2)
 
 
 @data_app.command("news-risk")
@@ -449,6 +620,7 @@ def news_risk(
     ) as analytics:
         analytics.refresh_views()
         assessments = assess_news_risk(
+            coverage=load_coverage(repository),
             symbols=requested,
             articles=analytics.query_news_articles(
                 requested,
@@ -735,6 +907,14 @@ def decision_premarket(
             help="Ridge + LightGBM ranking YAML used for daily rank context.",
         ),
     ] = PROJECT_ROOT / "configs" / "models" / "ranking_baseline.yaml",
+    news_cutoff: Annotated[
+        datetime | None,
+        typer.Option(
+            "--news-cutoff",
+            formats=["%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S"],
+            help="Explicit UTC forward news cutoff; defaults to historical price cutoff.",
+        ),
+    ] = None,
 ) -> None:
     """Generate JSON, CSV, and Markdown artifacts for the premarket plan."""
     signal_session = (
@@ -754,12 +934,11 @@ def decision_premarket(
         config=load_buy_the_dip_config(strategy_config_path),
         include_news_risk=news_risk,
         news_lookback_hours=news_source_settings.risk.lookback_hours,
+        news_cutoff_utc=_ensure_utc(news_cutoff) if news_cutoff else None,
         include_calibration=calibration,
         benchmark_path=benchmark_path,
         include_model_ranking=model_ranking,
-        model_settings=load_ranking_baseline_settings(model_config_path)
-        if model_ranking
-        else None,
+        model_settings=load_ranking_baseline_settings(model_config_path) if model_ranking else None,
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
@@ -854,6 +1033,14 @@ def decision_satellite(
             help="Ridge + LightGBM ranking YAML used for daily rank context.",
         ),
     ] = PROJECT_ROOT / "configs" / "models" / "ranking_baseline.yaml",
+    news_cutoff: Annotated[
+        datetime | None,
+        typer.Option(
+            "--news-cutoff",
+            formats=["%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S"],
+            help="Explicit UTC forward news cutoff; defaults to historical price cutoff.",
+        ),
+    ] = None,
 ) -> None:
     """Generate a separate AI satellite scan without widening the core watchlist."""
     signal_session = (
@@ -878,12 +1065,11 @@ def decision_satellite(
         config=load_buy_the_dip_config(strategy_config_path),
         include_news_risk=news_risk,
         news_lookback_hours=news_source_settings.risk.lookback_hours,
+        news_cutoff_utc=_ensure_utc(news_cutoff) if news_cutoff else None,
         include_calibration=calibration,
         benchmark_path=benchmark_path,
         include_model_ranking=model_ranking,
-        model_settings=load_ranking_baseline_settings(model_config_path)
-        if model_ranking
-        else None,
+        model_settings=load_ranking_baseline_settings(model_config_path) if model_ranking else None,
         report_stem="satellite",
         report_title="AI Satellite Scan",
     )
@@ -972,6 +1158,14 @@ def decision_research_list(
         int,
         typer.Option("--news-days", min=1, max=30, help="News prompt lookback days."),
     ] = 7,
+    news_cutoff: Annotated[
+        datetime | None,
+        typer.Option(
+            "--news-cutoff",
+            formats=["%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S"],
+            help="Explicit UTC forward news cutoff; defaults to historical price cutoff.",
+        ),
+    ] = None,
 ) -> None:
     """Generate a wider manual research list and copy/paste news prompt."""
     signal_session = (
@@ -991,11 +1185,10 @@ def decision_research_list(
         config=load_buy_the_dip_config(strategy_config_path),
         include_news_risk=news_risk,
         news_lookback_hours=news_source_settings.risk.lookback_hours,
+        news_cutoff_utc=_ensure_utc(news_cutoff) if news_cutoff else None,
         benchmark_path=benchmark_path,
         include_model_ranking=model_ranking,
-        model_settings=load_ranking_baseline_settings(model_config_path)
-        if model_ranking
-        else None,
+        model_settings=load_ranking_baseline_settings(model_config_path) if model_ranking else None,
         max_symbols=max_symbols,
         news_summary_days=news_summary_days,
     )
@@ -1004,6 +1197,9 @@ def decision_research_list(
 
 @decision_app.command("daily-workbench")
 def decision_daily_workbench(
+    manual_news: Annotated[
+        bool, typer.Option("--manual-news", help="Export manual research; keep news unverified.")
+    ] = False,
     as_of: Annotated[
         datetime | None,
         typer.Option(
@@ -1106,6 +1302,14 @@ def decision_daily_workbench(
         bool,
         typer.Option("--positions/--no-positions", help="Include manual position checks."),
     ] = True,
+    news_cutoff: Annotated[
+        datetime | None,
+        typer.Option(
+            "--news-cutoff",
+            formats=["%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S"],
+            help="Explicit UTC forward news cutoff; defaults to historical price cutoff.",
+        ),
+    ] = None,
 ) -> None:
     """Run premarket, research, 2x overlay, positions, and write daily_index."""
     signal_session = (
@@ -1126,11 +1330,11 @@ def decision_daily_workbench(
         strategy_config=load_buy_the_dip_config(strategy_config_path),
         include_news_risk=news_risk,
         news_lookback_hours=news_source_settings.risk.lookback_hours,
+        news_cutoff_utc=_ensure_utc(news_cutoff) if news_cutoff else None,
+        manual_news=manual_news,
         benchmark_path=benchmark_path,
         include_model_ranking=model_ranking,
-        model_settings=load_ranking_baseline_settings(model_config_path)
-        if model_ranking
-        else None,
+        model_settings=load_ranking_baseline_settings(model_config_path) if model_ranking else None,
         leverage_config=load_leverage_overlay_config(leverage_config_path),
         leverage_universe=load_leverage_overlay_universe_config(leverage_universe_path),
         max_research_symbols=max_research_symbols,
@@ -1138,6 +1342,84 @@ def decision_daily_workbench(
         include_positions=positions,
     )
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@decision_app.command("import-manual-research")
+def decision_import_manual_research(
+    package: Annotated[Path, typer.Option("--package", exists=True, dir_okay=False)],
+    result: Annotated[Path, typer.Option("--result", exists=True, dir_okay=False)],
+    reviewed_by: Annotated[
+        str, typer.Option("--reviewed-by", help="Human source/provenance reviewer.")
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+) -> None:
+    """Validate reviewed web research, append provenance and generate combined reports."""
+    settings = get_settings()
+    try:
+        with pipeline_lock(settings.resolved_data_dir):
+            output = import_manual_research(
+                repository=ParquetRepository(settings.resolved_data_dir),
+                database_path=settings.resolved_data_dir / "db/analytics.duckdb",
+                report_root=settings.resolved_data_dir / "reports/daily",
+                package_path=package,
+                result_path=result,
+                reviewed_by=reviewed_by,
+                dry_run=dry_run,
+            )
+        typer.echo(json.dumps(output, indent=2))
+    except PipelineBusy:
+        typer.echo(
+            json.dumps({"status": "BLOCKED", "blocked_reasons": ["pipeline_already_running"]})
+        )
+        raise typer.Exit(2) from None
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "REJECTED",
+                    "error_type": type(error).__name__,
+                    "reason": str(error)[:1000],
+                }
+            )
+        )
+        raise typer.Exit(2) from None
+
+
+@decision_app.command("combine-manual-research")
+def decision_combine_manual_research(
+    package: Annotated[Path, typer.Option("--package", exists=True, dir_okay=False)],
+    cutoff: Annotated[
+        str | None, typer.Option("--cutoff", help="UTC knowledge cutoff; defaults to now.")
+    ] = None,
+) -> None:
+    """Regenerate a research-only report from facts visible at the requested cutoff."""
+    settings = get_settings()
+    try:
+        with pipeline_lock(settings.resolved_data_dir):
+            output = combine_manual_research(
+                repository=ParquetRepository(settings.resolved_data_dir),
+                database_path=settings.resolved_data_dir / "db/analytics.duckdb",
+                report_root=settings.resolved_data_dir / "reports/daily",
+                package_path=package,
+                cutoff_utc=_parse_cli_datetime(cutoff) if cutoff else None,
+            )
+        typer.echo(json.dumps({"status": "RESEARCH_ONLY", **output}, indent=2))
+    except PipelineBusy:
+        typer.echo(
+            json.dumps({"status": "BLOCKED", "blocked_reasons": ["pipeline_already_running"]})
+        )
+        raise typer.Exit(2) from None
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "REJECTED",
+                    "error_type": type(error).__name__,
+                    "reason": str(error)[:1000],
+                }
+            )
+        )
+        raise typer.Exit(2) from None
 
 
 @decision_app.command("leverage-overlay")
@@ -1477,10 +1759,7 @@ def journal_add_fill(
         str | None,
         typer.Option(
             "--fill-time",
-            help=(
-                "UTC fill timestamp, e.g. 2026-07-27T13:30:00+00:00. "
-                "Defaults to now."
-            ),
+            help=("UTC fill timestamp, e.g. 2026-07-27T13:30:00+00:00. Defaults to now."),
         ),
     ] = None,
     commission: Annotated[

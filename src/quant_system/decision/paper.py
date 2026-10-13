@@ -7,12 +7,13 @@ from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
+from quant_system.backtest.workflow import load_price_snapshot
 from quant_system.decision.gates import load_json_report
 from quant_system.decision.journal import reconstruct_open_positions
 from quant_system.decision.positions import evaluate_position
 from quant_system.decision.reports import DailyReportArtifacts, write_decision_table_report
 from quant_system.domain.clocks import NyseSessionClock
-from quant_system.storage.duckdb import DuckDBAnalytics
+from quant_system.quality.prices import price_quality_mask
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.storage.sqlite import OperationsRegistry
 from quant_system.strategy.config import BuyTheDipConfig
@@ -47,6 +48,7 @@ def run_paper_update_workflow(
         database_path=database_path,
         symbols=tuple(candidate["symbol"] for candidate in premarket.get("candidates", [])),
         as_of=target_session,
+        benchmark_symbol=config.strategy.benchmark_symbol,
     )
     rows: list[dict[str, Any]] = []
     clock = NyseSessionClock()
@@ -59,7 +61,16 @@ def run_paper_update_workflow(
         for candidate in premarket.get("candidates", []):
             row = _paper_entry_row(
                 candidate,
-                gate_decision=gates.get(candidate["symbol"]),
+                gate_decision=(
+                    gates.get(
+                        candidate.get("decision_id", candidate["signal_id"]),
+                        gates.get(candidate["symbol"], "DEFER")
+                        if "decision_id" not in candidate
+                        else "DEFER",
+                    )
+                    if gate_report_path
+                    else None
+                ),
                 bar=bars.get(candidate["symbol"]),
                 target_session=target_session,
                 config=config,
@@ -127,6 +138,7 @@ def run_paper_advance_workflow(
             database_path=database_path,
             symbols=tuple(position.symbol for position in positions),
             as_of=as_of,
+            benchmark_symbol=config.strategy.benchmark_symbol,
         )
         rows = []
         clock = NyseSessionClock()
@@ -211,6 +223,9 @@ def _paper_entry_row(
     if candidate["signal_id"] in existing_signals:
         row["reason"] = "paper_signal_already_filled"
         return row
+    if candidate.get("news_risk") == "UNKNOWN" or candidate.get("execution_eligible") is False:
+        row["reason"] = "unverified_news_coverage"
+        return row
     if candidate.get("recommended_action") != "PREPARE_MANUAL_CONDITIONAL_ORDER":
         row["reason"] = "not_ai_alpha_order_draft"
         return row
@@ -244,7 +259,10 @@ def _gate_decisions(gate_report_path: Path | None) -> dict[str, str]:
     if gate_report_path is None:
         return {}
     report = load_json_report(gate_report_path)
-    return {row["symbol"]: row["decision"] for row in report.get("rows", [])}
+    return {
+        row.get("decision_id", row.get("signal_id", row["symbol"])): row["decision"]
+        for row in report.get("rows", [])
+    }
 
 
 def _daily_bars(
@@ -253,12 +271,19 @@ def _daily_bars(
     database_path: Path,
     symbols: tuple[str, ...],
     as_of: date,
+    benchmark_symbol: str = "QQQ",
 ) -> dict[str, dict[str, float]]:
     if not symbols:
         return {}
-    with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
-        analytics.refresh_views()
-        frame = analytics.query_price_history(symbols, start_date=as_of, end_date=as_of)
+    frame = load_price_snapshot(
+        repository=repository,
+        database_path=database_path,
+        symbols=symbols,
+        start=as_of,
+        end=as_of,
+        benchmark_symbol=benchmark_symbol,
+    )
+    frame = frame.loc[frame["symbol"].isin(symbols) & price_quality_mask(frame)]
     return {
         str(row["symbol"]): {
             "open": float(row["open"]),
@@ -342,4 +367,3 @@ def _ensure_utc(value: datetime) -> datetime:
     if value.utcoffset() is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
-

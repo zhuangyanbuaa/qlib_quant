@@ -10,11 +10,13 @@ from uuid import UUID, uuid4
 
 import pandas as pd
 
+from quant_system.backtest.workflow import load_price_snapshot
 from quant_system.decision.reports import DailyReportArtifacts, write_decision_table_report
 from quant_system.domain.clocks import NyseSessionClock
-from quant_system.storage.duckdb import DuckDBAnalytics
+from quant_system.quality.prices import price_quality_mask
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.universe.config import load_watchlist_config
+from quant_system.universe.lifecycle import LifecycleResolver, decision_members
 
 DEFAULT_ROTATION_PERIODS = (20, 60)
 
@@ -31,13 +33,15 @@ class RotationMember:
     benchmark_etf: str
 
 
-def load_rotation_members(paths: tuple[Path, ...]) -> tuple[RotationMember, ...]:
+def load_rotation_members(
+    paths: tuple[Path, ...], *, as_of: date | None = None, resolver: LifecycleResolver | None = None
+) -> tuple[RotationMember, ...]:
     """Load deduplicated rotation members from watchlist YAML files."""
     members_by_symbol: dict[str, RotationMember] = {}
     for path in paths:
         config = load_watchlist_config(path)
         universe_role = _universe_role(config.universe_type)
-        for member in config.symbols:
+        for member in decision_members(config, as_of=as_of, resolver=resolver):
             members_by_symbol.setdefault(
                 member.symbol,
                 RotationMember(
@@ -76,7 +80,9 @@ def run_rotation_diagnostics_workflow(
     run_id = run_id or uuid4()
     generated_at_utc = _ensure_utc(generated_at_utc or datetime.now(UTC))
     benchmark_symbol = benchmark_symbol.upper()
-    members = load_rotation_members(universe_paths)
+    members = load_rotation_members(
+        universe_paths, as_of=as_of, resolver=LifecycleResolver.from_repository(repository)
+    )
     benchmark_symbols = tuple(
         sorted({benchmark_symbol, *(member.benchmark_etf for member in members)})
     )
@@ -84,13 +90,14 @@ def run_rotation_diagnostics_workflow(
     max_period = max(periods)
     start_date = as_of - timedelta(days=max(220, max_period * 4))
 
-    with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
-        analytics.refresh_views()
-        prices = analytics.query_price_history(
-            requested_symbols,
-            start_date=start_date,
-            end_date=as_of,
-        )
+    prices = load_price_snapshot(
+        repository=repository,
+        database_path=database_path,
+        symbols=requested_symbols,
+        start=start_date,
+        end=as_of,
+        benchmark_symbol=benchmark_symbol,
+    )
 
     rows = compute_rotation_rows(
         prices=prices,
@@ -106,7 +113,7 @@ def run_rotation_diagnostics_workflow(
             "run_id": str(run_id),
             "generated_at_utc": generated_at_utc.isoformat(),
             "as_of": as_of.isoformat(),
-            "data_cutoff_utc": NyseSessionClock().session_close_utc(as_of).isoformat(),
+            "data_cutoff_utc": NyseSessionClock().available_at_utc(as_of).isoformat(),
             "default_benchmark_symbol": benchmark_symbol,
             "periods": list(periods),
             "symbol_count": len(requested_symbols),
@@ -347,12 +354,10 @@ def _symbol_returns(
 ) -> dict[str, dict[int, float | None]]:
     if prices.empty:
         return {}
-    frame = prices.copy()
+    frame = prices.loc[price_quality_mask(prices)].copy()
     frame["symbol"] = frame["symbol"].str.upper()
     frame["session_date_ny"] = pd.to_datetime(frame["session_date_ny"]).dt.date
-    frame = frame.loc[frame["session_date_ny"] <= as_of].sort_values(
-        ["symbol", "session_date_ny"]
-    )
+    frame = frame.loc[frame["session_date_ny"] <= as_of].sort_values(["symbol", "session_date_ny"])
     returns: dict[str, dict[int, float | None]] = {}
     for symbol, symbol_frame in frame.groupby("symbol", sort=True):
         closes = symbol_frame["close"].astype(float).to_list()

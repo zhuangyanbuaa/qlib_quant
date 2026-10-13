@@ -13,6 +13,7 @@ from quant_system.ingestion.base import (
     ProviderError,
     ProviderNewsArticle,
     ProviderNewsResult,
+    ProviderUnavailableError,
     TransientProviderError,
 )
 from quant_system.sentiment.dedupe import stable_hash
@@ -24,7 +25,8 @@ class AlphaVantageNewsAdapter:
     """Fetch and normalize Alpha Vantage market news."""
 
     name = "alpha_vantage_news"
-    version = "NEWS_SENTIMENT-v1"
+    version = "NEWS_SENTIMENT-v3"
+    supports_symbol_union = False
     endpoint = "https://www.alphavantage.co/query"
 
     def __init__(
@@ -52,6 +54,8 @@ class AlphaVantageNewsAdapter:
         end_utc: datetime,
     ) -> ProviderNewsResult:
         """Fetch news visible in a UTC interval."""
+        if len(set(symbols)) != 1:
+            raise ProviderError("NEWS_SENTIMENT requires one ticker per coverage query")
         params = {
             "function": "NEWS_SENTIMENT",
             "apikey": self.api_key,
@@ -68,12 +72,16 @@ class AlphaVantageNewsAdapter:
         url = f"{self.endpoint}?{urlencode(params)}"
         payload = self._transport(url, self.timeout_seconds)
         _raise_for_provider_message(payload)
-        feed = payload.get("feed", [])
+        feed = payload.get("feed")
         if not isinstance(feed, list):
             raise ProviderError("Alpha Vantage response missing feed list")
 
         articles: list[ProviderNewsArticle] = []
         warnings: dict[str, str] = {}
+        if self.topics:
+            warnings["coverage_scope"] = "topic_filtered_query"
+        if len(feed) >= self.limit_per_call:
+            warnings["coverage"] = "response_limit_reached"
         for index, item in enumerate(feed):
             if not isinstance(item, dict):
                 warnings[str(index)] = "non_mapping_feed_item"
@@ -137,11 +145,15 @@ def _parse_av_time(value: str) -> datetime:
 
 
 def _raise_for_provider_message(payload: dict[str, object]) -> None:
+    message = str(
+        payload.get("Error Message") or payload.get("Note") or payload.get("Information") or ""
+    )
+    if "premium" in message.lower() or ("invalid" in message.lower() and "key" in message.lower()):
+        raise ProviderUnavailableError("news_endpoint_entitlement_or_credentials_unavailable")
     if "Error Message" in payload:
-        raise ProviderError(str(payload["Error Message"]))
+        raise ProviderError("news_provider_rejected_request")
     if "Note" in payload or "Information" in payload:
-        message = str(payload.get("Note") or payload.get("Information"))
-        raise TransientProviderError(message)
+        raise TransientProviderError("news_provider_quota_or_transient_notice")
 
 
 def _json_get(url: str, timeout_seconds: float) -> dict[str, object]:
@@ -153,7 +165,7 @@ def _json_get(url: str, timeout_seconds: float) -> dict[str, object]:
             raise TransientProviderError(f"HTTP {error.code}") from error
         raise ProviderError(f"HTTP {error.code}") from error
     except URLError as error:
-        raise TransientProviderError(str(error)) from error
+        raise TransientProviderError("news_transport_failed") from error
     decoded = json.loads(payload)
     if not isinstance(decoded, dict):
         raise ProviderError("JSON response must be an object")

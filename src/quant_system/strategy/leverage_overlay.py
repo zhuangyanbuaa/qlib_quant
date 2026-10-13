@@ -11,6 +11,8 @@ import pandas as pd
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from quant_system.quality.prices import price_quality_mask
+
 
 class LeverageOverlayRules(BaseModel):
     """Configurable thresholds for the 2x overlay checklist."""
@@ -309,7 +311,7 @@ def _latest_row(
     signal_session: date,
 ) -> dict[str, Any] | None:
     rows = frame.loc[(frame["symbol"] == symbol) & (frame["session_date_ny"] == signal_session)]
-    if rows.empty:
+    if rows.empty or not price_quality_mask(rows).all():
         return None
     return rows.iloc[-1].to_dict()
 

@@ -6,6 +6,7 @@ import pytest
 
 from quant_system.domain.clocks import NyseSessionClock
 from quant_system.domain.models import DailyPrice
+from quant_system.domain.securities import SecurityLifecycleEvent
 from quant_system.ingestion.base import (
     ProviderBar,
     ProviderBatchResult,
@@ -236,3 +237,100 @@ def test_unexpected_provider_bug_is_not_masked_as_data_failure(tmp_path) -> None
             provider,
             core_symbols=("SPY",),
         ).run(("SPY",), now_utc=NOW)
+
+
+def lifecycle(repository, symbol, event_type, successor_symbol="", **changes):
+    fact = SecurityLifecycleEvent(
+        **(
+            dict(
+                event_id=f"{symbol}-event",
+                security_id=f"local:{symbol}",
+                symbol=symbol,
+                event_type=event_type,
+                successor_symbol=successor_symbol,
+                effective_session=date(2026, 6, 29),
+                source_url="https://example.com/notice",
+                source="exchange",
+                source_version="fixture-1",
+                ingestion_run_id=uuid4(),
+                fetched_at_utc=NOW,
+                available_at_utc=NOW,
+            )
+            | changes
+        )
+    )
+    repository.write_security_lifecycle((fact,), run_id=fact.ingestion_run_id)
+    return fact
+
+
+def test_update_resolves_renames_skips_mergers_and_preserves_old_prices(tmp_path):
+    repository = ParquetRepository(tmp_path)
+    seed_price(repository, "SPY", date(2026, 6, 29))
+    seed_price(repository, "OLD", date(2026, 6, 26))
+    old_files = {
+        path: path.read_bytes() for path in repository.daily_prices_root.rglob("*.parquet")
+    }
+    lifecycle(repository, "OLD", "SYMBOL_CHANGE", "NEW")
+    lifecycle(repository, "DEAD", "MERGER", "ACQUIRER")
+    provider = FakeProvider(
+        ProviderBatchResult(bars=(provider_bar("NEW", date(2026, 6, 29), 101),))
+    )
+    report, _ = service(
+        tmp_path, repository, provider, core_symbols=("SPY",), max_failure_fraction=0
+    ).run(("OLD", "DEAD"), now_utc=NOW)
+    assert report.status is PipelineStatus.SUCCESS
+    assert provider.calls[0][0] == ("NEW",)
+    assert report.resolved_symbols == {"OLD": "NEW"}
+    assert report.skipped_inactive_symbols == {"DEAD": "MERGER"}
+    assert report.stale_symbols == ()
+    assert report.requested_symbols == ("NEW", "SPY")
+    assert all(path.read_bytes() == content for path, content in old_files.items())
+
+
+def test_inactive_core_with_current_bar_still_blocks(tmp_path):
+    repository = ParquetRepository(tmp_path)
+    seed_price(repository, "SPY", date(2026, 6, 29))
+    lifecycle(repository, "SPY", "SUSPENDED")
+    provider = FakeProvider()
+    report, _ = service(tmp_path, repository, provider, core_symbols=("SPY",)).run(
+        ("SPY",), now_utc=NOW
+    )
+    assert report.status is PipelineStatus.BLOCKED
+    assert "core_symbol_inactive:SPY" in report.blocked_reasons
+    assert not provider.calls
+
+
+def test_known_suspension_rejects_overlap_rows_without_rewriting_history(tmp_path):
+    repository = ParquetRepository(tmp_path)
+    seed_price(repository, "SPY", date(2026, 6, 29))
+    lifecycle(repository, "ABC", "SUSPENDED", effective_session=date(2026, 6, 26))
+    lifecycle(repository, "ABC", "RESUMED", event_id="ABC-resume")
+    provider = FakeProvider(
+        ProviderBatchResult(
+            bars=(
+                provider_bar("ABC", date(2026, 6, 26), 100),
+                provider_bar("ABC", date(2026, 6, 29), 101),
+            )
+        )
+    )
+    report, _ = service(tmp_path, repository, provider, core_symbols=("SPY",)).run(
+        ("ABC",), now_utc=NOW
+    )
+    assert report.rejected_lifecycle_rows == {"ABC": 1}
+    assert report.rows_written == 1
+
+
+def test_inactive_symbols_do_not_dilute_provider_failure_fraction(tmp_path):
+    repository = ParquetRepository(tmp_path)
+    seed_price(repository, "SPY", date(2026, 6, 29))
+    lifecycle(repository, "DEAD", "MERGER")
+    provider = FakeProvider(ProviderBatchResult(empty_symbols=("ABC",)))
+    report, _ = service(
+        tmp_path,
+        repository,
+        provider,
+        core_symbols=("SPY",),
+        max_failure_fraction=0.4,
+    ).run(("DEAD", "ABC"), now_utc=NOW)
+    assert report.status is PipelineStatus.BLOCKED
+    assert report.blocked_reasons == ("failure_fraction_exceeded:1/2",)

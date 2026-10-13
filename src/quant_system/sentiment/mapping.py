@@ -24,10 +24,6 @@ class AliasResolver:
 
     mappings: tuple[CompanyMapping, ...]
 
-    def __post_init__(self) -> None:
-        if not self.mappings:
-            raise ValueError("at least one company mapping is required")
-
     @property
     def cik_by_symbol(self) -> dict[str, str]:
         return {

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from types import TracebackType
 
@@ -27,10 +27,9 @@ class DuckDBAnalytics:
             news_articles_root.resolve() if news_articles_root else raw_root / "news"
         )
         self.company_events_root = (
-            company_events_root.resolve()
-            if company_events_root
-            else raw_root / "company_events"
+            company_events_root.resolve() if company_events_root else raw_root / "company_events"
         )
+        self.security_lifecycle_root = raw_root / "security_lifecycle"
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = duckdb.connect(str(self.database_path))
 
@@ -39,6 +38,42 @@ class DuckDBAnalytics:
         self._refresh_daily_price_views()
         self._refresh_news_views()
         self._refresh_company_event_views()
+        self._refresh_lifecycle_views()
+
+    def query_security_lifecycle(self, *, cutoff_utc: datetime) -> pd.DataFrame:
+        """Filter availability before resolving the newest visible event revision."""
+        return self.connection.execute(
+            """
+            SELECT * EXCLUDE (_row_number) FROM (
+                SELECT *, row_number() OVER (
+                    PARTITION BY event_id ORDER BY fetched_at_utc DESC, filename DESC
+                ) AS _row_number
+                FROM raw_security_lifecycle WHERE available_at_utc <= ?
+            ) WHERE _row_number = 1
+            """,
+            [self._utc_cutoff(cutoff_utc)],
+        ).fetchdf()
+
+    def _refresh_lifecycle_views(self) -> None:
+        if list(self.security_lifecycle_root.rglob("*.parquet")):
+            self._create_raw_view_from_parquet(
+                "raw_security_lifecycle", self.security_lifecycle_root
+            )
+        else:
+            self.connection.execute("""
+                CREATE OR REPLACE VIEW raw_security_lifecycle AS SELECT
+                CAST(NULL AS VARCHAR) AS event_id, CAST(NULL AS VARCHAR) AS security_id,
+                CAST(NULL AS VARCHAR) AS symbol, CAST(NULL AS VARCHAR) AS event_type,
+                CAST(NULL AS VARCHAR) AS successor_symbol,
+                CAST(NULL AS VARCHAR) AS successor_security_id,
+                CAST(NULL AS VARCHAR) AS source_url, CAST(NULL AS DATE) AS effective_session,
+                CAST(NULL AS VARCHAR) AS source, CAST(NULL AS VARCHAR) AS source_version,
+                CAST(NULL AS TIMESTAMPTZ) AS fetched_at_utc,
+                CAST(NULL AS TIMESTAMPTZ) AS available_at_utc,
+                CAST(NULL AS VARCHAR) AS ingestion_run_id, CAST(NULL AS BOOLEAN) AS is_stale,
+                CAST([] AS VARCHAR[]) AS quality_flags, CAST(NULL AS VARCHAR) AS filename
+                WHERE false
+            """)
 
     def symbol_date_range(self, symbol: str) -> tuple[date | None, date | None]:
         """Return the first and last available sessions for one symbol."""
@@ -82,8 +117,16 @@ class DuckDBAnalytics:
         *,
         start_date: str | None = None,
         end_date: str | None = None,
+        cutoff_utc: datetime | None = None,
     ) -> pd.DataFrame:
-        """Query a symbol with optional inclusive date bounds."""
+        """Inspect latest prices, or explicitly query a historical snapshot."""
+        if cutoff_utc is not None:
+            return self._query_price_snapshot(
+                (symbol.upper(),),
+                start_date=start_date,
+                end_date=end_date,
+                cutoff_utc=cutoff_utc,
+            )
         return self.connection.execute(
             """
             SELECT *
@@ -102,27 +145,75 @@ class DuckDBAnalytics:
         *,
         start_date: date,
         end_date: date,
+        cutoff_utc: datetime,
     ) -> pd.DataFrame:
-        """Load deduplicated OHLCV history for feature construction."""
+        """Read a historical snapshot, filtering availability before deduplication."""
+        return self._query_price_snapshot(
+            symbols,
+            start_date=start_date,
+            end_date=end_date,
+            cutoff_utc=cutoff_utc,
+        )
+
+    def _query_price_snapshot(
+        self,
+        symbols: tuple[str, ...],
+        *,
+        start_date: date | str | None,
+        end_date: date | str | None,
+        cutoff_utc: datetime,
+    ) -> pd.DataFrame:
+        cutoff_utc = self._utc_cutoff(cutoff_utc)
         if not symbols:
             return pd.DataFrame()
         return self.connection.execute(
             """
-            SELECT
-                symbol,
-                session_date_ny,
-                open,
-                high,
-                low,
-                close,
-                volume
-            FROM daily_prices
-            WHERE symbol IN (SELECT unnest(?))
-              AND session_date_ny BETWEEN ? AND ?
+            SELECT * EXCLUDE (_row_number, filename)
+            FROM (
+                SELECT *, row_number() OVER (
+                    PARTITION BY symbol, session_date_ny
+                    ORDER BY fetched_at_utc DESC, filename DESC
+                ) AS _row_number
+                FROM raw_daily_prices
+                WHERE symbol IN (SELECT unnest(?))
+                  AND (? IS NULL OR session_date_ny >= CAST(? AS DATE))
+                  AND (? IS NULL OR session_date_ny <= CAST(? AS DATE))
+                  AND available_at_utc <= ?
+            )
+            WHERE _row_number = 1
             ORDER BY session_date_ny, symbol
             """,
-            [list(symbols), start_date, end_date],
+            [list(symbols), start_date, start_date, end_date, end_date, cutoff_utc],
         ).fetchdf()
+
+    def query_price_versions(
+        self,
+        symbols: tuple[str, ...],
+        *,
+        start_date: date,
+        end_date: date,
+        cutoff_utc: datetime,
+    ) -> pd.DataFrame:
+        """Load raw versions once for per-decision causal feature construction."""
+        cutoff_utc = self._utc_cutoff(cutoff_utc)
+        if not symbols:
+            return pd.DataFrame()
+        return self.connection.execute(
+            """
+            SELECT * FROM raw_daily_prices
+            WHERE symbol IN (SELECT unnest(?))
+              AND session_date_ny BETWEEN ? AND ?
+              AND available_at_utc <= ?
+            ORDER BY session_date_ny, symbol, fetched_at_utc, filename
+            """,
+            [list(symbols), start_date, end_date, cutoff_utc],
+        ).fetchdf()
+
+    @staticmethod
+    def _utc_cutoff(value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("cutoff_utc must be timezone-aware")
+        return value.astimezone(UTC)
 
     def query_news_articles(
         self,

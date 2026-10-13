@@ -9,11 +9,11 @@ from uuid import UUID, uuid4
 
 import pandas as pd
 
-from quant_system.backtest.workflow import load_feature_history
+from quant_system.backtest.workflow import load_feature_history, load_price_snapshot
 from quant_system.decision.journal import OpenPosition, reconstruct_open_positions
 from quant_system.decision.reports import DailyReportArtifacts, write_position_check_report
 from quant_system.domain.clocks import NyseSessionClock
-from quant_system.storage.duckdb import DuckDBAnalytics
+from quant_system.quality.prices import price_quality_mask
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.storage.sqlite import OperationsRegistry
 from quant_system.strategy.buy_the_dip import BuyTheDipStrategy
@@ -51,6 +51,7 @@ def run_position_check_workflow(
         database_path=database_path,
         symbols=symbols,
         as_of=as_of,
+        benchmark_symbol=config.strategy.benchmark_symbol,
     )
     features, market_regime = _load_position_features_and_regime(
         repository=repository,
@@ -236,12 +237,19 @@ def _load_daily_bars(
     database_path: Path,
     symbols: tuple[str, ...],
     as_of: date,
+    benchmark_symbol: str = "QQQ",
 ) -> dict[str, dict[str, float]]:
     if not symbols:
         return {}
-    with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
-        analytics.refresh_views()
-        frame = analytics.query_price_history(symbols, start_date=as_of, end_date=as_of)
+    frame = load_price_snapshot(
+        repository=repository,
+        database_path=database_path,
+        symbols=symbols,
+        start=as_of,
+        end=as_of,
+        benchmark_symbol=benchmark_symbol,
+    )
+    frame = frame.loc[frame["symbol"].isin(symbols) & price_quality_mask(frame)]
     return {
         str(row["symbol"]): {
             "open": float(row["open"]),

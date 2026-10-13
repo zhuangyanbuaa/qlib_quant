@@ -60,6 +60,8 @@ def run_research_list_workflow(
     news_summary_days: int = 7,
     run_id: UUID | None = None,
     generated_at_utc: datetime | None = None,
+    news_cutoff_utc: datetime | None = None,
+    manual_news: bool = False,
 ) -> tuple[dict[str, Any], ResearchListArtifacts]:
     """Generate a wider manual research list and a news-summary prompt.
 
@@ -85,6 +87,8 @@ def run_research_list_workflow(
         report_title="Research Source Premarket Plan",
         run_id=run_id,
         generated_at_utc=generated_at_utc,
+        news_cutoff_utc=news_cutoff_utc,
+        manual_news=manual_news,
     )
     rows = build_research_rows(source_report, max_symbols=max_symbols)
     report = _research_report(
@@ -283,6 +287,8 @@ def _research_row(row: dict[str, Any], *, source: str) -> dict[str, Any] | None:
 
 
 def _research_bucket(row: dict[str, Any], *, source: str) -> str | None:
+    if row.get("news_risk") == "UNKNOWN":
+        return "BLOCKED_BUT_INTERESTING"
     action = str(row.get("calibration_action") or row.get("recommended_action") or "")
     universe_role = str(row.get("universe_role") or "")
     reversal_phase = str(row.get("reversal_phase") or "")
@@ -352,6 +358,9 @@ def _research_report(
             "generated_at_utc": generated_at_utc.isoformat(),
             "signal_session": source_metadata["signal_session"],
             "data_cutoff_utc": source_metadata["data_cutoff_utc"],
+            "news_cutoff_utc": source_metadata.get(
+                "news_cutoff_utc", source_metadata["data_cutoff_utc"]
+            ),
             "earliest_order_session": source_metadata["earliest_order_session"],
             "earliest_order_time_utc": source_metadata["earliest_order_time_utc"],
             "decision_scope": "MANUAL_RESEARCH_ONLY_NOT_TRADE_PERMISSION",
@@ -376,6 +385,7 @@ def _research_report(
         "portfolio_posture": source_report.get("portfolio_posture", {}),
         "strategy_context": source_report.get("strategy_context", {}),
         "model_rank_context": source_report.get("model_rank_context", {}),
+        "data_health": source_report.get("data_health", {}),
         "research_candidates": rows,
     }
 

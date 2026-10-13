@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import date
 from importlib.metadata import version
+from math import isfinite
 
 import pandas as pd
 import yfinance as yf
@@ -35,7 +36,7 @@ class YahooFinancePriceAdapter:
 
     @property
     def version(self) -> str:
-        return f"yfinance-{version('yfinance')}"
+        return f"yfinance-{version('yfinance')}/adapter-3"
 
     def fetch_daily(
         self,
@@ -80,13 +81,21 @@ class YahooFinancePriceAdapter:
             if frame.empty:
                 empty_symbols.append(symbol)
                 continue
-            symbol_bars, invalid_count = self._normalize_symbol(symbol, frame, start, end_exclusive)
+            try:
+                symbol_bars, counts = self._normalize_symbol(symbol, frame, start, end_exclusive)
+            except ValueError as error:
+                errors[symbol] = str(error)
+                continue
+            messages = [f"{kind}:{count}" for kind, count in counts.items() if count]
+            if messages:
+                warnings[symbol] = ";".join(messages)
             if not symbol_bars:
-                errors[symbol] = "all returned rows failed OHLCV validation"
+                if counts["dropped_invalid_rows"]:
+                    errors[symbol] = "all returned price rows failed OHLCV validation"
+                else:
+                    empty_symbols.append(symbol)
                 continue
             bars.extend(symbol_bars)
-            if invalid_count:
-                warnings[symbol] = f"dropped_invalid_rows:{invalid_count}"
 
         return ProviderBatchResult(
             bars=tuple(bars),
@@ -121,16 +130,25 @@ class YahooFinancePriceAdapter:
         frame: pd.DataFrame,
         start: date,
         end_exclusive: date,
-    ) -> tuple[list[ProviderBar], int]:
+    ) -> tuple[list[ProviderBar], dict[str, int]]:
         missing = set(_REQUIRED_PRICE_COLUMNS) - set(frame.columns)
         if missing:
             raise ValueError(f"missing Yahoo columns: {sorted(missing)}")
 
         bars: list[ProviderBar] = []
-        invalid_count = 0
+        counts = dict.fromkeys(("dropped_invalid_rows", "padded_rows", "action_only_rows"), 0)
         for index, row in frame.iterrows():
             session = pd.Timestamp(index).date()
             if not start <= session < end_exclusive:
+                continue
+            if row[["Open", "High", "Low", "Close"]].isna().all() and (
+                pd.isna(row["Volume"]) or row["Volume"] == 0
+            ):
+                action = any(
+                    pd.notna(row.get(column)) and row.get(column) != 0
+                    for column in ("Dividends", "Stock Splits")
+                )
+                counts["action_only_rows" if action else "padded_rows"] += 1
                 continue
             try:
                 open_price = float(row["Open"])
@@ -139,21 +157,21 @@ class YahooFinancePriceAdapter:
                 close = float(row["Close"])
                 volume_value = float(row["Volume"])
                 if not all(
-                    pd.notna(value)
-                    for value in (open_price, high, low, close, volume_value)
+                    isfinite(value) for value in (open_price, high, low, close, volume_value)
                 ):
                     raise ValueError
-                tolerance = max(abs(open_price), abs(close), abs(high), abs(low)) * 1e-8
                 if (
                     min(open_price, high, low, close) <= 0
                     or volume_value < 0
-                    or low > min(open_price, close) + tolerance
-                    or high + tolerance < max(open_price, close)
-                    or low > high + tolerance
+                    or low > min(open_price, close)
+                    or high < max(open_price, close)
+                    or low > high
                 ):
                     raise ValueError
                 dividend = YahooFinancePriceAdapter._optional_float(row, "Dividends", 0.0)
                 split = YahooFinancePriceAdapter._optional_float(row, "Stock Splits", 0.0)
+                if not isfinite(dividend) or not isfinite(split) or dividend < 0 or split < 0:
+                    raise ValueError
                 bars.append(
                     ProviderBar(
                         symbol=symbol,
@@ -166,12 +184,13 @@ class YahooFinancePriceAdapter:
                         adjusted=True,
                         split_factor=split if split > 0 else 1.0,
                         dividend=max(0.0, dividend),
-                        quality_flags=("provider_adjusted_prices",),
+                        quality_flags=("provider_adjusted_prices",)
+                        + (("zero_volume_review",) if volume_value == 0 else ()),
                     )
                 )
             except (TypeError, ValueError, OverflowError):
-                invalid_count += 1
-        return bars, invalid_count
+                counts["dropped_invalid_rows"] += 1
+        return bars, counts
 
     @staticmethod
     def _optional_float(row: pd.Series, column: str, default: float) -> float:

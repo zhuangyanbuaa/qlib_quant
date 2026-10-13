@@ -44,6 +44,8 @@ from quant_system.decision.rotation import (
     load_rotation_members,
     rotation_posture,
 )
+from quant_system.domain.clocks import NyseSessionClock
+from quant_system.quality.prices import critical_symbols, require_critical_prices
 from quant_system.settings import get_settings
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
@@ -55,6 +57,7 @@ from quant_system.strategy.calibration import (
     rules_for_tier,
 )
 from quant_system.strategy.config import RulesConfig, load_buy_the_dip_config
+from quant_system.universe.lifecycle import LifecycleResolver, apply_lifecycle_quality
 
 REGIME_SLICES = (
     ("2026_ytd", date(2026, 1, 1), None),
@@ -113,8 +116,14 @@ def run_closure(inputs: ClosureInputs) -> dict[str, Any]:
     repository = ParquetRepository(inputs.data_root)
     config = load_buy_the_dip_config(inputs.strategy_config_path)
     universe_paths = (inputs.ai_universe_path, inputs.hedge_universe_path)
-    symbols, role_by_symbol = load_decision_universe(universe_paths)
-    benchmark_etf_by_symbol = load_decision_symbol_benchmarks(universe_paths)
+    symbols, _ = load_decision_universe(universe_paths)
+    resolver = LifecycleResolver.from_repository(repository)
+    symbols = tuple(
+        sorted(
+            set(symbols)
+            | {event.successor_symbol for event in resolver.events if event.successor_symbol}
+        )
+    )
     benchmark_symbol = config.strategy.benchmark_symbol.upper()
 
     sessions = _load_sessions(
@@ -151,12 +160,19 @@ def run_closure(inputs: ClosureInputs) -> dict[str, Any]:
     session_contexts: list[dict[str, Any]] = []
     variants = ("current", "relaxed_tighter", "relaxed_looser")
     for session in sessions:
+        _active_symbols, role_by_symbol = load_decision_universe(
+            universe_paths, as_of=session, resolver=resolver
+        )
+        benchmark_etf_by_symbol = load_decision_symbol_benchmarks(
+            universe_paths, as_of=session, resolver=resolver
+        )
         context_payload = _context_for_session(
             prices=hierarchy_price_history,
             universe_paths=universe_paths,
             benchmark_path=inputs.benchmark_path,
             benchmark_symbol=benchmark_symbol,
             as_of=session,
+            resolver=resolver,
         )
         session_contexts.append(
             {
@@ -195,7 +211,8 @@ def run_closure(inputs: ClosureInputs) -> dict[str, Any]:
             tiered = [
                 candidate
                 for candidate in tiered
-                if role_by_symbol.get(candidate.signal.symbol) != "benchmark"
+                if candidate.signal.symbol in role_by_symbol
+                and role_by_symbol[candidate.signal.symbol] != "benchmark"
             ]
             rows = _calibration_candidate_rows(
                 tiered,
@@ -294,12 +311,19 @@ def _load_sessions(
     start: date,
     end: date | None,
 ) -> list[date]:
+    clock = NyseSessionClock()
+    end_session = (
+        clock.calendar.date_to_session(end, direction="previous").date()
+        if end is not None
+        else clock.latest_completed_session(datetime.now(UTC))
+    )
     with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
         analytics.refresh_views()
         prices = analytics.query_price_history(
             (benchmark_symbol,),
             start_date=start,
-            end_date=end or date.today(),
+            end_date=end_session,
+            cutoff_utc=clock.available_at_utc(end_session),
         )
     if prices.empty:
         return []
@@ -327,17 +351,26 @@ def _load_hierarchy_prices(
         sorted(
             {
                 benchmark_symbol,
+                *critical_symbols(benchmark_symbol),
                 *(proxy.symbol for proxy in proxies),
                 *(member.benchmark_etf for member in rotation_members),
             }
         )
     )
+    resolver = LifecycleResolver.from_repository(repository)
+    requested_symbols = tuple(
+        sorted(
+            set(requested_symbols)
+            | {event.successor_symbol for event in resolver.events if event.successor_symbol}
+        )
+    )
     with DuckDBAnalytics(database_path, repository.daily_prices_root) as analytics:
         analytics.refresh_views()
-        return analytics.query_price_history(
+        return analytics.query_price_versions(
             requested_symbols,
             start_date=start - pd.Timedelta(days=450),
             end_date=end,
+            cutoff_utc=NyseSessionClock().available_at_utc(end),
         )
 
 
@@ -348,12 +381,30 @@ def _context_for_session(
     benchmark_path: Path,
     benchmark_symbol: str,
     as_of: date,
+    resolver: LifecycleResolver | None = None,
 ) -> dict[str, Any]:
+    cutoff = NyseSessionClock().available_at_utc(as_of)
+    prices = (
+        prices.loc[
+            (pd.to_datetime(prices["available_at_utc"], utc=True) <= cutoff)
+            & (pd.to_datetime(prices["session_date_ny"]).dt.date <= as_of)
+        ]
+        .sort_values(["fetched_at_utc", "filename"])
+        .drop_duplicates(
+            ["symbol", "session_date_ny"],
+            keep="last",
+        )
+    )
+    if resolver is not None:
+        prices = apply_lifecycle_quality(prices, resolver, as_of=as_of, cutoff_utc=cutoff)
+    require_critical_prices(prices, session=as_of, benchmark_symbol=benchmark_symbol)
     proxies = load_hierarchy_proxies(
         universe_paths=universe_paths,
         benchmark_path=benchmark_path,
+        as_of=as_of,
+        resolver=resolver,
     )
-    rotation_members = load_rotation_members(universe_paths)
+    rotation_members = load_rotation_members(universe_paths, as_of=as_of, resolver=resolver)
     state_by_symbol = compute_symbol_states(
         prices=prices,
         proxies=proxies,

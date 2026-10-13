@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from quant_system.domain.coverage import NewsCoverageObservation
 from quant_system.domain.enums import NewsEventType
 from quant_system.domain.models import CompanyEvent, NewsArticle
 from quant_system.ingestion.base import (
@@ -17,6 +18,7 @@ from quant_system.ingestion.base import (
     NewsProvider,
     ProviderError,
     ProviderNewsArticle,
+    ProviderUnavailableError,
 )
 from quant_system.ingestion.reliability import ProviderGuard, RequestBudgetExceeded
 from quant_system.logging import get_logger
@@ -110,6 +112,8 @@ class NewsUpdateService:
             raise ValueError("start_utc must not follow end_utc")
         run_id = run_id or uuid4()
         started_at = datetime.now(UTC)
+        if end_utc > started_at:
+            raise ValueError("news coverage cannot certify a future interval")
         requested = tuple(dict.fromkeys(symbol.upper() for symbol in symbols))
         if not requested:
             raise ValueError("at least one symbol is required")
@@ -117,12 +121,28 @@ class NewsUpdateService:
         warnings: dict[str, str] = {}
         failed_sources: dict[str, str] = {}
         raw_articles: list[ProviderNewsArticle] = []
-        alpha_calls_before = self.news_guard.budget.used if self.news_guard else 0
-        sec_calls_before = self.event_guard.budget.used if self.event_guard else 0
+        coverage_results = {
+            (symbol, channel): ("UNAVAILABLE", 0, "source_not_configured")
+            for symbol in requested
+            for channel in ("news", "sec")
+        }
+        alpha_calls_before = self.news_guard.attempts_used if self.news_guard else 0
+        sec_calls_before = self.event_guard.attempts_used if self.event_guard else 0
 
         if self.news_provider and self.news_guard:
+            known_symbols = {mapping.symbol.upper() for mapping in self.resolver.mappings}
+            for symbol in requested:
+                coverage_results[(symbol, "news")] = (
+                    "UNAVAILABLE",
+                    0,
+                    "query_not_attempted"
+                    if symbol in known_symbols
+                    else "symbol_mapping_not_configured",
+                )
             try:
-                for batch in self._symbol_batches(requested):
+                for batch in self._symbol_batches(
+                    tuple(symbol for symbol in requested if symbol in known_symbols)
+                ):
                     result = self.news_guard.call(
                         lambda batch=batch: self.news_provider.fetch_news(
                             batch,
@@ -131,15 +151,54 @@ class NewsUpdateService:
                         )
                     )
                     raw_articles.extend(result.articles)
+                    limited = len(result.articles) >= getattr(
+                        self.news_provider, "limit_per_call", float("inf")
+                    )
+                    partial = bool(result.warnings) or limited
+                    for symbol in batch:
+                        count = sum(
+                            symbol
+                            in {
+                                *self.resolver.resolve_tickers(article.raw_tickers),
+                                *self.resolver.match_text(f"{article.title} {article.summary}"),
+                            }
+                            for article in result.articles
+                        )
+                        coverage_results[(symbol, "news")] = (
+                            "PARTIAL" if partial else ("SUCCESS" if count else "EMPTY"),
+                            count,
+                            "provider_warning_or_limit" if partial else "",
+                        )
+                        if symbol not in {
+                            mapping.symbol.upper() for mapping in self.resolver.mappings
+                        }:
+                            coverage_results[(symbol, "news")] = (
+                                "UNAVAILABLE",
+                                count,
+                                "symbol_mapping_not_configured",
+                            )
                     warnings.update(
                         {f"news:{key}": value for key, value in result.warnings.items()}
                     )
             except (ProviderError, RequestBudgetExceeded) as error:
                 failed_sources[self.news_provider.name] = f"{type(error).__name__}: {error}"
+                for symbol in batch:
+                    coverage_results[(symbol, "news")] = (
+                        "UNAVAILABLE" if isinstance(error, ProviderUnavailableError) else "FAILED",
+                        0,
+                        f"{type(error).__name__}: query failed",
+                    )
 
         raw_events = []
         if self.event_provider and self.event_guard:
             for symbol in requested:
+                if (
+                    hasattr(self.event_provider, "cik_by_symbol")
+                    and symbol not in self.event_provider.cik_by_symbol
+                ):
+                    coverage_results[(symbol, "sec")] = ("UNAVAILABLE", 0, "missing_cik")
+                    warnings[f"sec:{symbol}"] = "missing_cik"
+                    continue
                 try:
                     result = self.event_guard.call(
                         lambda symbol=symbol: self.event_provider.fetch_events(
@@ -149,10 +208,27 @@ class NewsUpdateService:
                         )
                     )
                     raw_events.extend(result.events)
+                    warning = result.warnings.get(symbol)
+                    coverage_results[(symbol, "sec")] = (
+                        "UNAVAILABLE"
+                        if warning == "missing_cik"
+                        else (
+                            "PARTIAL"
+                            if result.warnings
+                            else ("SUCCESS" if result.events else "EMPTY")
+                        ),
+                        len(result.events),
+                        warning or ("provider_warning" if result.warnings else ""),
+                    )
                     warnings.update({f"sec:{key}": value for key, value in result.warnings.items()})
                 except (ProviderError, RequestBudgetExceeded) as error:
                     failed_sources[f"{self.event_provider.name}:{symbol}"] = (
                         f"{type(error).__name__}: {error}"
+                    )
+                    coverage_results[(symbol, "sec")] = (
+                        "FAILED",
+                        0,
+                        f"{type(error).__name__}: query failed",
                     )
 
         news_records = []
@@ -197,6 +273,31 @@ class NewsUpdateService:
             for event in raw_events
         ]
 
+        completed_at = datetime.now(UTC)
+        coverage_records = []
+        for (symbol, channel), (result, count, reason) in coverage_results.items():
+            provider = self.news_provider if channel == "news" else self.event_provider
+            coverage_records.append(
+                NewsCoverageObservation(
+                    coverage_id=f"{run_id}:{channel}:{symbol}",
+                    symbol=symbol,
+                    channel=channel,
+                    window_start_utc=start_utc,
+                    window_end_utc=end_utc,
+                    result=result,
+                    rows_returned=count,
+                    reason=reason,
+                    source=provider.name
+                    if provider
+                    else ("alpha_vantage_news" if channel == "news" else "sec_submissions"),
+                    source_version=f"{provider.version if provider else 'unconfigured'}/coverage-1",
+                    fetched_at_utc=completed_at,
+                    available_at_utc=completed_at,
+                    ingestion_run_id=run_id,
+                    is_stale=False,
+                    quality_flags=("bounded_query_observation",),
+                )
+            )
         written_files = []
         if not dry_run:
             written_files.extend(
@@ -213,6 +314,11 @@ class NewsUpdateService:
                     batch_id="sec",
                 )
             )
+            written_files.extend(
+                self.repository.write_news_coverage(
+                    coverage_records, run_id=run_id, batch_id="coverage"
+                )
+            )
 
         blocked_reasons = tuple(
             f"{source}:{reason}" for source, reason in sorted(failed_sources.items())
@@ -222,9 +328,17 @@ class NewsUpdateService:
             PipelineStatus.DEGRADED if sentiment_degraded_count else PipelineStatus.SUCCESS
         )
 
+        incomplete_coverage = any(
+            record.result not in {"SUCCESS", "EMPTY"} for record in coverage_records
+        )
         if failed_sources and not news_records and not event_records:
             status = PipelineStatus.BLOCKED
-        elif failed_sources or warnings or sentiment_status is PipelineStatus.DEGRADED:
+        elif (
+            incomplete_coverage
+            or failed_sources
+            or warnings
+            or sentiment_status is PipelineStatus.DEGRADED
+        ):
             status = PipelineStatus.DEGRADED
         else:
             status = PipelineStatus.SUCCESS
@@ -245,12 +359,18 @@ class NewsUpdateService:
             sentiment_cache_misses=cache_misses,
             sentiment_degraded_count=sentiment_degraded_count,
             alpha_vantage_calls=(
-                self.news_guard.budget.used - alpha_calls_before if self.news_guard else 0
+                self.news_guard.attempts_used - alpha_calls_before if self.news_guard else 0
             ),
-            sec_calls=(self.event_guard.budget.used - sec_calls_before if self.event_guard else 0),
+            sec_calls=(
+                self.event_guard.attempts_used - sec_calls_before if self.event_guard else 0
+            ),
             warnings=dict(sorted(warnings.items())),
             failed_sources=dict(sorted(failed_sources.items())),
             blocked_reasons=blocked_reasons,
+            coverage_rows_written=0 if dry_run else len(coverage_records),
+            coverage_results={
+                f"{record.channel}:{record.symbol}": record.result for record in coverage_records
+            },
         )
         report_path = report.write(self.report_directory)
         logger.info(
@@ -266,9 +386,13 @@ class NewsUpdateService:
         return report, report_path
 
     def _symbol_batches(self, symbols: tuple[str, ...]) -> list[tuple[str, ...]]:
+        batch_size = (
+            self.config.alpha_vantage_batch_size
+            if getattr(self.news_provider, "supports_symbol_union", True)
+            else 1
+        )
         return [
-            symbols[offset : offset + self.config.alpha_vantage_batch_size]
-            for offset in range(0, len(symbols), self.config.alpha_vantage_batch_size)
+            symbols[offset : offset + batch_size] for offset in range(0, len(symbols), batch_size)
         ]
 
     def _to_news_article(

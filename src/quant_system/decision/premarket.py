@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 import pandas as pd
 
 from quant_system.backtest.workflow import load_feature_history
+from quant_system.decision.cutoffs import resolve_news_cutoff
 from quant_system.decision.hierarchy import run_hierarchy_diagnostics_workflow
 from quant_system.decision.reports import DailyReportArtifacts, write_premarket_report
 from quant_system.domain.clocks import NyseSessionClock
@@ -18,6 +20,7 @@ from quant_system.models.daily_ranker import (
     attach_model_scores,
     rank_daily_candidates_with_lightgbm,
 )
+from quant_system.sentiment.coverage import load_coverage, news_health
 from quant_system.sentiment.risk import NewsRiskAssessment, assess_news_risk
 from quant_system.storage.duckdb import DuckDBAnalytics
 from quant_system.storage.parquet import ParquetRepository
@@ -25,6 +28,7 @@ from quant_system.strategy.buy_the_dip import BuyTheDipStrategy
 from quant_system.strategy.calibration import TieredCandidateSignal, generate_tiered_candidates
 from quant_system.strategy.config import BuyTheDipConfig
 from quant_system.universe.config import load_watchlist_config
+from quant_system.universe.lifecycle import LifecycleResolver, decision_members
 
 AI_RISK_UNIVERSE_ROLES = {"ai_alpha", "ai_satellite"}
 POSITIVE_SYMBOL_STATES = {"REVERSAL_ATTEMPT", "CONFIRMED_REVERSAL", "UPTREND"}
@@ -32,14 +36,16 @@ POSITIVE_ROTATION_STATES = {"LEADING", "IMPROVING"}
 DEFENSIVE_OVERLAY_REVIEW_THEMES = {"defensive_healthcare", "defensive_staples"}
 
 
-def load_decision_universe(paths: tuple[Path, ...]) -> tuple[tuple[str, ...], dict[str, str]]:
+def load_decision_universe(
+    paths: tuple[Path, ...], *, as_of: date | None = None, resolver: LifecycleResolver | None = None
+) -> tuple[tuple[str, ...], dict[str, str]]:
     """Load unique scan symbols and classify them as AI alpha or hedge overlay."""
     symbols: list[str] = []
     roles: dict[str, str] = {}
     for path in paths:
         config = load_watchlist_config(path)
         role = _universe_role(config.universe_type)
-        for member in config.symbols:
+        for member in decision_members(config, as_of=as_of, resolver=resolver):
             symbols.append(member.symbol)
             roles.setdefault(member.symbol, role)
         symbols.extend(config.benchmark_symbols)
@@ -56,12 +62,14 @@ def _universe_role(universe_type: str) -> str:
     return "ai_alpha"
 
 
-def load_decision_symbol_benchmarks(paths: tuple[Path, ...]) -> dict[str, str]:
+def load_decision_symbol_benchmarks(
+    paths: tuple[Path, ...], *, as_of: date | None = None, resolver: LifecycleResolver | None = None
+) -> dict[str, str]:
     """Load per-symbol sector/theme ETF benchmarks from watchlist configs."""
     benchmarks: dict[str, str] = {}
     for path in paths:
         config = load_watchlist_config(path)
-        for member in config.symbols:
+        for member in decision_members(config, as_of=as_of, resolver=resolver):
             benchmarks.setdefault(member.symbol, member.benchmark_etf)
     return benchmarks
 
@@ -85,12 +93,20 @@ def run_premarket_workflow(
     report_title: str = "Premarket Plan",
     run_id: UUID | None = None,
     generated_at_utc: datetime | None = None,
+    news_cutoff_utc: datetime | None = None,
+    manual_news: bool = False,
 ) -> tuple[dict[str, Any], DailyReportArtifacts]:
     """Generate and persist a daily premarket plan without recording human actions."""
     run_id = run_id or uuid4()
     generated_at_utc = _ensure_utc(generated_at_utc or datetime.now(UTC))
-    symbols, role_by_symbol = load_decision_universe(universe_paths)
-    benchmark_etf_by_symbol = load_decision_symbol_benchmarks(universe_paths)
+    news_cutoff = resolve_news_cutoff(signal_session, generated_at_utc, news_cutoff_utc)
+    resolver = LifecycleResolver.from_repository(repository)
+    symbols, role_by_symbol = load_decision_universe(
+        universe_paths, as_of=signal_session, resolver=resolver
+    )
+    benchmark_etf_by_symbol = load_decision_symbol_benchmarks(
+        universe_paths, as_of=signal_session, resolver=resolver
+    )
     benchmark_symbol = config.strategy.benchmark_symbol.upper()
     features = load_feature_history(
         repository=repository,
@@ -104,11 +120,17 @@ def run_premarket_workflow(
     news_risk = _load_news_risk(
         repository=repository,
         database_path=database_path,
-        symbols=symbols,
+        symbols=tuple(symbol for symbol in symbols if role_by_symbol.get(symbol) != "benchmark"),
         signal_session=signal_session,
-        include_news_risk=include_news_risk,
+        include_news_risk=include_news_risk or manual_news,
         news_lookback_hours=news_lookback_hours,
+        news_cutoff_utc=news_cutoff,
     )
+    if manual_news:
+        news_risk = {
+            symbol: replace(assessment, coverage_status="PENDING_MANUAL_REVIEW")
+            for symbol, assessment in news_risk.items()
+        }
     strategy = BuyTheDipStrategy(config.strategy)
     annotated = strategy.annotate(features)
     signals = strategy.generate_signals(
@@ -179,6 +201,11 @@ def run_premarket_workflow(
     )
     clock = NyseSessionClock()
     earliest_order_session = clock.next_session(signal_session)
+    for row in [*candidate_rows, *calibration_rows]:
+        row["news_cutoff_utc"] = news_cutoff.isoformat()
+        row["decision_id"] = str(
+            uuid5(UUID(row["signal_id"]), f"news-cutoff:{news_cutoff.isoformat()}")
+        )
     report: dict[str, Any] = {
         "metadata": {
             "run_id": str(run_id),
@@ -186,13 +213,20 @@ def run_premarket_workflow(
             "report_stem": report_stem,
             "report_title": report_title,
             "signal_session": signal_session.isoformat(),
-            "data_cutoff_utc": clock.session_close_utc(signal_session).isoformat(),
+            "data_cutoff_utc": clock.available_at_utc(signal_session).isoformat(),
+            "price_cutoff_utc": clock.available_at_utc(signal_session).isoformat(),
+            "news_cutoff_utc": news_cutoff.isoformat(),
+            "news_mode": "MANUAL_RESEARCH"
+            if manual_news
+            else (
+                "FORWARD_REFRESH"
+                if news_cutoff > clock.available_at_utc(signal_session)
+                else "HISTORICAL_CUTOFF"
+            ),
             "earliest_order_session": earliest_order_session.isoformat(),
-            "earliest_order_time_utc": clock.session_open_utc(
-                earliest_order_session
-            ).isoformat(),
+            "earliest_order_time_utc": clock.session_open_utc(earliest_order_session).isoformat(),
             "symbol_count": len(symbols),
-            "news_risk_enabled": include_news_risk,
+            "news_risk_enabled": include_news_risk or manual_news,
             "calibration_enabled": include_calibration and benchmark_path is not None,
             "model_status": _metadata_model_status(
                 has_calibration=hierarchy_context is not None,
@@ -200,6 +234,7 @@ def run_premarket_workflow(
             ),
         },
         "counts": _counts(candidate_rows),
+        "data_health": {"news": news_health(news_risk)},
         "calibration_counts": _calibration_counts(calibration_rows),
         "portfolio_posture": _portfolio_posture(
             market_regime=market_regime,
@@ -212,6 +247,7 @@ def run_premarket_workflow(
             "message": "Calibration context disabled; use canonical baseline rules.",
         },
         "model_rank_context": model_rank_context,
+        "strategy_config_snapshot": config.model_dump(mode="json"),
         "candidates": candidate_rows,
         "calibration_candidate_tiers": calibration_rows,
     }
@@ -304,10 +340,11 @@ def _load_news_risk(
     signal_session: date,
     include_news_risk: bool,
     news_lookback_hours: int,
+    news_cutoff_utc: datetime | None = None,
 ) -> dict[str, NewsRiskAssessment] | None:
     if not include_news_risk:
         return None
-    cutoff = NyseSessionClock().available_at_utc(signal_session)
+    cutoff = news_cutoff_utc or NyseSessionClock().available_at_utc(signal_session)
     with DuckDBAnalytics(
         database_path,
         repository.daily_prices_root,
@@ -316,6 +353,7 @@ def _load_news_risk(
     ) as analytics:
         analytics.refresh_views()
         return assess_news_risk(
+            coverage=load_coverage(repository),
             symbols=symbols,
             articles=analytics.query_news_articles(
                 symbols,
@@ -373,6 +411,7 @@ def _candidate_rows(
                 "target_price": round(target_price, 4),
                 "market_regime": str(signal.market_regime),
                 "news_risk": signal.news_risk,
+                "execution_eligible": signal.news_risk in {"LOW", "DISABLED"},
                 "reason_count": len(signal.reasons),
                 "reasons": ";".join(signal.reasons),
                 "recommended_action": _recommended_action(
@@ -391,7 +430,7 @@ def _exclude_context_only_benchmarks(
     return [
         signal
         for signal in signals
-        if role_by_symbol.get(signal.symbol) != "benchmark"
+        if signal.symbol in role_by_symbol and role_by_symbol[signal.symbol] != "benchmark"
     ]
 
 
@@ -402,7 +441,8 @@ def _exclude_context_only_tiered_benchmarks(
     return [
         candidate
         for candidate in candidates
-        if role_by_symbol.get(candidate.signal.symbol) != "benchmark"
+        if candidate.signal.symbol in role_by_symbol
+        and role_by_symbol[candidate.signal.symbol] != "benchmark"
     ]
 
 
@@ -452,11 +492,9 @@ def _calibration_candidate_rows(
             hierarchy_by_symbol=hierarchy_by_symbol,
             rotation_by_group=rotation_by_group,
         )
-        sector_confirmation_pass, sector_confirmation_reasons = (
-            _sector_confirmation_gate(
-                row=row,
-                hierarchy_by_symbol=hierarchy_by_symbol,
-            )
+        sector_confirmation_pass, sector_confirmation_reasons = _sector_confirmation_gate(
+            row=row,
+            hierarchy_by_symbol=hierarchy_by_symbol,
         )
         row["relaxed_quality_pass"] = relaxed_quality_pass
         row["relaxed_quality_reasons"] = ";".join(relaxed_quality_reasons)
@@ -596,7 +634,7 @@ def _manual_review_allowed(
     calibration_tier: str,
     context_tier: str,
 ) -> bool:
-    if row["news_risk"] == "MEDIUM":
+    if row["news_risk"] in {"MEDIUM", "UNKNOWN"}:
         return False
     if row["universe_role"] == "hedge_overlay":
         if context_tier in {"DEFENSIVE", "RELAXED_WATCHLIST"}:
@@ -623,6 +661,8 @@ def _calibration_action(
     calibration_tier: str,
     context_tier: str,
 ) -> str:
+    if row["news_risk"] == "UNKNOWN":
+        return "WATCH_ONLY_NEWS_COVERAGE"
     if row["news_risk"] == "MEDIUM":
         return "DEFER_FOR_MANUAL_NEWS_REVIEW"
     if row["universe_role"] == "hedge_overlay":
@@ -653,9 +693,7 @@ def _calibration_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
         "calibration_candidate_count": len(rows),
         "strict_candidate_count": sum(row["calibration_tier"] == "STRICT" for row in rows),
         "baseline_candidate_count": sum(row["baseline_candidate"] for row in rows),
-        "relaxed_only_candidate_count": sum(
-            row["calibration_tier"] == "RELAXED" for row in rows
-        ),
+        "relaxed_only_candidate_count": sum(row["calibration_tier"] == "RELAXED" for row in rows),
         "manual_review_allowed_count": sum(row["manual_review_allowed"] for row in rows),
         "sector_confirmation_block_count": sum(
             row["universe_role"] in AI_RISK_UNIVERSE_ROLES
@@ -663,13 +701,14 @@ def _calibration_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
             for row in rows
         ),
         "defensive_defer_count": sum(
-            row["calibration_action"] == "DEFER_AI_ALPHA_DEFENSIVE_CONTEXT"
-            for row in rows
+            row["calibration_action"] == "DEFER_AI_ALPHA_DEFENSIVE_CONTEXT" for row in rows
         ),
     }
 
 
 def _recommended_action(universe_role: str, news_risk: str) -> str:
+    if news_risk == "UNKNOWN":
+        return "WATCH_ONLY_NEWS_COVERAGE"
     if news_risk == "MEDIUM":
         return "DEFER_FOR_MANUAL_NEWS_REVIEW"
     if universe_role == "hedge_overlay":
@@ -699,9 +738,8 @@ def _counts(candidate_rows: list[dict[str, Any]]) -> dict[str, int]:
         "hedge_candidate_count": sum(
             row["universe_role"] == "hedge_overlay" for row in candidate_rows
         ),
-        "medium_news_risk_count": sum(
-            row["news_risk"] == "MEDIUM" for row in candidate_rows
-        ),
+        "medium_news_risk_count": sum(row["news_risk"] == "MEDIUM" for row in candidate_rows),
+        "unknown_news_risk_count": sum(row["news_risk"] == "UNKNOWN" for row in candidate_rows),
     }
 
 
@@ -725,8 +763,17 @@ def _portfolio_posture(
     market_regime: str,
     candidate_rows: list[dict[str, Any]],
 ) -> dict[str, str]:
-    hedge_count = sum(row["universe_role"] == "hedge_overlay" for row in candidate_rows)
-    ai_count = sum(row["universe_role"] in AI_RISK_UNIVERSE_ROLES for row in candidate_rows)
+    if candidate_rows and all(row.get("news_risk") == "UNKNOWN" for row in candidate_rows):
+        return {
+            "market_regime": market_regime,
+            "status": "RESEARCH_ONLY_NEWS_UNAVAILABLE",
+            "message": (
+                "News coverage is unverified; candidates require research before any order draft."
+            ),
+        }
+    eligible_rows = [row for row in candidate_rows if row.get("news_risk") != "UNKNOWN"]
+    hedge_count = sum(row["universe_role"] == "hedge_overlay" for row in eligible_rows)
+    ai_count = sum(row["universe_role"] in AI_RISK_UNIVERSE_ROLES for row in eligible_rows)
     if market_regime == "RED":
         return {
             "status": "DEFENSIVE_REVIEW",

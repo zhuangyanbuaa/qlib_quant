@@ -125,6 +125,22 @@ def test_leverage_overlay_requires_catalyst_review_before_allowing_2x() -> None:
     assert assessment.stop_pct <= _config().strategy.maximum_stop_pct
 
 
+def test_leverage_overlay_rejects_stale_underlying_price() -> None:
+    features = _features()
+    features["is_stale"] = features["symbol"] == "MU"
+    assessment = evaluate_leverage_overlay(
+        features=features,
+        signal_session=date(2026, 8, 7),
+        underlying_symbol="MU",
+        leveraged_etf_symbol="MUU",
+        sector_etf="SOXX",
+        market_symbol="QQQ",
+        config=_config(),
+        catalyst_confirmed=True,
+    )
+    assert assessment.action == "NO_2X_TRADE"
+
+
 def test_leverage_overlay_allows_manual_review_after_catalyst_confirmation() -> None:
     assessment = evaluate_leverage_overlay(
         features=_features(),
@@ -145,9 +161,7 @@ def test_leverage_overlay_allows_manual_review_after_catalyst_confirmation() -> 
 def test_leverage_overlay_accepts_tiny_risk_reward_rounding_drift() -> None:
     config = _config()
     tolerant_config = config.model_copy(
-        update={
-            "strategy": config.strategy.model_copy(update={"target_risk_reward": 2.000005})
-        }
+        update={"strategy": config.strategy.model_copy(update={"target_risk_reward": 2.000005})}
     )
 
     assessment = evaluate_leverage_overlay(
@@ -276,9 +290,7 @@ def test_leverage_overlay_universe_config_covers_common_watchlist_pairs() -> Non
     }.issubset(underlyings)
 
     generic_members = [
-        member
-        for member in universe.pairs
-        if member.product_type == "generic_2x_watch"
+        member for member in universe.pairs if member.product_type == "generic_2x_watch"
     ]
     assert generic_members
     assert all(member.leveraged_etf_symbol is None for member in generic_members)
@@ -346,9 +358,7 @@ def test_leverage_overlay_universe_marks_generic_riskon_watch(
         Path("configs/universe/leverage_overlay_universe.yaml")
     )
     generic_pair = next(
-        member
-        for member in loaded_universe.pairs
-        if member.product_type == "generic_2x_watch"
+        member for member in loaded_universe.pairs if member.product_type == "generic_2x_watch"
     )
     universe = loaded_universe.model_copy(update={"pairs": (generic_pair,)})
 

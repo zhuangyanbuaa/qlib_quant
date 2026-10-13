@@ -10,6 +10,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from quant_system.decision.leverage import run_leverage_overlay_universe_workflow
+from quant_system.decision.manual_research import export_manual_research_package
 from quant_system.decision.positions import run_position_check_workflow
 from quant_system.decision.premarket import run_premarket_workflow
 from quant_system.decision.research import run_research_list_workflow
@@ -53,6 +54,8 @@ def run_daily_workbench_workflow(
     include_positions: bool = True,
     run_id: UUID | None = None,
     generated_at_utc: datetime | None = None,
+    news_cutoff_utc: datetime | None = None,
+    manual_news: bool = False,
 ) -> tuple[dict[str, Any], DailyWorkbenchArtifacts]:
     """Run the daily decision stack and write a concise index."""
     run_id = run_id or uuid4()
@@ -72,6 +75,8 @@ def run_daily_workbench_workflow(
         model_settings=model_settings,
         run_id=run_id,
         generated_at_utc=generated_at_utc,
+        news_cutoff_utc=news_cutoff_utc,
+        manual_news=manual_news,
     )
     research_report, research_artifacts = run_research_list_workflow(
         repository=repository,
@@ -89,6 +94,8 @@ def run_daily_workbench_workflow(
         news_summary_days=news_summary_days,
         run_id=run_id,
         generated_at_utc=generated_at_utc,
+        news_cutoff_utc=news_cutoff_utc,
+        manual_news=manual_news,
     )
     leverage_report, leverage_artifacts = run_leverage_overlay_universe_workflow(
         repository=repository,
@@ -128,6 +135,15 @@ def run_daily_workbench_workflow(
         positions_report=positions_report,
         positions_artifacts=positions_artifacts,
     )
+    if manual_news:
+        report["metadata"]["news_mode"] = "MANUAL_RESEARCH"
+        report["manual_research"] = export_manual_research_package(
+            report,
+            premarket_artifacts.directory,
+            strategy_config,
+            lookback_days=news_summary_days,
+        )
+        report["next_steps"].insert(0, "Run the manual research prompt with live web search.")
     artifacts = write_daily_workbench_index(report=report, report_root=report_root)
     report["artifacts"] = {
         "directory": str(artifacts.directory),
@@ -184,29 +200,35 @@ def build_daily_workbench_index(
     research_rows = research_report.get("research_candidates", [])
     leverage_rows = leverage_report.get("assessments", [])
     leverage_attention_rows = [
-        row
-        for row in leverage_rows
-        if row.get("attention_status") != "NO_LEVERAGE_ATTENTION"
+        row for row in leverage_rows if row.get("attention_status") != "NO_LEVERAGE_ATTENTION"
     ]
     position_rows = (positions_report or {}).get("positions", [])
     position_actions = [
-        row
-        for row in position_rows
-        if row.get("recommended_action") not in {"", "HOLD", None}
+        row for row in position_rows if row.get("recommended_action") not in {"", "HOLD", None}
     ]
     return {
         "metadata": {
             "run_id": str(run_id),
             "generated_at_utc": _ensure_utc(generated_at_utc).isoformat(),
             "signal_session": signal_session.isoformat(),
-            "data_cutoff_utc": clock.session_close_utc(signal_session).isoformat(),
+            "data_cutoff_utc": clock.available_at_utc(signal_session).isoformat(),
+            "price_cutoff_utc": clock.available_at_utc(signal_session).isoformat(),
+            "news_cutoff_utc": premarket_report.get("metadata", {}).get(
+                "news_cutoff_utc", clock.available_at_utc(signal_session).isoformat()
+            ),
             "earliest_order_session": earliest_order_session.isoformat(),
-            "earliest_order_time_utc": clock.session_open_utc(
-                earliest_order_session
-            ).isoformat(),
+            "earliest_order_time_utc": clock.session_open_utc(earliest_order_session).isoformat(),
             "decision_scope": "DAILY_WORKBENCH_INDEX_ONLY_NOT_TRADE_PERMISSION",
         },
+        "status": "DEGRADED"
+        if premarket_report.get("data_health", {}).get("news", {}).get("status") == "DEGRADED"
+        else "COMPLETED",
         "summary": {
+            "execution_eligible_candidate_count": sum(
+                row.get("execution_eligible", True)
+                and row.get("recommended_action") == "PREPARE_MANUAL_CONDITIONAL_ORDER"
+                for row in premarket_report.get("candidates", [])
+            ),
             "market_regime": premarket_report.get("portfolio_posture", {}).get(
                 "market_regime",
                 "UNKNOWN",
@@ -231,6 +253,7 @@ def build_daily_workbench_index(
             "position_action_required_count": len(position_actions),
         },
         "components": components,
+        "data_health": premarket_report.get("data_health", {}),
         "top_research": research_rows[:10],
         "leverage_attention": leverage_attention_rows[:15],
         "position_actions": position_actions,
@@ -270,6 +293,7 @@ def render_daily_workbench_markdown(report: dict[str, Any]) -> str:
     """Render the human-facing workbench index."""
     metadata = report["metadata"]
     summary = report["summary"]
+    news_status = report.get("data_health", {}).get("news", {}).get("status", "UNKNOWN")
     lines = [
         f"# Daily Workbench Index — {metadata['signal_session']}",
         "",
@@ -282,6 +306,7 @@ def render_daily_workbench_markdown(report: dict[str, Any]) -> str:
         f"- Research candidates: `{summary['research_candidate_count']}`",
         f"- 2x / leverage attention: `{summary['leverage_attention_count']}`",
         f"- Position actions: `{summary['position_action_required_count']}`",
+        f"- News data health: `{news_status}`",
         "",
         "## Reports",
         "",
@@ -300,6 +325,11 @@ def render_daily_workbench_markdown(report: dict[str, Any]) -> str:
                 json=_path_link(artifacts.get("json")),
             )
         )
+    manual = report.get("manual_research")
+    if manual:
+        lines.extend(["", "## Manual news research", "", f"Status: `{manual['status']}`", ""])
+        for name, path in manual["artifacts"].items():
+            lines.append(f"- {name}: {_path_link(path)}")
     lines.extend(["", "## Next steps", ""])
     for step in report.get("next_steps", []):
         lines.append(f"- {step}")
@@ -315,6 +345,7 @@ def _component_summary(*, status: str, report: dict[str, Any], artifacts: Any) -
         "metadata": report.get("metadata", {}),
         "counts": report.get("counts", report.get("metadata", {})),
         "artifacts": _artifact_dict(artifacts),
+        "data_health": report.get("data_health", {}),
     }
 
 

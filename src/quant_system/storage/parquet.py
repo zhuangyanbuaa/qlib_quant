@@ -13,11 +13,19 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.dataset as ds
 
+from quant_system.domain.companies import ReviewedCompanyMapping
+from quant_system.domain.coverage import NewsCoverageObservation
+from quant_system.domain.manual_research import ManualResearchObservation
 from quant_system.domain.models import CompanyEvent, DailyPrice, NewsArticle
+from quant_system.domain.securities import SecurityLifecycleEvent
 from quant_system.storage.schemas import (
     COMPANY_EVENT_SCHEMA,
+    COMPANY_MAPPING_SCHEMA,
     DAILY_PRICE_SCHEMA,
+    MANUAL_RESEARCH_SCHEMA,
     NEWS_ARTICLE_SCHEMA,
+    NEWS_COVERAGE_SCHEMA,
+    SECURITY_LIFECYCLE_SCHEMA,
 )
 
 _SAFE_BATCH_ID = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -73,6 +81,104 @@ class ParquetRepository:
         self.daily_prices_root = self.data_root / "raw" / "prices"
         self.news_articles_root = self.data_root / "raw" / "news"
         self.company_events_root = self.data_root / "raw" / "company_events"
+        self.security_lifecycle_root = self.data_root / "raw" / "security_lifecycle"
+        self.news_coverage_root = self.data_root / "raw" / "news_coverage"
+        self.company_mappings_root = self.data_root / "raw" / "company_mappings"
+        self.manual_research_root = self.data_root / "raw" / "manual_research"
+
+    def write_manual_research(
+        self, records: Iterable[ManualResearchObservation], *, run_id: UUID
+    ) -> list[Path]:
+        rows = []
+        for record in records:
+            row = record.model_dump(mode="python")
+            for field in ("review_id", "package_id", "parent_run_id", "ingestion_run_id"):
+                row[field] = str(row[field])
+            row["quality_flags"] = list(record.quality_flags)
+            rows.append(row)
+        return self._write_partitioned_table(
+            pa.Table.from_pylist(rows, schema=MANUAL_RESEARCH_SCHEMA),
+            root=self.manual_research_root,
+            schema=MANUAL_RESEARCH_SCHEMA,
+            partition_source_column="available_at_utc",
+            dataset_name="manual-research",
+            run_id=run_id,
+            batch_id="reviewed",
+        )
+
+    def read_manual_research(self) -> pa.Table:
+        return self._read_table(self.manual_research_root, MANUAL_RESEARCH_SCHEMA)
+
+    def write_company_mappings(
+        self, records: Iterable[ReviewedCompanyMapping], *, run_id: UUID
+    ) -> list[Path]:
+        rows = []
+        for record in records:
+            row = record.model_dump(mode="python")
+            row["ingestion_run_id"] = str(record.ingestion_run_id)
+            row["quality_flags"] = list(record.quality_flags)
+            row["aliases"] = list(record.aliases)
+            rows.append(row)
+        return self._write_partitioned_table(
+            pa.Table.from_pylist(rows, schema=COMPANY_MAPPING_SCHEMA),
+            root=self.company_mappings_root,
+            schema=COMPANY_MAPPING_SCHEMA,
+            partition_source_column="available_at_utc",
+            dataset_name="company-mapping",
+            run_id=run_id,
+            batch_id="reviewed",
+        )
+
+    def read_company_mappings(self) -> pa.Table:
+        return self._read_table(self.company_mappings_root, COMPANY_MAPPING_SCHEMA)
+
+    def write_news_coverage(
+        self, records: Iterable[NewsCoverageObservation], *, run_id: UUID, batch_id: str = "0000"
+    ) -> list[Path]:
+        rows = []
+        for record in records:
+            row = record.model_dump(mode="python")
+            row["ingestion_run_id"] = str(record.ingestion_run_id)
+            row["quality_flags"] = list(record.quality_flags)
+            rows.append(row)
+        return self._write_partitioned_table(
+            pa.Table.from_pylist(rows, schema=NEWS_COVERAGE_SCHEMA),
+            root=self.news_coverage_root,
+            schema=NEWS_COVERAGE_SCHEMA,
+            partition_source_column="available_at_utc",
+            dataset_name="news-coverage",
+            run_id=run_id,
+            batch_id=batch_id,
+        )
+
+    def read_news_coverage(self) -> pa.Table:
+        return self._read_table(self.news_coverage_root, NEWS_COVERAGE_SCHEMA)
+
+    def write_security_lifecycle(
+        self,
+        records: Iterable[SecurityLifecycleEvent],
+        *,
+        run_id: UUID,
+        batch_id: str = "0000",
+    ) -> list[Path]:
+        rows = []
+        for record in records:
+            row = record.model_dump(mode="python")
+            row["ingestion_run_id"] = str(record.ingestion_run_id)
+            row["quality_flags"] = list(record.quality_flags)
+            rows.append(row)
+        return self._write_partitioned_table(
+            pa.Table.from_pylist(rows, schema=SECURITY_LIFECYCLE_SCHEMA),
+            root=self.security_lifecycle_root,
+            schema=SECURITY_LIFECYCLE_SCHEMA,
+            partition_source_column="available_at_utc",
+            dataset_name="security-lifecycle",
+            run_id=run_id,
+            batch_id=batch_id,
+        )
+
+    def read_security_lifecycle(self) -> pa.Table:
+        return self._read_table(self.security_lifecycle_root, SECURITY_LIFECYCLE_SCHEMA)
 
     def write_daily_prices(
         self,
@@ -233,9 +339,7 @@ class ParquetRepository:
         if missing:
             raise ValueError(f"{dataset_name} table is missing columns: {sorted(missing)}")
         canonical = table.select(schema.names).cast(schema)
-        null_columns = [
-            name for name in canonical.column_names if canonical[name].null_count > 0
-        ]
+        null_columns = [name for name in canonical.column_names if canonical[name].null_count > 0]
         if null_columns:
             raise ValueError(f"non-null {dataset_name} columns contain nulls: {null_columns}")
         return canonical.replace_schema_metadata(schema.metadata)

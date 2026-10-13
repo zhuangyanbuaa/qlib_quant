@@ -1813,6 +1813,43 @@ quant --help
 
 当前状态（2026-08-10）：
 
+2026-10-12 开发补充：已完成历史价格 cutoff 与统一关键价格门禁第一批修复。
+扫描、回测和模型候选使用按各交易日可用时间构建的同一套特征；日报、诊断、
+持仓和 paper 的价格读取也使用显式 cutoff。缺失或 stale 的关键价格返回
+`BLOCKED`，CLI / daily runner 退出码为 2。179 个测试及本地完整 workbench
+smoke 通过。实现范围、评审点与推断可用时间限制见
+[`2026-10-12-price-cutoff-quality-gates.md`](2026-10-12-price-cutoff-quality-gates.md)。
+第二批已补齐追加式证券生命周期、有效股票池日期、当前代码解析，以及 Yahoo
+空行/公司行动/无效行情分类。202 个测试通过。审核导入 41 条事件后，实际价格
+更新解析 9 个新代码、跳过 32 个已退出交易的代码，当前活跃请求 stale 为 0；
+DMC 有 1 行无效行情被丢弃，运行保留 `DEGRADED`。其余 P0/P1 与 Phase 7
+仍待后续评审。第二批范围见
+[`2026-10-12-securities-lifecycle.md`](2026-10-12-securities-lifecycle.md)。
+
+第三批已完成运行可靠性基础：持久化跨进程调用预算、盘中快照来源/时间/质量门禁、
+追加式新闻/SEC 查询覆盖事实，以及日报的 UNKNOWN / DISABLED / DEGRADED 状态。
+未知新闻覆盖的候选仅用于研究，不会形成 paper 入场；已知 HIGH 风险继续否决。
+242 个测试与本地完整日报验证通过，2,235 个 raw Parquet 文件未改动。当前本地
+新闻/SEC 覆盖仍为空，日报因此保留降级状态；这次仅开发与验证，没有联网抓取。
+实现范围和评审记录见
+[`2026-10-12-operational-safety.md`](2026-10-12-operational-safety.md)。
+第四批已实现来源检查、追加式公司映射、最多三代码新闻验证、独立盘前新闻 cutoff
+与持久化每日 pipeline。新版 Alpha Vantage adapter 为 `NEWS_SENTIMENT-v3`，按
+代码单独查询，不能把多代码交集响应当成完整覆盖。真实三代码验证记录为
+`UNAVAILABLE`：本地新闻 key 与有效 SEC 联系信息尚未配置，外部请求为 0；这不
+等于真实采集成功，也没有购买新闻权限。代码、测试和运行手册已补齐，本地日报
+验证及详细评审记录见
+[`2026-10-13-daily-pipeline.md`](2026-10-13-daily-pipeline.md)。
+第五批按用户选择完成了人工新闻研究闭环：`--manual-news` 跳过新闻/SEC API，
+自动生成完整研究包、联网 prompt、JSON schema 与模板；审核结果可校验、追加导入，
+再生成独立综合报告。原始评分、信号和硬门禁保留，人工研究不认证完整新闻覆盖，
+也不自动放行候选。294 个测试通过，实际价格数据的完整重放覆盖 23 个研究代码，
+2,236 个原始文件内容未改动。验证导入使用明确标记的未研究测试夹具，不代表真实
+新闻研究成功。详细记录见
+[`2026-10-13-manual-news-research.md`](2026-10-13-manual-news-research.md)。
+人工流程无需新闻 API 凭据；进入 Phase 7 前应先实际运行 prompt、审核综合报告并
+观察每日流程。如果未来启用 API 新闻模式，仍需单独完成来源权限与覆盖验证。
+
 - **Phase 0–6 已完成第一版技术闭环。** 当前 repo 已覆盖工程基础、统一 Parquet/DuckDB/SQLite 存储、价格采集和补数、数据质量、规则策略、日线回测、新闻/SEC 事件第一版、LightGBM/Ridge baseline、每日决策、人工日志、持仓检查、forward paper trading、本地 Streamlit dashboard。
 - 这不是“逐字逐项照原计划完成所有未来设想”，而是完成了 Phase 6 以前主线所需的可运行系统。后续 Qlib、Chronos、launchd 自动化属于明确延期或 Phase 7+。
 - 系统边界保持不变：不自动下单；模型只能提供 rank/context 或风险提示；硬规则、数据质量、stale price gate 和人工确认仍是主策略边界。
@@ -1828,6 +1865,7 @@ quant --help
 | LightGBM daily rank context | 已完成 | 接入每日 `premarket`；只输出 `model_score`、`model_rank`、`model_rank_context`，不改变动作、不自动放行。 |
 | FinBERT production fallback | 已完成第一版 | 有 article/model key cache、timeout 和 `DEGRADED` fallback；默认仍可用 deterministic scorer 保持每日流程可运行。 |
 | research list + news prompt | 已完成 | 每日生成更宽的人工研究列表和 `news_research_prompt.md`，用于把候选交给具备联网能力的 Codex 总结近期新闻。 |
+| 人工新闻综合报告闭环 | 已完成 | `--manual-news` 生成完整研究包和固定 schema；审核 JSON 追加导入并合并为独立研究报告，保留量化评分、时间与来源，不授权交易。 |
 | 2x leveraged overlay | 已完成附属策略 | 独立于主 Buy-the-Dip gate，支持具体 2x ETF 与 `generic_2x_watch` 风险收益提示；不进入主策略自动候选。 |
 | daily workbench / daily index | 已完成 | 一键运行 `premarket`、research、2x overlay、positions，并输出 `daily_index.json` / `daily_index.md`。 |
 | Streamlit dashboard | 已完成第一版 | 展示 Today、Candidates、Research、News、2x Overlay、Portfolio、Reports、Data Health。 |
@@ -1839,7 +1877,9 @@ quant --help
 - **Qlib export/golden tests：** 原计划要求 curated Parquet 可导出 Qlib bin，并验证 DuckDB 与 Qlib 核心指标一致。当前尚未实现 `qlib_adapter`，且 Qlib 不在每日 workbench 的关键路径。只有在重新决定继续使用 Qlib workflow 时再补齐。
 - **Chronos-Bolt：** 保持 Phase 8 可选实验；不改善主线质量则不接入。
 - **全自动调度与通知：** Phase 7 才做。进入 launchd/通知之前，应先手动跑至少若干个交易日，观察 `daily_index.md`、dashboard、news prompt 和 2x overlay 的可用性。
-- **新闻自动抓取：** 当前 news 风险层可以接入 provider，但每日 runner/dashboard 不自动抓取新闻。需要先运行 `quant data update-news ...` 把本地 news parquet 补齐，再用 `--news-risk` 生成报告。
+- **新闻采集：** `quant data update-daily` / `scripts/run_daily_pipeline.py` 已串联价格和
+  新闻/SEC 采集与日报，受来源权限、审核映射及调用预算约束。旧 workbench runner
+  和 dashboard 仍只读本地新闻，不自动联网；真实来源验证待配置。
 
 Phase 6 完成 gate（当前应保持可运行）：
 
