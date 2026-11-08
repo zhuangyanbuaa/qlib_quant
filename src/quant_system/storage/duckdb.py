@@ -30,6 +30,8 @@ class DuckDBAnalytics:
             company_events_root.resolve() if company_events_root else raw_root / "company_events"
         )
         self.security_lifecycle_root = raw_root / "security_lifecycle"
+        self.intraday_snapshots_root = raw_root / "intraday_snapshots"
+        self.market_observations_root = raw_root / "market_observations"
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = duckdb.connect(str(self.database_path))
 
@@ -39,6 +41,94 @@ class DuckDBAnalytics:
         self._refresh_news_views()
         self._refresh_company_event_views()
         self._refresh_lifecycle_views()
+        self._refresh_intraday_views()
+        self._refresh_market_context_views()
+
+    def _refresh_market_context_views(self) -> None:
+        if list(self.market_observations_root.rglob("*.parquet")):
+            self._create_raw_view_from_parquet(
+                "raw_market_observations", self.market_observations_root
+            )
+        else:
+            self.connection.execute("""
+                CREATE OR REPLACE VIEW raw_market_observations AS SELECT
+                CAST(NULL AS VARCHAR) AS series_id,
+                CAST(NULL AS TIMESTAMPTZ) AS observed_at_utc,
+                CAST(NULL AS DATE) AS observation_date, CAST(NULL AS DOUBLE) AS value,
+                CAST(NULL AS VARCHAR) AS units, CAST(NULL AS VARCHAR) AS label,
+                CAST(NULL AS VARCHAR) AS source_url, CAST(NULL AS VARCHAR) AS input_reference,
+                CAST(NULL AS VARCHAR) AS source, CAST(NULL AS VARCHAR) AS source_version,
+                CAST(NULL AS TIMESTAMPTZ) AS fetched_at_utc,
+                CAST(NULL AS TIMESTAMPTZ) AS available_at_utc,
+                CAST(NULL AS VARCHAR) AS ingestion_run_id, CAST(NULL AS BOOLEAN) AS is_stale,
+                CAST([] AS VARCHAR[]) AS quality_flags, CAST(NULL AS VARCHAR) AS filename
+                WHERE false
+            """)
+
+    def query_market_observations(self, *, cutoff_utc: datetime) -> pd.DataFrame:
+        return self.connection.execute(
+            """
+            SELECT * EXCLUDE (_row_number, filename) FROM (
+                SELECT *, row_number() OVER (
+                    PARTITION BY series_id, observed_at_utc
+                    ORDER BY available_at_utc DESC, fetched_at_utc DESC, filename DESC
+                ) AS _row_number FROM raw_market_observations
+                WHERE available_at_utc<=? AND fetched_at_utc<=? AND observed_at_utc<=?
+            ) WHERE _row_number=1 ORDER BY observed_at_utc, available_at_utc
+        """,
+            [self._utc_cutoff(cutoff_utc)] * 3,
+        ).fetchdf()
+
+    def query_vix_context(self, *, cutoff_utc: datetime, session: date) -> pd.DataFrame:
+        """Context requires actual local observation; never backdate a newly fetched bar."""
+        return self.connection.execute(
+            """
+            SELECT * EXCLUDE (_row_number) FROM (
+                SELECT *, row_number() OVER (
+                    PARTITION BY session_date_ny ORDER BY fetched_at_utc DESC, filename DESC
+                ) AS _row_number FROM raw_daily_prices
+                WHERE symbol='^VIX' AND session_date_ny<=?
+                AND available_at_utc<=? AND fetched_at_utc<=? AND timestamp_utc<=?
+            ) WHERE _row_number=1 ORDER BY session_date_ny
+        """,
+            [session, *[self._utc_cutoff(cutoff_utc)] * 3],
+        ).fetchdf()
+
+    def _refresh_intraday_views(self) -> None:
+        if list(self.intraday_snapshots_root.rglob("*.parquet")):
+            self._create_raw_view_from_parquet(
+                "raw_intraday_snapshots", self.intraday_snapshots_root
+            )
+        else:
+            self.connection.execute("""
+                CREATE OR REPLACE VIEW raw_intraday_snapshots AS SELECT
+                CAST(NULL AS VARCHAR) AS symbol, CAST(NULL AS DOUBLE) AS last_price,
+                CAST(NULL AS TIMESTAMPTZ) AS quote_at_utc,
+                CAST(NULL AS DATE) AS session_date_ny,
+                CAST(NULL AS VARCHAR) AS news_risk, CAST(NULL AS VARCHAR) AS liquidity_status,
+                CAST(NULL AS VARCHAR) AS note, CAST(NULL AS VARCHAR) AS source,
+                CAST(NULL AS VARCHAR) AS source_version,
+                CAST(NULL AS TIMESTAMPTZ) AS fetched_at_utc,
+                CAST(NULL AS TIMESTAMPTZ) AS available_at_utc,
+                CAST(NULL AS VARCHAR) AS ingestion_run_id, CAST(NULL AS BOOLEAN) AS is_stale,
+                CAST([] AS VARCHAR[]) AS quality_flags, CAST(NULL AS VARCHAR) AS filename
+                WHERE false
+            """)
+
+    def query_intraday_snapshots(self, *, session: date, cutoff_utc: datetime) -> pd.DataFrame:
+        return self.connection.execute(
+            """
+            SELECT * EXCLUDE (_row_number) FROM (
+                SELECT *, row_number() OVER (
+                    PARTITION BY symbol ORDER BY quote_at_utc DESC,
+                    available_at_utc DESC, fetched_at_utc DESC, filename DESC
+                ) AS _row_number
+                FROM raw_intraday_snapshots WHERE session_date_ny=?
+                AND available_at_utc<=? AND fetched_at_utc<=? AND quote_at_utc<=?
+            ) WHERE _row_number=1
+        """,
+            [session, *[self._utc_cutoff(cutoff_utc)] * 3],
+        ).fetchdf()
 
     def query_security_lifecycle(self, *, cutoff_utc: datetime) -> pd.DataFrame:
         """Filter availability before resolving the newest visible event revision."""

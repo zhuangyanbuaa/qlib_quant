@@ -4,13 +4,14 @@ from quant_system.settings import PROJECT_ROOT, Settings
 
 
 def test_relative_data_directory_is_rooted_at_project() -> None:
-    settings = Settings(data_dir=Path("runtime-data"))
+    settings = Settings(_env_file=None, data_dir=Path("runtime-data"))
 
     assert settings.resolved_data_dir == PROJECT_ROOT / "runtime-data"
 
 
 def test_public_config_exposes_only_runtime_values() -> None:
     settings = Settings(
+        _env_file=None,
         app_env="development",
         data_dir=Path("data"),
         log_level="INFO",
@@ -22,4 +23,5 @@ def test_public_config_exposes_only_runtime_values() -> None:
         "data_dir": str(PROJECT_ROOT / "data"),
         "log_level": "INFO",
         "sec_user_agent_configured": "False",
+        "telegram_configured": "False",
     }

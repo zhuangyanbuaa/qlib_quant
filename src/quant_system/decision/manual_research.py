@@ -5,6 +5,7 @@
 import hashlib
 import json
 import math
+from copy import deepcopy
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4, uuid5
@@ -114,14 +115,14 @@ def load_manual_package(path):
     path = Path(path)
     package = json.loads(path.read_text())
     payload = {key: value for key, value in package.items() if key != "package_sha256"}
-    if (
-        package.get("schema_version") != PACKAGE_VERSION
-        or package.get("prompt_version") != PROMPT_VERSION
-    ):
+    if package.get("schema_version") != PACKAGE_VERSION or package.get("prompt_version") not in {
+        "manual-news-prompt-v1",
+        PROMPT_VERSION,
+    }:
         raise ValueError("unsupported manual package/prompt version")
     if content_hash(payload) != package.get("package_sha256"):
         raise ValueError("manual package checksum mismatch")
-    if str(uuid5(UUID(package["run_id"]), PROMPT_VERSION)) != package["package_id"]:
+    if str(uuid5(UUID(package["run_id"]), package["prompt_version"])) != package["package_id"]:
         raise ValueError("manual package identity mismatch")
     reports = _read_sources(package, path.parent)
     if _quant_context(reports, package["leverage_limit"]) != package["quant_context"]:
@@ -148,7 +149,7 @@ def _result_template(package):
         "run_id": package["run_id"],
         "signal_session": package["signal_session"],
         "price_cutoff_utc": package["price_cutoff_utc"],
-        "prompt_version": PROMPT_VERSION,
+        "prompt_version": package["prompt_version"],
         "analyst_system": "UNRUN_TEMPLATE",
         "model_version": "UNKNOWN_NOT_RECORDED",
         "generated_at_utc": package["generated_at_utc"],
@@ -216,7 +217,25 @@ def export_manual_research_package(
     template = _result_template(package)
     for name, value in (("package", package), ("schema", schema), ("template", template)):
         paths[name].write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False))
-    prompt = "\n".join(
+    batches = render_manual_prompt_batches(package)
+    prompt = "\n\n".join(batch["text"] for batch in batches)
+    for index, batch in enumerate(batches, 1):
+        path = directory / f"manual_research_prompt_{index:03}.md"
+        path.write_text(batch["text"], encoding="utf-8")
+        paths[f"prompt_batch_{index:03}"] = path
+    paths["prompt"].write_text(prompt)
+    return {
+        "status": "PENDING_MANUAL_REVIEW",
+        "package_id": package["package_id"],
+        "package_sha256": package["package_sha256"],
+        "symbol_count": len(package["quant_context"]["symbols"]),
+        "prompt_batches": batches,
+        "artifacts": {key: str(value) for key, value in paths.items()},
+    }
+
+
+def _render_manual_prompt(package, schema, template):
+    return "\n".join(
         [
             "# 量化日报与新闻综合研究",
             "",
@@ -231,7 +250,7 @@ def export_manual_research_package(
             f"- run_id: {package['run_id']}",
             f"- package_id: {package['package_id']}",
             f"- package_sha256: {package['package_sha256']}",
-            f"- prompt_version: {PROMPT_VERSION}",
+            f"- prompt_version: {package['prompt_version']}",
             f"- 价格 cutoff: {package['price_cutoff_utc']}",
             f"- 研究窗口从 {package['research_window_start_utc']} 到实际检索 cutoff。",
             f"- 最早订单时间: {package['earliest_order_time_utc']}；"
@@ -274,14 +293,36 @@ def export_manual_research_package(
             "",
         ]
     )
-    paths["prompt"].write_text(prompt)
-    return {
-        "status": "PENDING_MANUAL_REVIEW",
-        "package_id": package["package_id"],
-        "package_sha256": package["package_sha256"],
-        "symbol_count": len(package["quant_context"]["symbols"]),
-        "artifacts": {key: str(value) for key, value in paths.items()},
-    }
+
+
+def render_manual_prompt_batches(package, *, batch_size=20):
+    if not 1 <= batch_size <= 50:
+        raise ValueError("manual prompt batch size must be within 1-50")
+    symbols = package["quant_context"]["symbols"]
+    batches = []
+    schema = ManualResearchResult.model_json_schema()
+    for start in range(0, len(symbols), batch_size):
+        selected = symbols[start : start + batch_size]
+        view = deepcopy(package)
+        view["quant_context"]["symbols"] = selected
+        view["quant_context"]["by_symbol"] = {
+            s: package["quant_context"]["by_symbol"][s] for s in selected
+        }
+        health = view["quant_context"].get("data_health", {}).get("news", {})
+        if "symbols" in health:
+            health["symbols"] = {
+                s: health["symbols"][s] for s in selected if s in health["symbols"]
+            }
+        template = _result_template(view)
+        text = _render_manual_prompt(view, schema, template)
+        text += (
+            "\n本批是完整研究包按标的裁剪的只读视图；package_sha256 对应磁盘原始完整包。"
+            "只研究本批列出的标的，结果保留同一 package_id/package_sha256；"
+            "每批独立保存 JSON，审核后逐批导入。分批结果按标的合并，不覆盖其他批次；"
+            "更新同一标的时请明确填写该标的最新 review。\n"
+        )
+        batches.append({"symbols": selected, "text": text})
+    return batches
 
 
 def _utc_now(value):
@@ -381,7 +422,7 @@ def import_manual_research(
         result_json=canonical_json(result_payload),
         reviewed_by=reviewed_by.strip(),
         source="manual_web_research",
-        source_version=f"{RESULT_VERSION}:{PROMPT_VERSION}",
+        source_version=f"{RESULT_VERSION}:{result.prompt_version}",
         fetched_at_utc=now,
         available_at_utc=now,
         ingestion_run_id=uuid4(),
@@ -431,21 +472,33 @@ def combine_manual_research(
     )
     latest = visible[-1] if visible else None
     result = ManualResearchResult.model_validate_json(latest.result_json) if latest else None
-    reviews = {row.symbol: row for row in result.reviews} if result else {}
-    evidence = [item.model_dump(mode="json") for item in result.evidence] if result else []
+    reviews, review_times, evidence = {}, {}, []
+    for fact in visible:
+        batch = ManualResearchResult.model_validate_json(fact.result_json)
+        for review in batch.reviews:
+            reviews[review.symbol] = review
+            review_times[review.symbol] = (batch.news_cutoff_utc, fact.is_stale)
+        evidence.extend(
+            dict(item.model_dump(mode="json"), review_id=str(fact.review_id))
+            for item in batch.evidence
+        )
     history = []
     for fact in visible:
         prior = ManualResearchResult.model_validate_json(fact.result_json)
         for item in prior.evidence:
             if item.severity in {"HIGH", "MEDIUM"}:
                 history.append({"review_id": str(fact.review_id), **item.model_dump(mode="json")})
-    stale = bool(
-        latest and (latest.is_stale or cutoff - result.news_cutoff_utc > timedelta(hours=1))
-    )
+    stale_symbols = {
+        symbol
+        for symbol, (observed, was_stale) in review_times.items()
+        if was_stale or cutoff - observed > timedelta(hours=1)
+    }
+    stale = bool(stale_symbols)
     rows = []
     for symbol in package["quant_context"]["symbols"]:
         quant = package["quant_context"]["by_symbol"][symbol]
         review = reviews.get(symbol)
+        review_stale = symbol in stale_symbols
         observed = {item["severity"] for item in history if item["symbol"] == symbol}
         observed.add(quant["local_news_status"].get("news_risk", "UNKNOWN"))
         observed.update(
@@ -460,13 +513,13 @@ def combine_manual_research(
                 "review": review.model_dump(mode="json") if review else None,
                 "research_priority": "SKIP"
                 if risk == "HIGH"
-                else (review.research_priority if review and not stale else "WATCH"),
+                else (review.research_priority if review and not review_stale else "WATCH"),
                 "news_risk": risk,
                 "news_coverage_certified": False,
                 "review_status": "NOT_REVIEWED"
                 if review is None
                 else "STALE_RESEARCH"
-                if stale
+                if review_stale
                 else review.coverage,
                 "execution_eligible": False,
             }
@@ -486,7 +539,7 @@ def combine_manual_research(
             "parent_run_id": package["run_id"],
             "package_id": package["package_id"],
             "package_sha256": package["package_sha256"],
-            "prompt_version": PROMPT_VERSION,
+            "prompt_version": package["prompt_version"],
             "signal_session": package["signal_session"],
             "price_cutoff_utc": package["price_cutoff_utc"],
             "news_cutoff_utc": cutoff.isoformat(),
@@ -496,6 +549,7 @@ def combine_manual_research(
             "order_window_expired": cutoff
             >= datetime.fromisoformat(package["earliest_order_time_utc"]),
             "decision_scope": "MANUAL_RESEARCH_ONLY_NOT_TRADE_PERMISSION",
+            "aggregation_version": "per-symbol-reviewed-v2",
         },
         "status": status,
         "summary": {
@@ -539,6 +593,14 @@ def combine_manual_research(
         else:
             with path.open("x") as stream:
                 stream.write(value)
+    from quant_system.decision.digest_reports import refresh_digest_after_event
+
+    refresh_digest_after_event(
+        report_root=report_root,
+        premarket_path=Path(report["source_reports"]["premarket"]["path"]),
+        event=report,
+        kind="research",
+    )
     return {
         "combined_status": status,
         "report_path": str(json_path),

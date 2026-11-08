@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date
+from datetime import date, timedelta
 from importlib.metadata import version
 from math import isfinite
 
 import pandas as pd
 import yfinance as yf
 
+from quant_system.domain.clocks import NyseSessionClock
 from quant_system.ingestion.base import (
     ProviderBar,
     ProviderBatchResult,
@@ -36,7 +37,7 @@ class YahooFinancePriceAdapter:
 
     @property
     def version(self) -> str:
-        return f"yfinance-{version('yfinance')}/adapter-3"
+        return f"yfinance-{version('yfinance')}/adapter-4"
 
     def fetch_daily(
         self,
@@ -136,7 +137,21 @@ class YahooFinancePriceAdapter:
             raise ValueError(f"missing Yahoo columns: {sorted(missing)}")
 
         bars: list[ProviderBar] = []
-        counts = dict.fromkeys(("dropped_invalid_rows", "padded_rows", "action_only_rows"), 0)
+        counts = dict.fromkeys(
+            (
+                "dropped_invalid_rows",
+                "padded_rows",
+                "action_only_rows",
+                "dropped_non_nyse_session_rows",
+            ),
+            0,
+        )
+        sessions = {
+            label.date()
+            for label in NyseSessionClock().calendar.sessions_in_range(
+                start, end_exclusive - timedelta(days=1)
+            )
+        }
         for index, row in frame.iterrows():
             session = pd.Timestamp(index).date()
             if not start <= session < end_exclusive:
@@ -149,6 +164,9 @@ class YahooFinancePriceAdapter:
                     for column in ("Dividends", "Stock Splits")
                 )
                 counts["action_only_rows" if action else "padded_rows"] += 1
+                continue
+            if session not in sessions:
+                counts["dropped_non_nyse_session_rows"] += 1
                 continue
             try:
                 open_price = float(row["Open"])

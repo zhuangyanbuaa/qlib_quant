@@ -1,0 +1,9 @@
+# Forward-only. Configure a trusted source before expecting KEEP decisions.
+provider: none
+broker_path: data/inbox/intraday.json
+feed: iex
+batch_size: 25
+calls_per_minute: 10
+daily_call_budget: 20
+timeout_seconds: 15
+max_quote_age_seconds: 120

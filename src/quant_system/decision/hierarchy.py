@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from math import isfinite
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -246,12 +247,7 @@ def classify_trend_state(metrics: dict[str, Any]) -> str:
 
     if (drawdown_20d >= 0.12 or drawdown_60d >= 0.22 or rsi14 <= 32) and return_5d < 0:
         return "WASHOUT"
-    if (
-        return_20d < 0
-        and ma20_slope_5d < 0
-        and down_day_ratio_20d >= 0.55
-        and drawdown_20d >= 0.03
-    ):
+    if return_20d < 0 and ma20_slope_5d < 0 and down_day_ratio_20d >= 0.55 and drawdown_20d >= 0.03:
         return "DRIFT_DOWN"
     if (
         return_20d > 0
@@ -282,72 +278,70 @@ def classify_reversal_context(metrics: dict[str, Any], trend_state: str) -> dict
             "reversal_phase": "INSUFFICIENT_DATA",
             "reversal_score": None,
             "reversal_reasons": "",
+            "score_components": [],
+            "score_raw": None,
+            "score_clamp_adjustment": None,
         }
 
-    return_5d = _float_or_none(metrics.get("return_5d"))
-    return_20d = _float_or_none(metrics.get("return_20d"))
-    relative_20d = _float_or_none(metrics.get("relative_return_20d"))
-    drawdown_20d = _float_or_none(metrics.get("drawdown_20d"))
-    drawdown_60d = _float_or_none(metrics.get("drawdown_60d"))
-    rsi14 = _float_or_none(metrics.get("rsi14"))
-    ma20_slope_5d = _float_or_none(metrics.get("ma20_slope_5d"))
-    down_day_ratio_20d = _float_or_none(metrics.get("down_day_ratio_20d"))
-    above_ma20 = bool(metrics.get("above_ma20"))
-    above_ma50 = bool(metrics.get("above_ma50"))
-    reclaimed_previous_high = bool(metrics.get("reclaimed_previous_high"))
-
-    score = 0.0
-    reasons: list[str] = []
-    if trend_state == "CONFIRMED_REVERSAL":
-        score += 3.0
-        reasons.append("trend_confirmed_reversal")
-    elif trend_state == "REVERSAL_ATTEMPT":
-        score += 2.0
-        reasons.append("trend_reversal_attempt")
-    elif trend_state == "UPTREND":
-        score += 1.5
-        reasons.append("trend_uptrend")
-    elif trend_state in {"DRIFT_DOWN", "WASHOUT"}:
-        score -= 2.0
-        reasons.append(f"trend_{trend_state.lower()}")
-    elif trend_state == "WEAKENING":
-        score -= 0.5
-        reasons.append("trend_weakening")
-
-    if _positive(return_5d):
-        score += 1.0
-        reasons.append("positive_5d")
-    if _positive(return_20d):
-        score += 1.0
-        reasons.append("positive_20d")
-    if _positive(relative_20d):
-        score += 1.0
-        reasons.append("beating_benchmark_20d")
-    if above_ma20:
-        score += 1.0
-        reasons.append("above_ma20")
-    if above_ma50:
-        score += 0.5
-        reasons.append("above_ma50")
-    if _positive(ma20_slope_5d):
-        score += 0.75
-        reasons.append("ma20_slope_turning_up")
-    if reclaimed_previous_high:
-        score += 0.75
-        reasons.append("reclaimed_previous_high")
-    if rsi14 is not None and rsi14 >= 45:
-        score += 0.5
-        reasons.append("rsi_recovered")
-
-    if drawdown_20d is not None and drawdown_20d >= 0.08:
-        score -= 0.75
-        reasons.append("deep_20d_drawdown")
-    if drawdown_60d is not None and drawdown_60d >= 0.18:
-        score -= 0.75
-        reasons.append("deep_60d_drawdown")
-    if down_day_ratio_20d is not None and down_day_ratio_20d >= 0.55:
-        score -= 0.75
-        reasons.append("persistent_down_days")
+    trend_points = {
+        "CONFIRMED_REVERSAL": 3.0,
+        "REVERSAL_ATTEMPT": 2.0,
+        "UPTREND": 1.5,
+        "DRIFT_DOWN": -2.0,
+        "WASHOUT": -2.0,
+        "WEAKENING": -0.5,
+    }
+    points = trend_points.get(trend_state, 0.0)
+    components = [
+        {
+            "metric": "trend_state",
+            "value": trend_state,
+            "condition": "trend_state_points",
+            "threshold": trend_points,
+            "passed": points != 0,
+            "contribution": points,
+        }
+    ]
+    reasons = [f"trend_{trend_state.lower()}"] if points else []
+    checks = (
+        ("return_5d", ">", 0, 1.0, "positive_5d"),
+        ("return_20d", ">", 0, 1.0, "positive_20d"),
+        ("relative_return_20d", ">", 0, 1.0, "beating_benchmark_20d"),
+        ("above_ma20", "==", True, 1.0, "above_ma20"),
+        ("above_ma50", "==", True, 0.5, "above_ma50"),
+        ("ma20_slope_5d", ">", 0, 0.75, "ma20_slope_turning_up"),
+        ("reclaimed_previous_high", "==", True, 0.75, "reclaimed_previous_high"),
+        ("rsi14", ">=", 45, 0.5, "rsi_recovered"),
+        ("drawdown_20d", ">=", 0.08, -0.75, "deep_20d_drawdown"),
+        ("drawdown_60d", ">=", 0.18, -0.75, "deep_60d_drawdown"),
+        ("down_day_ratio_20d", ">=", 0.55, -0.75, "persistent_down_days"),
+    )
+    for metric, operator, threshold, weight, reason in checks:
+        raw = metrics.get(metric)
+        value = (None if raw is None else bool(raw)) if operator == "==" else _float_or_none(raw)
+        if operator == "==" and raw is not None and pd.isna(raw):
+            value = None
+        passed = value is not None and (
+            value == threshold
+            if operator == "=="
+            else value >= threshold
+            if operator == ">="
+            else value > threshold
+        )
+        contribution = weight if passed else 0.0
+        components.append(
+            {
+                "metric": metric,
+                "value": value,
+                "condition": operator,
+                "threshold": threshold,
+                "passed": passed,
+                "contribution": contribution,
+            }
+        )
+        if passed:
+            reasons.append(reason)
+    score = sum(component["contribution"] for component in components)
 
     phase = "NEUTRAL"
     if trend_state == "WASHOUT":
@@ -367,6 +361,9 @@ def classify_reversal_context(metrics: dict[str, Any], trend_state: str) -> dict
         "reversal_phase": phase,
         "reversal_score": _round_or_none(max(0.0, min(score, 10.0))),
         "reversal_reasons": ";".join(reasons),
+        "score_components": components,
+        "score_raw": score,
+        "score_clamp_adjustment": max(0.0, min(score, 10.0)) - score,
     }
 
 
@@ -540,14 +537,12 @@ def _breadth(rows: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "reversal_or_confirmed_fraction": _round_or_none(
             sum(
-                row.get("trend_state") in {"REVERSAL_ATTEMPT", "CONFIRMED_REVERSAL"}
-                for row in rows
+                row.get("trend_state") in {"REVERSAL_ATTEMPT", "CONFIRMED_REVERSAL"} for row in rows
             )
             / len(rows)
         ),
         "drift_or_washout_fraction": _round_or_none(
-            sum(row.get("trend_state") in {"DRIFT_DOWN", "WASHOUT"} for row in rows)
-            / len(rows)
+            sum(row.get("trend_state") in {"DRIFT_DOWN", "WASHOUT"} for row in rows) / len(rows)
         ),
     }
 
@@ -579,14 +574,9 @@ def _reversal_context(
         status = "DOWNTREND_OR_WASHOUT"
         action_hint = "DEFENSE_FIRST"
         message = (
-            "AI leaders are still drifting or washed out; reversal entries need "
-            "more confirmation."
+            "AI leaders are still drifting or washed out; reversal entries need more confirmation."
         )
-    elif (
-        market_repairing
-        and ai_repair_fraction is not None
-        and ai_repair_fraction >= 0.35
-    ):
+    elif market_repairing and ai_repair_fraction is not None and ai_repair_fraction >= 0.35:
         status = "EARLY_REPAIR"
         action_hint = "WATCH_FOR_CONFIRMATION"
         message = (
@@ -637,18 +627,10 @@ def _counts(rows: list[dict[str, Any]]) -> dict[str, int]:
         "leader_stock_count": sum(row["role"] == "leader_stock" for row in rows),
         "drift_down_count": sum(row["trend_state"] == "DRIFT_DOWN" for row in rows),
         "washout_count": sum(row["trend_state"] == "WASHOUT" for row in rows),
-        "reversal_attempt_count": sum(
-            row["trend_state"] == "REVERSAL_ATTEMPT" for row in rows
-        ),
-        "confirmed_reversal_count": sum(
-            row["trend_state"] == "CONFIRMED_REVERSAL" for row in rows
-        ),
-        "repair_attempt_count": sum(
-            row["reversal_phase"] == "REPAIR_ATTEMPT" for row in rows
-        ),
-        "confirmed_repair_count": sum(
-            row["reversal_phase"] == "CONFIRMED_REPAIR" for row in rows
-        ),
+        "reversal_attempt_count": sum(row["trend_state"] == "REVERSAL_ATTEMPT" for row in rows),
+        "confirmed_reversal_count": sum(row["trend_state"] == "CONFIRMED_REVERSAL" for row in rows),
+        "repair_attempt_count": sum(row["reversal_phase"] == "REPAIR_ATTEMPT" for row in rows),
+        "confirmed_repair_count": sum(row["reversal_phase"] == "CONFIRMED_REPAIR" for row in rows),
     }
 
 
@@ -753,7 +735,8 @@ def _positive(value: float | None) -> bool:
 def _float_or_none(value: object) -> float | None:
     if value is None:
         return None
-    return float(value)
+    value = float(value)
+    return value if isfinite(value) else None
 
 
 def _ensure_utc(value: datetime) -> datetime:

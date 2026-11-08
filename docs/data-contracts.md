@@ -339,6 +339,83 @@ or after package generation and at/before actual run time; only imported observa
 available at/before that cutoff may appear. Markdown narratives remain human-reviewed
 model interpretation, distinct from the frozen quant facts.
 
+## Scheduled jobs and Telegram delivery
+
+`scheduled_daily_runs` and `telegram_outbox` are operational SQLite tables, not market
+facts. The calendar tick uses XNYS actual close/open and IANA timezone conversion,
+including early closes and DST. launchd only polls; it never encodes a Tokyo hour.
+Default window is close+60 minutes through next actual open. A resumed device may
+catch up within that window, including weekends, without creating a holiday session.
+Older windows expire. Missing Telegram credentials pause unattended pipeline work.
+
+Each schedule/session/mode has a durable daily key. Reserve attempts before pipeline
+execution, use a separate scheduler process lock and retain canonical pipeline locking
+and durable provider budgets. Successful COMPLETED/DEGRADED runs stop acquisition
+retries. Failed attempts are bounded and delayed. Interrupted runs recover from
+durable state; no branch disables critical price checks or manual news gates.
+
+Outbox identity includes job/attempt and a destination fingerprint, not raw token or
+chat ID. Persist a send reservation before contacting Telegram. A valid message ID
+acknowledges SENT; explicit 429 responses permit bounded delayed retries independent
+of acquisition. Transport uncertainty, server uncertainty or an interrupted SENDING
+reservation become UNKNOWN and are not automatically resent: exactly-once delivery
+cannot be guaranteed across a remote send and local commit. Permanent API failures
+remain FAILED. No response descriptions or token-bearing URL errors are logged.
+Bot credentials are SecretStr/environment data and never enter plist or process args.
+Summaries preserve DEGRADED/BLOCKED status and zero manual execution eligibility.
+
+Logs rotate under the scheduler lock. The user LaunchAgent requires a logged-in,
+running Mac; it cannot execute while asleep or powered off. Locking the screen does
+not log the user out. Session jobs also cover premarket/preopen/T+30/T+60 and weekly
+notifications; automatic LLM research and order submission remain outside this system.
+
+Session keys include job kind and signal session, independently of after-close keys.
+Snapshots are acquired at gate minus two minutes; gates expire after five minutes.
+Premarket acquisition expires at open minus twelve minutes. Weekly jobs use the last
+actual session in an ISO week and expire at the next open. Interrupted jobs recover
+under the scheduler lock, including failure notification after their execution window.
+Operational results retain observed_at_utc; legacy states without it cannot be
+asserted as historically visible by weekly review. Pending outbox rows get priority
+over recent successful sends so multiple jobs cannot starve earlier delivery retries.
+
+## Forward intraday observations
+
+`raw/intraday_snapshots/` uses INTRADAY_SNAPSHOT_SCHEMA v1 and IntradaySnapshot.
+Each fact retains price, quote time, NY session, source/version, fetch/availability,
+run ID, stale/quality flags, news/liquidity state and notes. Broker JSON ingestion
+sets availability and fetch to actual local import time, retains complete original
+metadata in note, and appends `+broker-import-v1` to the source version. It never
+backdates local availability to the provider quote. Duplicate symbols or invalid
+session/timeline reject the broker batch before writing. Successful raw facts remain
+immutable; each Alpaca batch persists independently so later failures keep earlier facts.
+
+Alpaca `latest-trades-v1` facts have UNKNOWN news/liquidity; IEX additionally carries
+partial_exchange_coverage. No midpoint is mislabeled as a trade and no daily bar is
+an intraday snapshot. Fixed fixtures verify timestamps, positive price/size, missing
+symbols, future/naive times and conservative provider states. HTTPS redirects are
+disabled and credentials stay in SecretStr headers. Durable day/minute limits bound
+calls across processes; rate saturation refuses calls instead of increasing concurrency.
+
+DuckDB raw_intraday_snapshots is rebuildable. Both Parquet and analytical selectors
+filter session, quote, fetch and availability before selecting the latest visible
+symbol observation. Gate reports retain original quote/source lineage and existing
+canonical plan/news/price rules; no snapshot acquisition creates a fill.
+
+## Daily ranking activation and weekly review
+
+Automatic pipeline ranking is off or validated. Validated mode requires an explicitly
+reviewed registry run ID, compatible config/hash, completed OOF artifacts available
+by the decision cutoff, mature labels and purged/embargoed folds. Comparison metrics
+are recomputed from predictions; targets and fold membership are checked. Unqualified
+evidence falls back to rules. Activation evidence/config and artifact hashes are part
+of cache identity, and model failure never relaxes hard rules or news coverage.
+
+Weekly JSON/Markdown are new immutable derived reports. Only PIT-visible daily reports,
+manual research imports and journal events contribute; each signal session uses its
+latest visible daily index. Manual/paper fills are separate. Slippage uses matched
+pre-fill BUY plan limits, not inferred executable quotes. Missing references remain
+unavailable. No closed-trade P&L/win-rate is inferred from fill counts.
+
 ## Reconciliation
 
 Every migration emits:
@@ -349,3 +426,117 @@ Every migration emits:
 
 Phase 1 is accepted only when all non-quarantined symbols match on deduplicated
 row count and date range.
+
+
+## Daily digest and market context (2026-11-04)
+
+`daily_index.json.digest` is a versioned, typed payload. Schema 1 was the Phase A
+`FOUNDATION_NOT_ENTRY_CLASSIFICATION` payload. New reports use schema 2 and phase
+`SCORED_DECISION_SUPPORT`; the canonical premarket report remains the strategy authority.
+
+`configs/reports/daily_digest.yaml` explicitly lists seven production watchlists,
+two review inventories, and context-only ETF proxies. Coverage retains each original
+identifier, its resolved symbol, all source lists/themes, and one IN_SCOPE / INACTIVE /
+PENDING_VERIFICATION status. Review-only entries never become production candidates.
+Explicit universe overrides isolate both scanning and coverage from the default pool.
+
+CNN observations use append-only `raw/market_observations/` schema version 1. Fields
+include series_id, observed_at_utc, New York observation_date, numeric value, units,
+source label/URL, input_reference, and all canonical ingestion metadata. No importer
+accepts caller-supplied availability: available_at_utc is the actual local fetch/import
+time. DuckDB filters observed/fetched/available times before selecting revisions.
+A later invalid/blocked revision cannot silently fall back to a healthy older value.
+
+VIX context reuses raw ^VIX prices and includes the original source/version, run ID,
+file and timestamps in input_reference. The derived source_version adds
+`+vix-context-v1`. It requires actual fetch visibility as well as declared availability;
+historical bars acquired later are not treated as previously observed context.
+
+Market context has its own cutoff, independent of the price signal cutoff. Replay
+performs no acquisition and uses the historical signal cutoff. Staleness counts NYSE
+sessions, including holidays/early closes through the exchange calendar. Missing or
+stale auxiliary indicators degrade their display; canonical critical prices still
+block recommendations. Optional price batches have a separate failure denominator
+and share the main batch's request guard within a run.
+
+CNN adapter `cnn-graphdata-v1-unverified` has synthetic contract fixtures only. The
+2026-11-04 direct endpoint probe returned HTTP 418; the default provider stays `none`.
+Opt-in requests use one attempt, durable minute/day budgets and persisted backoff;
+HTTP Retry-After is respected. Manual transcriptions use `cnn-manual-import-v1`, a
+CNN source page URL and the `manual_transcription` flag. Runtime examples and facts
+must never be committed.
+
+### Phase B scores and reading revisions
+
+Technical scores are canonical `reversal_score * 10`, not probabilities. The same
+hierarchy classifier emits input/threshold/pass/contribution records, unclamped total
+and clamp adjustment. SPY/QQQ benchmark details, sector ETF details and stock details
+share this implementation. Market aggregation uses fixed 50/50 weights and requires
+both benchmarks; watchlist theme aggregation requires all members. Missing/current-price
+failures return null with reasons. `strategy_score` retains the canonical 60-day relative
+return. Score/config versions and a strategy/config hash are recorded in metadata.
+
+`symbol_assessments` in premarket JSON includes all scanned non-benchmark symbols,
+current price quality and canonical rule results. Digest entry status additionally
+requires verified LOW news, the current order session, and matching canonical-run and
+signal evidence. T+30/T+60 evidence is reread and reevaluated using the shared gate
+implementation, with availability and quote freshness checked. Preopen KEEP is never
+an entry permission. The displayed validity is at most five minutes after both gate
+cutoff and quote time. Scores and model ranks cannot grant entry independently.
+
+Live publications write immutable `<signal_session>/<run_id>/digest.json` and
+`digest.md` before updating `<signal_session>.md` and `latest.md`. Their JSON manifests
+hold artifact paths, SHA-256 and the last successful report reference. Each file is
+written via a temporary file and atomic replace under a publication lock. Replacement
+order is signal session, canonical plan generation time, then evaluation time; blocked
+status wins exact timestamp ties. Other exact ties retain the first published run.
+Replays never update reading aliases. A prior-plan gate or research revision cannot
+supersede a newer plan. On an interrupted alias update, a subsequent publication can
+repair the Markdown from its validated manifest. This is per-file atomicity, not a
+filesystem transaction across multiple reading files.
+
+Gate/research revisions preserve parent evidence, validate the canonical report hash,
+recheck critical/current prices at the signal cutoff, and publish a new run ID. Research
+is selected only when available at the revision evaluation time. Critical price failures
+publish a blocked cover instead of candidates. Static reports state their evaluation
+time and gate expiry; they do not claim continuous validity or execution/fill status.
+
+Manual prompt v2 renders batches of at most 20 symbols with the original package ID
+and hash, complete per-batch schema/template, original cutoffs and hard-rule constraints.
+All canonical candidates are included independently of the general research list limit.
+Imports merge latest reviews per symbol, preserve negative evidence, and do not certify
+provider coverage. v1 packages/results remain accepted with their actual prompt version
+retained in source metadata. Combined report aggregation is `per-symbol-reviewed-v2`.
+
+### Phase C notification and delivery contract
+
+`operations/digest_notifications.py` renders the same schema-2 digest as Markdown.
+Successful daily/premarket results must match the requested signal session. Missing,
+foundation-only or mismatched digests produce a conservative pause notice. Normal pages
+contain no filesystem paths or prompts. Known watchlist theme identifiers have display
+translations shared with Markdown; identifiers and numeric scores remain unchanged.
+
+Pages preserve complete rows and include signal session, short run ID and page index/count.
+The default 3800-unit UTF-16 budget includes headers; the Telegram transport enforces 4096.
+An oversized individual row is rejected, not silently truncated. Gate revisions also
+retain `data_health.latest_gate` metadata/rows in both digest and Markdown, so Telegram
+can show the same stock checks without mistaking preopen KEEP for entry permission.
+
+`telegram_outbox` has additive `bundle_key`, `part_index`, `total_parts`, and `expires_at`
+columns. Existing rows migrate as single-part bundles. All pages enqueue transactionally;
+changing text/count/destination under an existing key is rejected. A legacy single-message
+key suppresses new multipart copies of the same notification. Pages are sent in insertion
+order, at most five attempts per delivery invocation. A non-SENT page blocks subsequent
+pages in its bundle. Interrupted SENDING becomes UNKNOWN and is not automatically resent.
+Expired gate pages become EXPIRED. Rows retain receipts, errors and attempt counts.
+
+`telegram_delivery_limits` persists destination-wide Retry-After independently of a page's
+retry budget or expiry. A 429 therefore blocks other bundles even when the failed page
+has exhausted retries. Existing provider budgets/concurrency remain unchanged. Manual
+test delivery may select one bundle without delivering unrelated pending notifications.
+
+Yahoo adapter revision 4 excludes non-NYSE session rows before daily fact conversion,
+with `dropped_non_nyse_session_rows` warning counts. This prevents optional index dates
+from aborting otherwise valid sector ETF ingestion. The emitted source version is
+`yfinance-<installed-version>/adapter-4`; fixed Good-Friday/multi-symbol fixtures verify
+the changed normalization. No successful raw record is rewritten or deleted.

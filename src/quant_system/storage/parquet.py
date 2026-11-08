@@ -16,13 +16,17 @@ import pyarrow.dataset as ds
 from quant_system.domain.companies import ReviewedCompanyMapping
 from quant_system.domain.coverage import NewsCoverageObservation
 from quant_system.domain.manual_research import ManualResearchObservation
+from quant_system.domain.market_context import MarketObservation
 from quant_system.domain.models import CompanyEvent, DailyPrice, NewsArticle
 from quant_system.domain.securities import SecurityLifecycleEvent
+from quant_system.domain.snapshots import IntradaySnapshot
 from quant_system.storage.schemas import (
     COMPANY_EVENT_SCHEMA,
     COMPANY_MAPPING_SCHEMA,
     DAILY_PRICE_SCHEMA,
+    INTRADAY_SNAPSHOT_SCHEMA,
     MANUAL_RESEARCH_SCHEMA,
+    MARKET_OBSERVATION_SCHEMA,
     NEWS_ARTICLE_SCHEMA,
     NEWS_COVERAGE_SCHEMA,
     SECURITY_LIFECYCLE_SCHEMA,
@@ -85,6 +89,54 @@ class ParquetRepository:
         self.news_coverage_root = self.data_root / "raw" / "news_coverage"
         self.company_mappings_root = self.data_root / "raw" / "company_mappings"
         self.manual_research_root = self.data_root / "raw" / "manual_research"
+        self.intraday_snapshots_root = self.data_root / "raw" / "intraday_snapshots"
+        self.market_observations_root = self.data_root / "raw" / "market_observations"
+
+    def write_market_observations(
+        self, records: Iterable[MarketObservation], *, run_id: UUID, batch_id: str = "context"
+    ) -> list[Path]:
+        rows = []
+        for record in records:
+            if record.ingestion_run_id != run_id:
+                raise ValueError("market observation run ID must match the write run")
+            row = record.model_dump(mode="python")
+            row["ingestion_run_id"] = str(record.ingestion_run_id)
+            row["quality_flags"] = list(record.quality_flags)
+            rows.append(row)
+        return self._write_partitioned_table(
+            pa.Table.from_pylist(rows, schema=MARKET_OBSERVATION_SCHEMA),
+            root=self.market_observations_root,
+            schema=MARKET_OBSERVATION_SCHEMA,
+            partition_source_column="available_at_utc",
+            dataset_name="market-observation",
+            run_id=run_id,
+            batch_id=batch_id,
+        )
+
+    def read_market_observations(self) -> pa.Table:
+        return self._read_table(self.market_observations_root, MARKET_OBSERVATION_SCHEMA)
+
+    def write_intraday_snapshots(
+        self, records: Iterable[IntradaySnapshot], *, run_id: UUID, batch_id: str = "quotes"
+    ) -> list[Path]:
+        rows = []
+        for record in records:
+            row = record.model_dump(mode="python")
+            row["ingestion_run_id"] = str(record.ingestion_run_id)
+            row["quality_flags"] = list(record.quality_flags)
+            rows.append(row)
+        return self._write_partitioned_table(
+            pa.Table.from_pylist(rows, schema=INTRADAY_SNAPSHOT_SCHEMA),
+            root=self.intraday_snapshots_root,
+            schema=INTRADAY_SNAPSHOT_SCHEMA,
+            partition_source_column="available_at_utc",
+            dataset_name="intraday-snapshot",
+            run_id=run_id,
+            batch_id=batch_id,
+        )
+
+    def read_intraday_snapshots(self) -> pa.Table:
+        return self._read_table(self.intraday_snapshots_root, INTRADAY_SNAPSHOT_SCHEMA)
 
     def write_manual_research(
         self, records: Iterable[ManualResearchObservation], *, run_id: UUID

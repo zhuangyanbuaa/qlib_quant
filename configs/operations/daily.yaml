@@ -1,0 +1,19 @@
+name: daily
+digest_config_path: configs/reports/daily_digest.yaml
+market_context_config_path: configs/sources/market_context.yaml
+trigger: after_close
+after_close_minutes: 60
+premarket_minutes: 60
+manual_news: true
+poll_seconds: 60
+pipeline_attempts: 2
+pipeline_backoff_minutes: 15
+notification_attempts: 3
+log_max_bytes: 5000000
+log_backups: 3
+session_jobs: [premarket, preopen, open30, open60, weekly]
+intraday_config_path: configs/sources/intraday.yaml
+ranking:
+  mode: validated
+  config_path: configs/models/ranking_baseline.yaml
+  approved_run_id: null

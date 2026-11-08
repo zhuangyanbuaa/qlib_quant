@@ -90,3 +90,40 @@ class SQLiteDailyCallBudget:
 
     def consume(self) -> None:
         self._reserve(consume=True)
+
+
+class SQLiteMinuteRateLimit:
+    """Reserve rolling-minute slots across processes; refuse excess calls immediately."""
+
+    def __init__(self, maximum_calls, *, database_path, provider, clock=lambda: datetime.now(UTC)):
+        if maximum_calls < 1:
+            raise ValueError("positive minute limit required")
+        self.maximum_calls = maximum_calls
+        self.path = database_path
+        self.provider = provider
+        self.clock = clock
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self.path) as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS provider_minute_slots "
+                "(provider TEXT NOT NULL, reserved_at REAL NOT NULL)"
+            )
+
+    def acquire(self):
+        instant = self.clock()
+        if instant.utcoffset() is None:
+            raise ValueError("minute budget clock must be aware")
+        now = instant.timestamp()
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute(
+                "DELETE FROM provider_minute_slots WHERE provider=? AND reserved_at<=?",
+                (self.provider, now - 60),
+            )
+            count = db.execute(
+                "SELECT count(*) FROM provider_minute_slots WHERE provider=?", (self.provider,)
+            ).fetchone()[0]
+            if count >= self.maximum_calls:
+                db.commit()
+                raise RequestBudgetExceeded("provider_minute_rate_limit")
+            db.execute("INSERT INTO provider_minute_slots VALUES (?,?)", (self.provider, now))

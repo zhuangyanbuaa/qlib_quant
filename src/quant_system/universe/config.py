@@ -9,6 +9,50 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from quant_system.settings import PROJECT_ROOT
+
+
+class DigestProxyConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    symbol: str
+    name: str
+    group: Literal["market", "sector", "theme"]
+    source_url: str
+
+
+class DailyDigestConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    version: str
+    score_version: str
+    universe_paths: tuple[Path, ...] = Field(min_length=1)
+    review_paths: tuple[Path, ...] = ()
+    proxies: tuple[DigestProxyConfig, ...]
+    telegram_page_units: int = Field(default=3800, ge=512, le=4096)
+
+    @model_validator(mode="after")
+    def unique_inputs(self):
+        if len(set(self.universe_paths)) != len(self.universe_paths):
+            raise ValueError("duplicate digest universe path")
+        symbols = [proxy.symbol for proxy in self.proxies]
+        if len(set(symbols)) != len(symbols):
+            raise ValueError("duplicate digest proxy")
+        if set(self.universe_paths) & set(self.review_paths):
+            raise ValueError("review-only paths cannot be production inputs")
+        return self
+
+
+def load_daily_digest_config(path: Path | None = None) -> DailyDigestConfig:
+    path = path or PROJECT_ROOT / "configs/reports/daily_digest.yaml"
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    config = DailyDigestConfig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    return config.model_copy(
+        update={
+            name: tuple(p if p.is_absolute() else PROJECT_ROOT / p for p in getattr(config, name))
+            for name in ("universe_paths", "review_paths")
+        }
+    )
+
 
 class BenchmarkConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -107,9 +151,7 @@ class WatchlistConfig(BaseModel):
         if count > self.selection_policy.maximum_size:
             raise ValueError("watchlist is larger than selection_policy.maximum_size")
         allowed_benchmarks = set(self.selection_policy.benchmark_symbols)
-        invalid = sorted(
-            {member.benchmark_etf for member in self.symbols} - allowed_benchmarks
-        )
+        invalid = sorted({member.benchmark_etf for member in self.symbols} - allowed_benchmarks)
         if invalid:
             raise ValueError(f"watchlist members use undeclared benchmarks: {invalid}")
         return self

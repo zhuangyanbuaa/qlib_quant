@@ -25,6 +25,9 @@ data/*
 mlruns/
 /models/
 reports/
+# Report configuration is source; generated reports remain ignored.
+!configs/reports/
+!configs/reports/*.yaml
 logs/
 legacy/*
 

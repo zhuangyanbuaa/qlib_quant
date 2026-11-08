@@ -92,7 +92,7 @@ def test_adapter_rejects_tiny_ohlc_violations_before_domain_validation(column, v
 def test_adapter_version_records_normalization_revision(monkeypatch) -> None:
     monkeypatch.setattr("quant_system.ingestion.yahoo.version", lambda _package: "1.2.3")
 
-    assert YahooFinancePriceAdapter().version == "yfinance-1.2.3/adapter-3"
+    assert YahooFinancePriceAdapter().version == "yfinance-1.2.3/adapter-4"
 
 
 def test_padded_symbol_is_empty_and_action_only_is_separate():
@@ -132,3 +132,29 @@ def test_missing_columns_isolated_and_zero_volume_flagged():
     )
     assert result.errors == {"MSFT": "missing Yahoo columns: ['Open']"}
     assert all("zero_volume_review" in bar.quality_flags for bar in result.bars)
+
+
+def test_index_non_nyse_session_does_not_abort_other_symbols():
+    # Cboe index history can include dates outside the application's NYSE clock.
+    dates = pd.to_datetime(["2026-04-02", "2026-04-03", "2026-04-06"])
+    vix = pd.DataFrame(
+        {
+            "Open": [20, 21, 22],
+            "High": [21, 22, 23],
+            "Low": [19, 20, 21],
+            "Close": [20, 21, 22],
+            "Volume": [0, 0, 0],
+        },
+        index=dates,
+    )
+    equity = vix.drop(pd.Timestamp("2026-04-03")).copy()
+    equity["Volume"] = 1000
+    response = pd.concat({"^VIX": vix, "XLK": equity}, axis=1)
+    adapter = YahooFinancePriceAdapter(download=lambda *a, **k: response)
+    result = adapter.fetch_daily(
+        ("^VIX", "XLK"), start=date(2026, 4, 2), end_exclusive=date(2026, 4, 7)
+    )
+    assert {(bar.symbol, bar.session_date) for bar in result.bars} == {
+        (symbol, day) for symbol in ("^VIX", "XLK") for day in (date(2026, 4, 2), date(2026, 4, 6))
+    }
+    assert "dropped_non_nyse_session_rows:1" in result.warnings["^VIX"]

@@ -1517,7 +1517,8 @@ quant --help
 
 **目标：** 模型只改善排序，不改变策略定义。
 
-**状态（2026-08-09）：已完成第一版；尚未默认接管每日报告排序。**
+**状态（2026-10-13）：已完成第一版和自动日报配置接口。** 自动 pipeline 使用
+validated 模式，必须指定已审核的合格 OOF run ID；当前尚未指定，继续规则排序。
 
 **任务：**
 
@@ -1543,7 +1544,8 @@ quant --help
 - 已建立未来相对收益标签、Ridge baseline、保守 LightGBM wrapper、purged walk-forward、embargo 检查、OOF 报告和模型 registry。
 - `quant model compare` 可比较规则、Ridge 和 LightGBM，并输出排名、校准、特征稳定性和模型登记结果。
 - LightGBM 仍遵守 ADR-004：只作为候选排序器，不允许绕过硬规则。
-- 当前每日 `premarket` 默认仍以规则和策略校准上下文为主；LightGBM 尚未作为生产默认 ranker 接入每日工作流。
+- `premarket` 已有只读模型 context；自动 pipeline 通过 reviewed run ID、配置一致性、
+  PIT/embargo 与同一 OOF 样本比较验收后才启用，缺失/不合格时回退到规则。
 
 ### Phase 6：每日决策与人工日志
 
@@ -1579,7 +1581,19 @@ quant --help
 
 **目标：** 数据和报告自动运行，用户只处理异常和下单。
 
-**状态（2026-08-09）：未完成；属于运行自动化阶段。**
+**状态（2026-10-13）：部分完成。** 已开发并安装每日收盘后 60 分钟的 macOS
+日历轮询、持久化去重与有限重试、日志轮转和 Telegram 通知。默认人工新闻模式。
+本地凭据已配置，真实 Telegram 连接测试已发送成功。
+服务已自动补跑日报，价格更新 138 个标的成功且 stale 为 0，日报与人工新闻包
+生成完成，真实日报通知已发送成功。人工新闻审核仍待完成，报告为 DEGRADED，
+可执行候选为 0。盘前、开盘前、T+30/T+60 与周度运行复盘的程序和日历任务已实现；
+新增盘中快照 Parquet/DuckDB 层及 broker JSON/Alpaca 接口。按用户选择，真实盘中
+来源尚未配置，保持保守门禁。自动周报汇总已实现，Codex 联网深度周评仍属人工流程。
+本轮全套 350 个测试、Ruff 和 diff 检查通过；用户级 LaunchAgent 已恢复注册。
+实现与安装记录见
+[`2026-10-13-scheduled-telegram.md`](2026-10-13-scheduled-telegram.md)。
+本轮范围、验证与未配置项见
+[`2026-10-13-session-automation.md`](2026-10-13-session-automation.md)。
 
 **任务：**
 
@@ -1811,7 +1825,7 @@ quant --help
 
 ## 22. 当前实现状态与下一步
 
-当前状态（2026-08-10）：
+当前状态（2026-10-13）：
 
 2026-10-12 开发补充：已完成历史价格 cutoff 与统一关键价格门禁第一批修复。
 扫描、回测和模型候选使用按各交易日可用时间构建的同一套特征；日报、诊断、
@@ -1847,11 +1861,16 @@ DMC 有 1 行无效行情被丢弃，运行保留 `DEGRADED`。其余 P0/P1 与 
 2,236 个原始文件内容未改动。验证导入使用明确标记的未研究测试夹具，不代表真实
 新闻研究成功。详细记录见
 [`2026-10-13-manual-news-research.md`](2026-10-13-manual-news-research.md)。
-人工流程无需新闻 API 凭据；进入 Phase 7 前应先实际运行 prompt、审核综合报告并
-观察每日流程。如果未来启用 API 新闻模式，仍需单独完成来源权限与覆盖验证。
+人工流程无需新闻 API 凭据；真实运行 prompt、审核综合报告和观察每日流程仍是
+日常操作。如果未来启用 API 新闻模式，仍需单独完成来源权限与覆盖验证。
+
+第六批已安装并验证人工新闻收盘日报的真实价格更新和 Telegram 推送；随后补齐
+盘前/开盘前/T+30/T+60 调度、前置快照采集、追加式盘中存储、周度复盘和每日模型
+验收配置。盘中来源按用户选择默认 none；模型等待合格 OOF 报告审核与明确指定 run ID。
+程序接口的夹具验收与真实来源采集分开记录，不将未配置来源称为实时行情成功。
 
 - **Phase 0–6 已完成第一版技术闭环。** 当前 repo 已覆盖工程基础、统一 Parquet/DuckDB/SQLite 存储、价格采集和补数、数据质量、规则策略、日线回测、新闻/SEC 事件第一版、LightGBM/Ridge baseline、每日决策、人工日志、持仓检查、forward paper trading、本地 Streamlit dashboard。
-- 这不是“逐字逐项照原计划完成所有未来设想”，而是完成了 Phase 6 以前主线所需的可运行系统。后续 Qlib、Chronos、launchd 自动化属于明确延期或 Phase 7+。
+- Phase 7 已增加收盘/盘前日报、开盘门禁和自动周报；Qlib、Chronos 继续作为可选项。
 - 系统边界保持不变：不自动下单；模型只能提供 rank/context 或风险提示；硬规则、数据质量、stale price gate 和人工确认仍是主策略边界。
 - 开盘门禁在没有可靠 intraday point-in-time snapshot 时保守返回 `DEFER`，不伪造盘中成交；若提供 broker snapshot，则只做 `KEEP/DEFER/CANCEL` 决策支持。
 - forward paper trading 写入 `paper_fills`，与人工 `fills_manual` 分离；系统仍不自动下单。
@@ -1876,7 +1895,8 @@ DMC 有 1 行无效行情被丢弃，运行保留 `DEGRADED`。其余 P0/P1 与 
 
 - **Qlib export/golden tests：** 原计划要求 curated Parquet 可导出 Qlib bin，并验证 DuckDB 与 Qlib 核心指标一致。当前尚未实现 `qlib_adapter`，且 Qlib 不在每日 workbench 的关键路径。只有在重新决定继续使用 Qlib workflow 时再补齐。
 - **Chronos-Bolt：** 保持 Phase 8 可选实验；不改善主线质量则不接入。
-- **全自动调度与通知：** Phase 7 才做。进入 launchd/通知之前，应先手动跑至少若干个交易日，观察 `daily_index.md`、dashboard、news prompt 和 2x overlay 的可用性。
+- **无人值守的运行条件：** 本机 launchd 调度与通知已实现；运行依赖开机、用户登录及网络。
+  常驻服务器部署、自动唤醒和自动 LLM 新闻研究不属于当前实现。
 - **新闻采集：** `quant data update-daily` / `scripts/run_daily_pipeline.py` 已串联价格和
   新闻/SEC 采集与日报，受来源权限、审核映射及调用预算约束。旧 workbench runner
   和 dashboard 仍只读本地新闻，不自动联网；真实来源验证待配置。
@@ -1903,7 +1923,8 @@ docs/daily-runbook.zh.md
 
 建议的下一步顺序：
 
-1. 用 `docs/daily-runbook.md` 手动运行 1–2 周，记录候选质量、错过机会、误报、新闻 prompt 是否有帮助。
+1. 按运行手册观察自动任务 1–2 周，实际完成新闻 prompt → 审核导入 → 综合报告，记录候选与误报。
 2. 根据人工反馈微调 strategy calibration，不要仅凭单个强行情日继续放宽规则。
-3. 若每日流程稳定，再进入 Phase 7：launchd、日志轮转、失败通知、交易日/夏令时调度。
-4. 若后续确实重新启用 Qlib，再单独开 technical branch 做 Qlib export/golden tests；否则保持延期。
+3. 如需真实开盘门禁，接入合格券商盘中来源，验证时效、质量与 UNKNOWN 风险边界。
+4. 审核模型 OOF 比较、purging/embargo 和样本对齐，再明确配置 approved_run_id；不合格继续规则。
+5. 若重新启用 Qlib，再单独做 Qlib export/golden tests；否则保持延期。

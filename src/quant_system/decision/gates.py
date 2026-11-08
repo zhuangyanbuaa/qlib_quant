@@ -103,7 +103,9 @@ def run_preopen_refresh_workflow(
         snapshot_path=snapshot_path,
     )
     report["metadata"].update(
-        order_session=order_session.isoformat(), gate_cutoff_utc=gate_cutoff.isoformat()
+        order_session=order_session.isoformat(),
+        gate_cutoff_utc=gate_cutoff.isoformat(),
+        source_run_id=premarket["metadata"].get("run_id"),
     )
     artifacts = _write_with_artifacts(
         report=report,
@@ -113,6 +115,11 @@ def run_preopen_refresh_workflow(
         run_id=run_id,
         stem="preopen_refresh",
         title="Pre-open Refresh",
+    )
+    from quant_system.decision.digest_reports import refresh_digest_after_event
+
+    report["digest_artifacts"] = refresh_digest_after_event(
+        report_root=report_root, premarket_path=premarket_report_path, event=report, kind="gate"
     )
     return report, artifacts
 
@@ -157,7 +164,9 @@ def run_open_gate_workflow(
         snapshot_path=snapshot_path,
     )
     report["metadata"].update(
-        order_session=order_session.isoformat(), gate_cutoff_utc=gate_cutoff.isoformat()
+        order_session=order_session.isoformat(),
+        gate_cutoff_utc=gate_cutoff.isoformat(),
+        source_run_id=premarket["metadata"].get("run_id"),
     )
     artifacts = _write_with_artifacts(
         report=report,
@@ -167,6 +176,11 @@ def run_open_gate_workflow(
         run_id=run_id,
         stem=f"open_gate_{minutes}",
         title=f"Open Gate T+{minutes}",
+    )
+    from quant_system.decision.digest_reports import refresh_digest_after_event
+
+    report["digest_artifacts"] = refresh_digest_after_event(
+        report_root=report_root, premarket_path=premarket_report_path, event=report, kind="gate"
     )
     return report, artifacts
 
@@ -311,6 +325,63 @@ def _gate_context(premarket: dict[str, Any], minutes: int, generated: datetime):
     elif generated > cutoff + timedelta(minutes=5):
         error = "gate_window_expired"
     return order_session, cutoff, error
+
+
+def current_gate_decision(candidate, *, premarket, gate_reports, now):
+    """Re-evaluate matching forward evidence; a persisted KEEP is never sufficient."""
+    pending = {"decision": "DEFER", "reason": "current_gate_evidence_missing"}
+    eligible = []
+    for report in gate_reports:
+        try:
+            meta = report["metadata"]
+            minute = int(meta["minutes_before_or_after_open"])
+            generated = _ensure_utc(datetime.fromisoformat(meta["generated_at_utc"]))
+            if (
+                minute not in {30, 60}
+                or generated > now
+                or not meta.get("source_run_id")
+                or meta["source_run_id"] != premarket["metadata"].get("run_id")
+                or meta["signal_session"] != premarket["metadata"]["signal_session"]
+            ):
+                continue
+            order, cutoff, error = _gate_context(premarket, minute, now)
+            if error or generated < cutoff or meta.get("order_session") != order.isoformat():
+                continue
+            if meta.get("gate_cutoff_utc") != cutoff.isoformat():
+                continue
+            row = next(
+                (
+                    r
+                    for r in report["rows"]
+                    if r.get("symbol") == candidate["symbol"]
+                    and r.get("signal_id") == candidate.get("signal_id")
+                ),
+                None,
+            )
+            if row is None or not meta.get("snapshot_path"):
+                continue
+            snapshot = load_snapshot(Path(meta["snapshot_path"])).get(candidate["symbol"])
+            evaluated = evaluate_gate_row(
+                candidate,
+                snapshot=snapshot,
+                minutes_before_or_after_open=minute,
+                order_session=order,
+                gate_cutoff_utc=cutoff,
+            )
+            if evaluated["decision"] != row.get("decision"):
+                continue
+            if evaluated.get("snapshot_quote_at_utc"):
+                quote = datetime.fromisoformat(evaluated["snapshot_quote_at_utc"])
+                valid_until = min(cutoff + timedelta(minutes=5), quote + timedelta(minutes=5))
+                if now > valid_until:
+                    continue
+                evaluated["valid_until_utc"] = valid_until.isoformat()
+            evaluated["gate_cutoff_utc"] = cutoff.isoformat()
+            evaluated["source_run_id"] = meta["source_run_id"]
+            eligible.append((generated, minute, evaluated))
+        except (ValueError, KeyError, TypeError, OSError):
+            continue
+    return max(eligible, key=lambda item: (item[0], item[1]))[2] if eligible else pending
 
 
 def _decision_report(

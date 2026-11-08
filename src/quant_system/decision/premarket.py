@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, date, datetime
+from math import isfinite
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4, uuid5
@@ -20,6 +21,7 @@ from quant_system.models.daily_ranker import (
     attach_model_scores,
     rank_daily_candidates_with_lightgbm,
 )
+from quant_system.quality.prices import price_quality_mask
 from quant_system.sentiment.coverage import load_coverage, news_health
 from quant_system.sentiment.risk import NewsRiskAssessment, assess_news_risk
 from quant_system.storage.duckdb import DuckDBAnalytics
@@ -162,6 +164,12 @@ def run_premarket_workflow(
             generated_at_utc=generated_at_utc,
         )
         hierarchy_context = hierarchy_report["strategy_context"]
+        by_symbol = {row["symbol"]: row for row in hierarchy_report["rows"]}
+        for row in candidate_rows:
+            context = by_symbol.get(row["symbol"], {})
+            value = context.get("reversal_score")
+            row["technical_score"] = None if value is None else round(value * 10, 1)
+            row["technical_score_components"] = context.get("score_components", [])
         tiered_candidates = generate_tiered_candidates(
             features=features,
             as_of=signal_session,
@@ -249,6 +257,9 @@ def run_premarket_workflow(
         "model_rank_context": model_rank_context,
         "strategy_config_snapshot": config.model_dump(mode="json"),
         "candidates": candidate_rows,
+        "symbol_assessments": _symbol_assessments(
+            annotated, symbols, role_by_symbol, news_risk, signal_session
+        ),
         "calibration_candidate_tiers": calibration_rows,
     }
     if hierarchy_artifacts is not None:
@@ -287,6 +298,44 @@ def run_premarket_workflow(
     return report, artifacts
 
 
+def _symbol_assessments(annotated, symbols, roles, news_risk, session):
+    """Expose canonical annotations for every stock, including non-candidates."""
+    current = annotated.loc[annotated["session_date_ny"].dt.date == session]
+    reliable = price_quality_mask(current)
+    rows = {row["symbol"]: (row, bool(reliable.loc[index])) for index, row in current.iterrows()}
+    results = []
+    for symbol in symbols:
+        if roles.get(symbol) == "benchmark":
+            continue
+        row, valid = rows.get(symbol, ({}, False))
+        assessment = news_risk.get(symbol) if news_risk is not None else None
+        value = row.get("relative_return60")
+        results.append(
+            {
+                "symbol": symbol,
+                "price_status": "AVAILABLE" if valid else "UNAVAILABLE",
+                "news_risk": assessment.risk_level if assessment else "DISABLED",
+                "strategy_score": float(value)
+                if value is not None and pd.notna(value) and isfinite(float(value))
+                else None,
+                "rule_checks": {
+                    **{
+                        key: bool(row.get(key, False)) if pd.notna(row.get(key)) else False
+                        for key in (
+                            "feature_ready",
+                            "dip_yesterday",
+                            "confirmation",
+                            "is_candidate",
+                        )
+                    },
+                    "price_quality": valid,
+                    "market_regime_open": row.get("market_regime") in {"GREEN", "YELLOW"},
+                },
+            }
+        )
+    return results
+
+
 def _model_rank_context(
     *,
     features: pd.DataFrame,
@@ -308,13 +357,20 @@ def _model_rank_context(
             "status": "UNAVAILABLE_MODEL_SETTINGS_MISSING",
             "decision_scope": "RANK_CONTEXT_ONLY_DOES_NOT_CHANGE_ACTIONS",
         }
-    ranking = rank_daily_candidates_with_lightgbm(
-        features=features,
-        candidate_rows=rows,
-        strategy_config=config,
-        model_settings=model_settings,
-        as_of=signal_session,
-    )
+    try:
+        ranking = rank_daily_candidates_with_lightgbm(
+            features=features,
+            candidate_rows=rows,
+            strategy_config=config,
+            model_settings=model_settings,
+            as_of=signal_session,
+        )
+    except (RuntimeError, ValueError, ImportError):
+        return {
+            "model": "lightgbm_daily_context_v1",
+            "status": "UNAVAILABLE_INFERENCE",
+            "decision_scope": "RANK_CONTEXT_ONLY_DOES_NOT_CHANGE_ACTIONS",
+        }
     return {**ranking.context, "_ranking": ranking}
 
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from quant_system.decision.hierarchy import (
     calibrate_strategy_context,
     classify_reversal_context,
@@ -96,6 +98,60 @@ def test_classify_reversal_context_explains_repair_attempt() -> None:
     assert context["reversal_phase"] == "REPAIR_ATTEMPT"
     assert context["reversal_score"] >= 3.5
     assert "trend_reversal_attempt" in context["reversal_reasons"]
+
+
+@pytest.mark.parametrize(
+    "trend,expected,phase",
+    [
+        ("CONFIRMED_REVERSAL", 9.5, "CONFIRMED_REPAIR"),
+        ("REVERSAL_ATTEMPT", 8.5, "REPAIR_ATTEMPT"),
+        ("UPTREND", 8.0, "REPAIR_ATTEMPT"),
+    ],
+)
+def test_score_breakdown_preserves_frozen_scores(trend, expected, phase):
+    context = classify_reversal_context(
+        {
+            "return_5d": 0.04,
+            "return_20d": 0.02,
+            "relative_return_20d": 0.03,
+            "drawdown_20d": 0.04,
+            "drawdown_60d": 0.10,
+            "rsi14": 52,
+            "ma20_slope_5d": 0.01,
+            "down_day_ratio_20d": 0.45,
+            "above_ma20": True,
+            "above_ma50": True,
+            "reclaimed_previous_high": True,
+        },
+        trend,
+    )
+    assert context["reversal_score"] == expected
+    assert context["reversal_phase"] == phase
+    assert sum(row["contribution"] for row in context["score_components"]) == expected
+    assert context["score_raw"] + context["score_clamp_adjustment"] == expected
+
+
+def test_negative_score_exposes_clamp_and_unknown_input_does_not_earn_points():
+    context = classify_reversal_context(
+        {
+            "return_5d": -0.04,
+            "return_20d": -0.02,
+            "relative_return_20d": -0.03,
+            "drawdown_20d": 0.12,
+            "drawdown_60d": 0.25,
+            "down_day_ratio_20d": 0.8,
+            "rsi14": float("nan"),
+            "above_ma20": None,
+            "above_ma50": False,
+        },
+        "DRIFT_DOWN",
+    )
+    assert context["reversal_score"] == 0
+    assert context["score_raw"] == -4.25 and context["score_clamp_adjustment"] == 4.25
+    rsi = next(row for row in context["score_components"] if row["metric"] == "rsi14")
+    assert rsi["value"] is None and rsi["contribution"] == 0
+    empty = classify_reversal_context({}, "INSUFFICIENT_DATA")
+    assert empty["reversal_score"] is None and empty["score_raw"] is None
 
 
 def test_calibration_context_turns_defensive_when_ai_leaders_drift_and_defense_leads() -> None:

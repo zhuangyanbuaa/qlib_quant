@@ -7,13 +7,20 @@ from pathlib import Path
 from uuid import uuid4
 
 from quant_system.backtest.workflow import load_price_snapshot
+from quant_system.decision.digest import resolve_digest_universe
 from quant_system.decision.manual_research import load_manual_package
 from quant_system.decision.premarket import load_decision_universe
 from quant_system.decision.workbench import run_daily_workbench_workflow
 from quant_system.domain.clocks import NyseSessionClock
 from quant_system.ingestion.config import load_news_source_settings, load_price_source_settings
 from quant_system.ingestion.factory import build_news_service, build_price_service
+from quant_system.ingestion.market_context import (
+    collect_market_context,
+    load_market_context_settings,
+    select_market_context,
+)
 from quant_system.ingestion.source_health import check_sources
+from quant_system.models.activation import DailyRankingPolicy, resolve_daily_ranking
 from quant_system.operations.registry import PipelineBusy, PipelineRegistry, pipeline_lock
 from quant_system.quality.prices import PriceDataBlocked
 from quant_system.settings import PROJECT_ROOT
@@ -23,6 +30,7 @@ from quant_system.strategy.leverage_overlay import (
     load_leverage_overlay_config,
     load_leverage_overlay_universe_config,
 )
+from quant_system.universe.config import load_daily_digest_config
 from quant_system.universe.lifecycle import LifecycleResolver
 
 
@@ -40,9 +48,11 @@ def _report_bundle_exists(path):
         bundles = [report.get("artifacts", {})] + [
             component.get("artifacts", {}) for component in report.get("components", {}).values()
         ]
-        bundles.append(report.get("manual_research", {}).get("artifacts", {}))
-        if report.get("manual_research"):
-            load_manual_package(report["manual_research"]["artifacts"]["package"])
+        for name in ("manual_research", "research_package"):
+            package = report.get(name, {})
+            bundles.append(package.get("artifacts", {}))
+            if package:
+                load_manual_package(package["artifacts"]["package"])
         return all(Path(value).exists() for bundle in bundles for value in bundle.values() if value)
     except (OSError, ValueError, TypeError, KeyError):
         return False
@@ -59,9 +69,14 @@ def run_daily_pipeline(
     refresh_window=None,
     retry=False,
     manual_news=False,
+    ranking_policy=None,
     now_utc=None,
     price_service=None,
     news_service=None,
+    context_price_service=None,
+    digest_config_path=None,
+    market_context_config_path=None,
+    market_context_transport=None,
     report_builder=run_daily_workbench_workflow,
 ):
     now = now_utc or datetime.now(UTC)
@@ -72,14 +87,22 @@ def run_daily_pipeline(
     session = signal_session or clock.latest_completed_session(now)
     if not clock.calendar.is_session(session):
         return {"status": "BLOCKED", "blocked_reasons": ["invalid_signal_session"]}
-    paths = universe_paths or (
-        PROJECT_ROOT / "configs/universe/ai_watchlist.yaml",
-        PROJECT_ROOT / "configs/universe/hedge_overlay.yaml",
-    )
+    digest_config = load_daily_digest_config(digest_config_path)
+    context_config = load_market_context_settings(market_context_config_path)
+    paths = digest_config.universe_paths if universe_paths is None else universe_paths
     price_config_path = price_config_path or PROJECT_ROOT / "configs/sources/prices.yaml"
     news_config_path = news_config_path or PROJECT_ROOT / "configs/sources/news.yaml"
     price_config = load_price_source_settings(price_config_path)
     news_config = load_news_source_settings(news_config_path)
+    strategy_config = load_buy_the_dip_config(PROJECT_ROOT / "configs/strategy/buy_the_dip.yaml")
+    ranking_policy = ranking_policy or DailyRankingPolicy()
+    model_settings, ranking_activation = resolve_daily_ranking(
+        ranking_policy,
+        database_path=settings.resolved_data_dir / "db/operations.sqlite",
+        strategy_config=strategy_config,
+        session=session,
+        cutoff=now,
+    )
     if mode == "live" and (
         session != clock.latest_completed_session(now)
         or now >= clock.session_open_utc(clock.next_session(session))
@@ -93,6 +116,12 @@ def run_daily_pipeline(
     try:
         with pipeline_lock(settings.resolved_data_dir):
             repo = ParquetRepository(settings.resolved_data_dir)
+            digest_scope = resolve_digest_universe(
+                digest_config,
+                as_of=session,
+                resolver=LifecycleResolver.from_repository(repo),
+                universe_paths=universe_paths,
+            )
             symbols, roles = load_decision_universe(
                 tuple(paths), as_of=session, resolver=LifecycleResolver.from_repository(repo)
             )
@@ -114,8 +143,18 @@ def run_daily_pipeline(
                     "live refresh window must equal the current UTC half-hour boundary"
                 )
             fingerprint = hashlib.sha256()
+            fingerprint.update(digest_config.model_dump_json().encode())
+            fingerprint.update(context_config.model_dump_json().encode())
+            fingerprint.update(ranking_policy.model_dump_json().encode())
+            fingerprint.update(json.dumps(ranking_activation, sort_keys=True).encode())
+            model_config_path = ranking_policy.config_path
+            if not model_config_path.is_absolute():
+                model_config_path = PROJECT_ROOT / model_config_path
+            if ranking_policy.mode != "off" and model_config_path.is_file():
+                fingerprint.update(model_config_path.read_bytes())
             for path in [
                 *paths,
+                *(digest_config.review_paths if universe_paths is None else ()),
                 price_config_path,
                 news_config_path,
                 *sorted((PROJECT_ROOT / "src/quant_system").rglob("*.py")),
@@ -218,17 +257,58 @@ def run_daily_pipeline(
                         ),
                     )
                     if mode == "live":
+                        active_price_service = price_service
 
                         def update_prices():
-                            service = price_service or build_price_service(
+                            nonlocal active_price_service
+                            active_price_service = price_service or build_price_service(
                                 settings, price_config, repo
                             )
-                            report, path = service.run(symbols, now_utc=now, run_id=uuid4())
+                            report, path = active_price_service.run(
+                                symbols, now_utc=now, run_id=uuid4()
+                            )
                             return report.to_dict() | {"report_path": str(path)}
 
                         price_result = stage("prices", update_prices, reuse=True)
                         if price_result["status"] == "BLOCKED":
                             raise PriceDataBlocked(price_result)
+
+                        def update_context_prices():
+                            context_symbols = tuple(
+                                sorted(set(digest_scope.context_symbols) - set(symbols))
+                            )
+                            if not context_symbols:
+                                return {"status": "SKIPPED", "reason": "already_in_price_scope"}
+                            # Keep optional proxies outside the strategy's failure denominator.
+                            service = (
+                                context_price_service
+                                or price_service
+                                or build_price_service(
+                                    settings,
+                                    price_config.model_copy(update={"core_symbols": ()}),
+                                    repo,
+                                )
+                            )
+                            if (
+                                context_price_service is None
+                                and price_service is None
+                                and active_price_service is not None
+                            ):
+                                # The second price batch shares the first batch's limits,
+                                # rather than resetting its rolling-minute allowance.
+                                service.guard = active_price_service.guard
+                            try:
+                                report, path = service.run(
+                                    context_symbols, now_utc=now, run_id=uuid4()
+                                )
+                                value = report.to_dict() | {"report_path": str(path)}
+                                if value.get("status") in {"BLOCKED", "FAILED"}:
+                                    value["status"] = "DEGRADED"
+                                return value
+                            except Exception as error:
+                                return {"status": "UNAVAILABLE", "error_type": type(error).__name__}
+
+                        stage("context_prices", update_context_prices, reuse=True)
 
                         def update_news():
                             if manual_news:
@@ -265,7 +345,61 @@ def run_daily_pipeline(
                                 else "historical_replay_no_acquisition",
                             },
                         )
+                        stage(
+                            "context_prices",
+                            lambda: {
+                                "status": "SKIPPED",
+                                "reason": "historical_replay_no_acquisition",
+                            },
+                        )
 
+                    if mode == "live":
+                        stage(
+                            "market_context_acquisition",
+                            lambda: collect_market_context(
+                                settings,
+                                context_config,
+                                repo,
+                                now_utc=now if now_utc is not None else None,
+                                **(
+                                    {"transport": market_context_transport}
+                                    if market_context_transport
+                                    else {}
+                                ),
+                            ),
+                            reuse=True,
+                        )
+                    else:
+                        stage(
+                            "market_context_acquisition",
+                            lambda: {
+                                "status": "SKIPPED",
+                                "reason": "historical_replay_no_acquisition",
+                            },
+                        )
+                    context_cutoff = (
+                        (now if now_utc is not None else datetime.now(UTC))
+                        if mode == "live"
+                        else clock.available_at_utc(session)
+                    )
+
+                    def context_snapshot():
+                        values = select_market_context(
+                            repo,
+                            settings.resolved_data_dir / "db/analytics.duckdb",
+                            session=session,
+                            cutoff=context_cutoff,
+                            config=context_config,
+                        )
+                        return {
+                            "status": "SUCCESS"
+                            if all(v["status"] == "AVAILABLE" for v in values.values())
+                            else "DEGRADED",
+                            "cutoff_utc": context_cutoff.isoformat(),
+                            "values": values,
+                        }
+
+                    context_result = stage("market_context", context_snapshot)
                     stage("quality", validate)
 
                     def report_stage():
@@ -283,8 +417,8 @@ def run_daily_pipeline(
                             include_news_risk=True,
                             news_lookback_hours=news_config.risk.lookback_hours,
                             benchmark_path=PROJECT_ROOT / "configs/universe/benchmarks.yaml",
-                            include_model_ranking=False,
-                            model_settings=None,
+                            include_model_ranking=model_settings is not None,
+                            model_settings=model_settings,
                             leverage_config=load_leverage_overlay_config(
                                 PROJECT_ROOT / "configs/strategy/leverage_overlay.yaml"
                             ),
@@ -295,12 +429,20 @@ def run_daily_pipeline(
                             generated_at_utc=generated,
                             news_cutoff_utc=cutoff,
                             manual_news=manual_news,
+                            model_activation=ranking_activation,
+                            digest_config=digest_config,
+                            digest_scope=digest_scope,
+                            market_context_values=context_result["values"],
+                            context_cutoff_utc=context_cutoff,
+                            publication_mode=mode,
                         )
                         output = {
                             "status": report.get("status", "COMPLETED"),
                             "report_path": str(artifacts.json_path),
                             "summary": report["summary"],
                             "data_health": report.get("data_health", {}),
+                            "model_activation": ranking_activation,
+                            "digest": report.get("digest"),
                         }
                         if report.get("manual_research"):
                             output["manual_research"] = report["manual_research"]
@@ -332,6 +474,38 @@ def run_daily_pipeline(
                     }
                     if isinstance(error, PriceDataBlocked):
                         summary["blocked_reasons"] = error.report.get("blocked_reasons", [])
+                    from quant_system.decision.digest import DailyDigest
+                    from quant_system.decision.digest_reports import publish_digest
+
+                    observed = now if now_utc is not None else datetime.now(UTC)
+                    blocked = DailyDigest(
+                        schema_version="2",
+                        phase="SCORED_DECISION_SUPPORT",
+                        status=summary["status"],
+                        coverage=(),
+                        blocked_reasons=tuple(
+                            summary.get("blocked_reasons") or [summary["error_type"]]
+                        ),
+                        metadata={
+                            "run_id": str(uuid4()),
+                            "pipeline_run_id": run_id,
+                            "signal_session": session.isoformat(),
+                            "earliest_order_session": clock.next_session(session).isoformat(),
+                            "generated_at_utc": observed.isoformat(),
+                            "evaluated_at_utc": observed.isoformat(),
+                            "price_cutoff_utc": clock.available_at_utc(session).isoformat(),
+                            "canonical_generated_at_utc": observed.isoformat(),
+                            "publication_kind": "blocked",
+                        },
+                    )
+                    try:
+                        summary["digest_artifacts"] = publish_digest(
+                            blocked,
+                            report_root=settings.resolved_data_dir / "reports/daily",
+                            mode=mode,
+                        )
+                    except (ValueError, OSError):
+                        summary["digest_publication_status"] = "FAILED"
                 summary["stages"] = {
                     row["step"]: {
                         "status": row["status"],

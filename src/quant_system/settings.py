@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -25,6 +26,21 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     alpha_vantage_api_key: str | None = None
     sec_user_agent: str = "qlib_quant/0.1 contact@example.com"
+    telegram_bot_token: SecretStr | None = None
+    telegram_chat_id: str | None = None
+    alpaca_api_key: SecretStr | None = None
+    alpaca_secret_key: SecretStr | None = None
+
+    @property
+    def telegram_configured(self) -> bool:
+        import re
+
+        token = self.telegram_bot_token.get_secret_value() if self.telegram_bot_token else ""
+        return bool(
+            re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", token)
+            and self.telegram_chat_id
+            and re.fullmatch(r"-?\d+", self.telegram_chat_id)
+        )
 
     @property
     def alpha_vantage_key_configured(self) -> bool:
@@ -59,6 +75,7 @@ class Settings(BaseSettings):
             "log_level": self.log_level,
             "alpha_vantage_api_key": "***" if self.alpha_vantage_api_key else "",
             "sec_user_agent_configured": str(self.sec_contact_configured),
+            "telegram_configured": str(self.telegram_configured),
         }
 
 

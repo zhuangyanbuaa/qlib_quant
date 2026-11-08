@@ -1,0 +1,8 @@
+# CNN direct probe returned HTTP 418 on 2026-11-04; keep automatic access opt-in
+# until a genuine successful response and its schema have been reviewed.
+provider: none
+calls_per_minute: 2
+daily_call_budget: 4
+timeout_seconds: 10
+failure_backoff_seconds: 900
+stale_after_sessions: 0

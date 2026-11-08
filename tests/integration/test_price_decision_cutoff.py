@@ -349,6 +349,59 @@ def test_scan_and_backtest_share_a_nonempty_point_in_time_signal(tmp_path) -> No
     assert signals[0]["data_cutoff_utc"] == "2026-06-30T20:30:00Z"
 
 
+@pytest.mark.parametrize("blocked", [False, True])
+def test_daily_research_exports_canonical_signal_and_keeps_no_fill(tmp_path, blocked):
+    from quant_system.backtest.daily_scan import run_daily_scan_research
+    from quant_system.universe.config import load_daily_digest_config
+
+    repository = ParquetRepository(tmp_path / "data")
+    config = seed_smoke_prices(repository)
+    if blocked:
+        stale = price("SPY", date(2026, 6, 30), 115, stale=True)
+        stale = stale.model_copy(
+            update={"fetched_at_utc": stale.fetched_at_utc + timedelta(minutes=1)}
+        )
+        seed(repository, [stale])
+    digest = load_daily_digest_config()
+    watchlist = yaml.safe_load(digest.universe_paths[0].read_text())
+    member = watchlist["symbols"][0]
+    member.update(symbol="AAPL", start_date="2026-06-30")
+    watchlist["symbols"] = [member]
+    watchlist["selection_policy"].update(minimum_size=1, maximum_size=1)
+    path = tmp_path / "watchlist.yaml"
+    path.write_text(yaml.safe_dump(watchlist))
+    digest = digest.model_copy(update={"universe_paths": (path,), "review_paths": ()})
+    summary = run_daily_scan_research(
+        repository=repository, database_path=tmp_path / "research.duckdb",
+        report_root=tmp_path / "reports", start=date(2026, 6, 29), end=date(2026, 6, 30),
+        strategy_config=config, digest_config=digest,
+    )
+    directory = Path(summary["report_directory"])
+    daily = pd.read_csv(directory / "daily_summary.csv")
+    assert len(daily) == 2
+    assert daily.historical_members.tolist() == [0, 1]
+    assert daily.retrospective_rule_signals.tolist() == [0, 0 if blocked else 1]
+    assert summary["execution"]["filled_orders"] == 0
+    assert summary["execution"]["strategy_return"] is None
+    signals = json.loads((directory / "signals.json").read_text())
+    if blocked:
+        assert signals == []
+        assert summary["blocked_session_count"] == 1
+        assert pd.read_csv(directory / "signals.csv").empty
+        return
+    canonical = scan_workflow(
+        repository=repository, database_path=tmp_path / "research.duckdb",
+        symbols=("AAPL",), as_of=date(2026, 6, 30), config=config,
+    )
+    assert signals[0]["signal_id"] == canonical[0]["signal_id"]
+    assert signals[0]["score"] == canonical[0]["score"]
+    assert signals[0]["forward_return_5d"] is None
+    assert len(list((directory / "daily").glob("*.json"))) == 2
+    assert {"source", "source_version", "fetched_at_utc", "available_at_utc",
+            "ingestion_run_id", "is_stale", "quality_flags"} <= set(
+        pd.read_parquet(directory / "price_versions.parquet").columns)
+
+
 @pytest.mark.parametrize("late_initial", [False, True])
 def test_causal_features_match_individual_snapshots_without_future_revisions(
     tmp_path,

@@ -1,0 +1,33 @@
+version: "2026-11-04"
+score_version: "technical-repair-v1"
+telegram_page_units: 3800
+universe_paths:
+  - configs/universe/ai_watchlist.yaml
+  - configs/universe/ai_satellite_watchlist.yaml
+  - configs/universe/internet_platform_watchlist.yaml
+  - configs/universe/space_satellite_watchlist.yaml
+  - configs/universe/crypto_compute_watchlist.yaml
+  - configs/universe/power_energy_satellite.yaml
+  - configs/universe/hedge_overlay.yaml
+review_paths:
+  - configs/universe/raw_review_watchlist.yaml
+  - configs/universe/futu_candidates_raw.yaml
+# Read-only proxies; adding a proxy never adds it to the tradable universe.
+proxies:
+  - {symbol: SPY, name: 标普500, group: market, source_url: "https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy"}
+  - {symbol: QQQ, name: 纳斯达克100, group: market, source_url: "https://www.invesco.com/qqq-etf/en/home.html"}
+  - {symbol: XLK, name: 科技, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xlk"}
+  - {symbol: XLF, name: 金融, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xlf"}
+  - {symbol: XLV, name: 医疗, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xlv"}
+  - {symbol: XLY, name: 可选消费, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xly"}
+  - {symbol: XLP, name: 必需消费, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xlp"}
+  - {symbol: XLE, name: 能源, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xle"}
+  - {symbol: XLI, name: 工业, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xli"}
+  - {symbol: XLU, name: 公用事业, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xlu"}
+  - {symbol: XLB, name: 原材料, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xlb"}
+  - {symbol: XLRE, name: 房地产, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xlre"}
+  - {symbol: XLC, name: 通信服务, group: sector, source_url: "https://www.sectorspdrs.com/mainfund/xlc"}
+  - {symbol: SMH, name: 半导体集中, group: theme, source_url: "https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/"}
+  - {symbol: SOXX, name: 半导体广泛, group: theme, source_url: "https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf"}
+  - {symbol: IGV, name: 软件, group: theme, source_url: "https://www.ishares.com/us/products/239771/ishares-north-american-techsoftware-etf"}
+  - {symbol: DTCR, name: 数据中心与数字基础设施, group: theme, source_url: "https://www.globalxetfs.com/funds/dtcr/"}

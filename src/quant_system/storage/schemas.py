@@ -16,6 +16,35 @@ INGESTION_FIELDS = [
     pa.field("quality_flags", pa.list_(pa.string()), nullable=False),
 ]
 
+MARKET_OBSERVATION_SCHEMA = pa.schema(
+    [
+        pa.field("series_id", pa.string(), nullable=False),
+        pa.field("observed_at_utc", pa.timestamp("us", tz="UTC"), nullable=False),
+        pa.field("observation_date", pa.date32(), nullable=False),
+        pa.field("value", pa.float64(), nullable=False),
+        pa.field("units", pa.string(), nullable=False),
+        pa.field("label", pa.string(), nullable=False),
+        pa.field("source_url", pa.string(), nullable=False),
+        pa.field("input_reference", pa.string(), nullable=False),
+        *INGESTION_FIELDS,
+    ],
+    metadata={b"schema_name": b"market_observations", b"schema_version": b"1"},
+)
+
+INTRADAY_SNAPSHOT_SCHEMA = pa.schema(
+    [
+        pa.field("symbol", pa.string(), nullable=False),
+        pa.field("last_price", pa.float64(), nullable=False),
+        pa.field("quote_at_utc", pa.timestamp("us", tz="UTC"), nullable=False),
+        pa.field("session_date_ny", pa.date32(), nullable=False),
+        pa.field("news_risk", pa.string(), nullable=False),
+        pa.field("liquidity_status", pa.string(), nullable=False),
+        pa.field("note", pa.string(), nullable=False),
+        *INGESTION_FIELDS,
+    ],
+    metadata={b"schema_name": b"intraday_snapshots", b"schema_version": b"1"},
+)
+
 COMPANY_MAPPING_SCHEMA = pa.schema(
     [
         pa.field(name, pa.string(), nullable=False)

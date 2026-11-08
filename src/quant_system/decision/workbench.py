@@ -2,19 +2,29 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import shlex
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from quant_system.decision.digest import (
+    DailyDigest,
+    build_daily_digest,
+    load_digest_states,
+    resolve_digest_universe,
+)
+from quant_system.decision.digest_reports import publish_digest
 from quant_system.decision.leverage import run_leverage_overlay_universe_workflow
 from quant_system.decision.manual_research import export_manual_research_package
 from quant_system.decision.positions import run_position_check_workflow
 from quant_system.decision.premarket import run_premarket_workflow
 from quant_system.decision.research import run_research_list_workflow
 from quant_system.domain.clocks import NyseSessionClock
+from quant_system.ingestion.market_context import select_market_context
 from quant_system.models.config import RankingBaselineSettings
 from quant_system.storage.parquet import ParquetRepository
 from quant_system.strategy.config import BuyTheDipConfig
@@ -22,6 +32,8 @@ from quant_system.strategy.leverage_overlay import (
     LeverageOverlayConfig,
     LeverageOverlayUniverseConfig,
 )
+from quant_system.universe.config import load_daily_digest_config
+from quant_system.universe.lifecycle import LifecycleResolver
 
 
 @dataclass(frozen=True)
@@ -56,10 +68,25 @@ def run_daily_workbench_workflow(
     generated_at_utc: datetime | None = None,
     news_cutoff_utc: datetime | None = None,
     manual_news: bool = False,
+    model_activation: dict[str, Any] | None = None,
+    digest_config=None,
+    digest_scope=None,
+    market_context_values=None,
+    context_cutoff_utc=None,
+    publication_mode=None,
 ) -> tuple[dict[str, Any], DailyWorkbenchArtifacts]:
     """Run the daily decision stack and write a concise index."""
     run_id = run_id or uuid4()
     generated_at_utc = _ensure_utc(generated_at_utc or datetime.now(UTC))
+    digest_config = digest_config or load_daily_digest_config()
+    digest_scope = digest_scope or resolve_digest_universe(
+        digest_config,
+        as_of=signal_session,
+        resolver=LifecycleResolver.from_repository(repository),
+        universe_paths=None
+        if tuple(universe_paths) == digest_config.universe_paths
+        else universe_paths,
+    )
     premarket_report, premarket_artifacts = run_premarket_workflow(
         repository=repository,
         database_path=database_path,
@@ -135,6 +162,8 @@ def run_daily_workbench_workflow(
         positions_report=positions_report,
         positions_artifacts=positions_artifacts,
     )
+    if model_activation is not None:
+        report["model_activation"] = model_activation
     if manual_news:
         report["metadata"]["news_mode"] = "MANUAL_RESEARCH"
         report["manual_research"] = export_manual_research_package(
@@ -144,11 +173,110 @@ def run_daily_workbench_workflow(
             lookback_days=news_summary_days,
         )
         report["next_steps"].insert(0, "Run the manual research prompt with live web search.")
+    states = load_digest_states(
+        repository=repository,
+        database_path=database_path,
+        config=digest_config,
+        scope=digest_scope,
+        session=signal_session,
+    )
+    report["digest"] = build_daily_digest(
+        config=digest_config,
+        scope=digest_scope,
+        metadata=report["metadata"],
+        premarket=premarket_report,
+        states=states,
+        now=generated_at_utc,
+    ).model_dump(mode="json")
+    context_cutoff_utc = (
+        context_cutoff_utc or news_cutoff_utc or NyseSessionClock().available_at_utc(signal_session)
+    )
+    if context_cutoff_utc > generated_at_utc:
+        raise ValueError("market context cutoff cannot exceed report generation time")
+    if market_context_values is None:
+        market_context_values = select_market_context(
+            repository,
+            database_path,
+            session=signal_session,
+            cutoff=context_cutoff_utc,
+        )
+    report["digest"]["metadata"]["market_context_cutoff_utc"] = context_cutoff_utc.isoformat()
+    report["digest"]["market"].update(market_context_values)
+    report["digest"]["data_health"]["market_context"] = {
+        name: {"status": value["status"], "reason": value["reason"]}
+        for name, value in market_context_values.items()
+    }
+    if any(value["status"] != "AVAILABLE" for value in market_context_values.values()):
+        report["status"] = "DEGRADED"
+    technical_health = {
+        "unavailable_market": report["digest"]["market"]["technical_score"]["status"]
+        != "AVAILABLE",
+        "unavailable_stocks": sum(s["status"] == "UNAVAILABLE" for s in report["digest"]["stocks"]),
+        "unavailable_sectors": sum(
+            s["technical_score"]["status"] != "AVAILABLE" for s in report["digest"]["sectors"]
+        ),
+    }
+    report["digest"]["data_health"]["technical"] = technical_health
+    if any(technical_health.values()):
+        report["status"] = "DEGRADED"
+    report["digest"]["status"] = report["status"]
+    publication_mode = publication_mode or (
+        "live"
+        if signal_session == NyseSessionClock().latest_completed_session(generated_at_utc)
+        else "replay"
+    )
+    report["digest"]["metadata"].update(
+        canonical_generated_at_utc=generated_at_utc.isoformat(),
+        canonical_run_id=str(run_id),
+        publication_mode=publication_mode,
+        publication_kind="daily",
+        data_root=str(repository.data_root),
+        premarket_path=str(premarket_artifacts.json_path.resolve()),
+        premarket_sha256=hashlib.sha256(premarket_artifacts.json_path.read_bytes()).hexdigest(),
+        score_config_sha256=hashlib.sha256(
+            (digest_config.model_dump_json() + strategy_config.model_dump_json()).encode()
+        ).hexdigest(),
+    )
+    package = report.get("manual_research")
+    if package is None:
+        package = export_manual_research_package(
+            report, premarket_artifacts.directory, strategy_config, lookback_days=news_summary_days
+        )
+        report["research_package"] = package
+    report["digest"]["research"] = {
+        "prompts": package.get("prompt_batches", []),
+        "package_path": package["artifacts"]["package"],
+        "import_instructions": (
+            ".venv/bin/python -m quant_system decision import-manual-research "
+            f"--package {shlex.quote(package['artifacts']['package'])} "
+            "--result /path/to/batch-result.json --reviewed-by YOUR_NAME"
+        ),
+    }
+    report["digest"]["artifacts"] = {
+        name + "_json": str(component["artifacts"]["json"])
+        for name, component in report["components"].items()
+        if component.get("artifacts", {}).get("json")
+    }
+    report["digest"]["artifacts"].update(
+        research_package=package["artifacts"]["package"],
+        research_schema=package["artifacts"]["schema"],
+    )
+    digest_directory = (report_root / signal_session.isoformat() / str(run_id)).resolve()
+    report["digest"]["artifacts"].update(
+        digest_json=str(digest_directory / "digest.json"),
+        digest_markdown=str(digest_directory / "digest.md"),
+    )
+    report["digest"] = DailyDigest.model_validate(report["digest"]).model_dump(mode="json")
+    digest_artifacts = publish_digest(
+        report["digest"], report_root=report_root, mode=publication_mode
+    )
     artifacts = write_daily_workbench_index(report=report, report_root=report_root)
     report["artifacts"] = {
         "directory": str(artifacts.directory),
         "json": str(artifacts.json_path),
         "markdown": str(artifacts.markdown_path),
+        "digest_json": digest_artifacts["json"],
+        "digest_markdown": digest_artifacts["markdown"],
     }
     artifacts = write_daily_workbench_index(report=report, report_root=report_root)
     return report, artifacts

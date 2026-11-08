@@ -18,6 +18,146 @@ python scripts/run_daily_workbench.py
 
 ## 每日推荐顺序
 
+### 每日自动运行与 Telegram 通知
+
+macOS 使用用户级 launchd 每 60 秒检查一次 NYSE 日历。默认在实际收盘后 60 分钟
+运行 `--manual-news` pipeline，更新价格、计算评分、生成研究 prompt，并发送 Telegram
+运行摘要。提前收盘和夏令时跟随交易所日历，东京触发时间自动变化。人工新闻研究
+仍需运行 prompt 后审核回填；通知不代表完成了联网新闻研究。
+
+在 Telegram 向官方 `@BotFather` 发送 `/newbot`，创建后将 token 只写入本地 `.env`，
+再向新 bot 发送 `/start`：
+
+```dotenv
+QUANT_TELEGRAM_BOT_TOKEN=<BotFather给的token>
+QUANT_TELEGRAM_CHAT_ID=
+```
+
+确认 bot、识别私人聊天并测试推送：
+
+```bash
+.venv/bin/python -m quant_system automation telegram-check
+.venv/bin/python -m quant_system automation telegram-find-chat --save
+.venv/bin/python -m quant_system automation telegram-test
+```
+
+`--save` 仅在发现一个私人聊天且本地尚未指定 chat ID 时自动写入 `.env`；有多个
+私人聊天时需自行核对并填写正确 ID。没有 `/start` 或存在 webhook 的 bot 可能无法
+用 getUpdates 识别；不要删除其他应用的 webhook，可直接配置已核对的 chat ID。
+命令不会把 token 放进输出、日志或 launchd plist；`.env` 不提交到 Git。
+
+安装、查看和卸载：
+
+```bash
+.venv/bin/python -m quant_system automation install
+.venv/bin/python -m quant_system automation status
+.venv/bin/python -m quant_system automation uninstall
+```
+
+安装后的配置位于 `~/Library/LaunchAgents/com.qlib-quant.daily.<项目hash>.plist`。
+项目配置是 `configs/operations/daily.yaml`，可以调整触发偏移和重试预算；改变轮询
+间隔后重跑 install。未配置 Telegram 时服务会显示 BLOCKED_CONFIGURATION 并暂停
+pipeline，填好凭据后下次轮询自动恢复。
+
+同一交易日只执行一次成功/降级流程，消息发出后不会重复推送。价格阻断或执行失败
+会发送失败摘要，最多重试 2 次、间隔 15 分钟；成功的 DEGRADED 日报明确显示新闻
+待人工研究及可执行候选数。推送失败独立于 pipeline，不重复消耗行情请求；429 按
+retry_after 延迟，最多 3 次通知尝试。网络超时或发送中断可能已经送达，记录 UNKNOWN
+并不自动重发，避免重复消息；可在 status 和日志中核查后人工处理。
+
+日志在 `data/logs/automation*.log`，默认达到 5 MB 轮转，最多保留 3 份旧日志。运行
+和通知状态保存在 SQLite，raw 数据仍追加保存。通知只发送状态、计数和本机报告路径，
+不会上传持仓资料或 prompt 附件；手机无法直接打开本机路径，需要回到电脑读取。
+
+电脑需开机且用户保持登录。睡眠/关机期间不会运行；恢复后若仍在下次实际开盘前，
+会补跑最近的收盘任务，超过该窗口不会生成过期盘前任务。周末/节假日不创建新的
+交易日任务，可能补跑仍有效的上个交易日。可手动执行一次 tick 排查：
+
+```bash
+.venv/bin/python -m quant_system automation tick
+```
+
+Bot 创建与 API 说明见 [Telegram 官方教程](https://core.telegram.org/bots/tutorial)
+和 [Bot API](https://core.telegram.org/bots/api#sendmessage)。
+
+### 盘前、盘中门禁和周报自动运行
+
+`configs/operations/daily.yaml` 中的 `session_jobs` 默认启用以下任务。所有偏移都
+锚定 NYSE 当天实际开盘/收盘，东京时间只用于显示，不是调度条件。
+
+| 任务 | 交易所时间偏移 | 夏令时期间的东京时间示例 |
+| --- | --- | --- |
+| 收盘日报 | 实际收盘 +60 分钟 | 次日 06:00（正常收盘） |
+| 盘前日报刷新 | 下一交易日开盘 -60 分钟 | 21:30 |
+| 开盘前检查 | 开盘 -10 分钟 | 22:20 |
+| T+30 门禁 | 开盘 +30 分钟 | 23:00 |
+| T+60 门禁 | 开盘 +60 分钟 | 23:30 |
+| 周度复盘 | 本 ISO 周最后一个交易日实际收盘 +60 分钟 | 通常周六 06:00 |
+
+标准时期间上述正常开盘示例晚一小时；提前收盘的日报/周报时间跟随实际收盘。
+周五休市时周报锚定当周最后一个真实交易日。盘前刷新重用 canonical pipeline，
+生成新的评分、人工新闻包和通知，保持人工新闻待审核状态。已有收盘日报不会覆盖。
+
+门禁前 2 分钟分别采集一次快照，报价及本地可用时间必须在对应门禁 cutoff 前。
+快照任务不单独发 Telegram；门禁通知显示 KEEP/DEFER/CANCEL 的计数与报告路径。
+盘前刷新最晚在开盘 -12 分钟开始；三个门禁仅在各自触发后的 5 分钟窗口内执行。
+超过窗口不补跑。失败最多 2 次，门禁/快照的第二次尝试间隔 1 分钟；盘前/周报仍
+间隔 15 分钟。没有合格快照时继续 DEFER，不伪造日线回测或 paper 成交。
+
+目前按用户选择，`configs/sources/intraday.yaml` 的 `provider: none`。接入方式：
+
+- `broker_file`：把券商快照放到 `broker_path`，JSON 为 `{"rows": [...]}`。每行必须
+  满足 `IntradaySnapshot`：symbol、last_price、quote_at_utc、session_date_ny、source、
+  source_version、fetched_at_utc、available_at_utc、ingestion_run_id、is_stale、
+  quality_flags，以及 news_risk、liquidity_status。UTC 时间须含时区，未知状态填写 UNKNOWN。
+- `alpaca`：在 `.env` 填写 `QUANT_ALPACA_API_KEY`、`QUANT_ALPACA_SECRET_KEY`，明确选择
+  `feed: iex` 或 `sip`。默认 IEX 只代表单一交易所；SIP 最新行情需要相应订阅权限。
+  本接口采集 latest trades，不能确认新闻或全市场流动性，因此二者保持 UNKNOWN。
+  不用这些报价直接放行候选。权限错误保持 UNAVAILABLE，不自动切换到未经验证的源。
+
+Alpaca 来源边界见 [官方 Market Data FAQ](https://docs.alpaca.markets/us/docs/market-data-faq)。
+不需要购买或配置此来源才能使用人工新闻日报。采集预算与每分钟调用额度跨进程保存在
+SQLite；超出额度即停止请求。每个 API 批次只尝试一次，后续批次失败保留已成功追加的事实。
+
+可手动检查来源或生成当前周的截至目前复盘（这两个命令不发通知）：
+
+```bash
+.venv/bin/python -m quant_system automation collect-intraday --symbols AAPL,MSFT
+.venv/bin/python -m quant_system automation weekly-review
+.venv/bin/python -m quant_system automation status
+```
+
+原始快照追加保存到 `raw/intraday_snapshots/`，券商导入采用实际本地导入可用时间，
+原始来源元数据完整保存在 note。DuckDB 可重建 `raw_intraday_snapshots` 视图。
+门禁只选择同一订单日、cutoff 前可见的快照与同一信号日的计划；关键价格门禁仍生效。
+
+周报位于 `data/reports/weekly/<周一日期>/<run_id>/weekly.json` / `weekly.md`。
+按每个信号日最新且已可用的日报汇总候选和缺失日报，分别统计人工与 paper 成交、
+手续费、异常/降级和尚未导入审核结果的新闻包。BUY 滑点仅比较已关联计划限价与
+成交价；SELL 或无可关联计划时显示 UNAVAILABLE。未重建已平仓交易时不报告收益率
+或胜率；旧的无观察时间运行状态单独标记，不假定历史可用。
+
+### 自动日报的模型排序验收
+
+`daily.yaml` 的 `ranking.mode` 支持 `off` 和 `validated`，默认 `validated`，但
+`approved_run_id: null` 时显示 AWAITING_VALIDATION_REVIEW，保留规则排序。
+先使用现有 `quant model compare` 生成 OOF 比较报告，再审核其指标与配置。只有
+审核后明确将对应 registry run ID 写入 `approved_run_id`，自动日报才会尝试启用。
+
+```bash
+.venv/bin/python -m quant_system model compare --help
+.venv/bin/python -m quant_system automation model-status
+```
+
+验收会检查模型/策略配置一致、报告在决策时已可用、标签已成熟、fold 的 purging/embargo、
+OOF 预测与标签/验证窗口一致，并重算比较指标；LightGBM 须优于规则 baseline 与 Ridge。
+不合格或缺失时显示 UNAVAILABLE_VALIDATION；推理失败显示 UNAVAILABLE_INFERENCE，
+日报仍可运行。激活证据及 artifact hashes 进入 pipeline cache identity 与日报记录。
+模型只附加排名上下文，不修改规则动作、人工新闻覆盖或交易许可。
+
+本机锁屏和屏幕熄灭可以继续运行。当前接电电源配置 `sleep=0`；用户仍需保持登录、
+供电与网络。手动休眠、退出登录或关机时无法按时运行。
+
 ### 使用 Codex / ChatGPT 人工研究新闻
 
 可以让程序完成量化评分，再把生成的 prompt 交给具备实时联网能力的会话运行。
@@ -126,7 +266,7 @@ python scripts/run_daily_pipeline.py
 
 需要明确再次采集时使用 `--retry`，例如配置凭据后或需要新的新闻决策。可选
 `--refresh-window` 必须是当前 UTC 半小时边界，通常不需要设置。价格门禁失败
-返回 `BLOCKED`，不会生成日报；`BLOCKED` / `FAILED` 退出码为 2。新闻缺失或
+返回 `BLOCKED`，只生成暂停建议的状态封面；`BLOCKED` / `FAILED` 退出码为 2。新闻缺失或
 覆盖不足保留 `DEGRADED`，只供研究，不形成可执行入场草案。
 
 历史重放不联网采集，并使用当时的价格和新闻可用时间：
@@ -529,3 +669,98 @@ python scripts/run_daily_pipeline.py
 ```text
 data/reports/daily/<date>/<run_id>/daily_index.md
 ```
+
+
+### 新版日报：评分、Markdown 与 Telegram
+
+Phase A 已接入完整关注池、结构化 digest 和市场指标的存储/查询。默认日报扫描
+`configs/reports/daily_digest.yaml` 中的七个关注池；raw review 与 Futu 原始池只列入
+覆盖清单，不自动晋升为可交易标的。手动 `decision daily-workbench` 与自动 pipeline
+使用同一配置；显式 `--ai-universe` / `--hedge-universe` 保留旧的自定义范围行为。
+
+当前 `daily_index.json.digest` 使用 schema 2，phase 为 `SCORED_DECISION_SUPPORT`。
+个股与 ETF 的技术分复用 canonical 趋势修复分 × 10；大盘为 SPY / QQQ 等权平均，
+缺任一项就不发布总分。技术分不是胜率或买入许可。板块 ETF 和关注池等权主题分别
+标注，主题缺少成员时不重新分配权重。原始策略分仍是 60 日相对收益，模型排名单列。
+
+固定阅读目录为 `data/reports/daily/`（相对于配置的 data_dir）：
+
+- `latest.md`：最新 live 阅读版；阻断时显示暂停建议和最近成功报告链接。
+- `YYYY-MM-DD.md`：以信号交易日命名的当日阅读版，保留之前各日期。
+- `YYYY-MM-DD/<run_id>/digest.md` 与 `digest.json`：该次运行的完整证据，后续不覆盖。
+
+Markdown 包含市场三项、全部板块/主题、全量关注股的评分贡献和未入选原因、规则检查、
+新闻与模型状态、计划价格、门禁时效、数据来源及完整 LLM prompt。
+同日盘前计划、研究回填、T+30/T+60 门禁会生成新版本并更新阅读入口；历史 replay
+只保存 run 级文件。旧计划的迟到更新不会覆盖较新的计划；有效门禁按报告评估时点
+判断，并明确有效期限，不表示已下单或成交，阅读静态文件时仍须核对日期和有效期。
+
+研究 prompt 每批最多 20 只，覆盖所有 canonical 候选；每批独立返回结果 JSON 后，
+使用文中的命令导入。多批保留同一 package ID / hash，按股票合并已审核结果；
+后导入的一批不会清空先前批次。旧 v1 研究包仍可导入。人工研究可以提示风险或否决，
+不能把新闻覆盖认证为 LOW，也不能放行门禁。
+
+Telegram 已接入同一 digest：大盘三项、11 个行业 ETF、主题代理与入场筛选结果，
+正常推送不再重复目录和 prompt 路径。收盘、盘前刷新及门禁通知使用对应版本，
+门禁更新另列股票、技术分与检查状态。研究分数不等于交易许可。
+
+长名单按完整股票行分页，默认每页至多 3800 个 UTF-16 单位，含信号日、短 run ID
+和页码。SQLite outbox 按页保存状态：已 SENT 的页不重发；429 遵守持久化 Retry-After，
+每次投递至多尝试 5 页；UNKNOWN 不自动重发，同一报告后续页面等待，不冒充发送成功。
+门禁通知超过有效期限就标为 EXPIRED。旧单条通知状态自动迁移，避免升级后重复发送。
+报告缺失或仍为旧 foundation 契约时，通知只说明暂停建议，不能拿候选数量冒充买入名单。
+
+已注册的 LaunchAgent 每次从当前项目启动 Python，因此下次调度会使用新版输出。
+需要暂停自动运行时执行 `.venv/bin/python -m quant_system automation uninstall`；
+恢复时执行 `.venv/bin/python -m quant_system automation install`。暂停不删除历史报告或原始数据。
+
+VIX 复用已有 Yahoo `^VIX` 价格。CNN 自动数据地址在 2026-11-04 本机验证中返回
+HTTP 418，因此 `configs/sources/market_context.yaml` 默认 `provider: none`。
+没有已导入的有效值就显示 UNAVAILABLE；不会填入估算值。候选 adapter 版本是
+`cnn-graphdata-v1-unverified`，生产启用前仍需真实成功响应和字段验证。
+用户已接受 CNN 缺失，不将自动 CNN 接入作为本次验收条件。
+
+Yahoo adapter 更新为 `yfinance-<dependency-version>/adapter-4`：只接收 NYSE 交易日记录，
+将指数返回的非 NYSE 交易日计入 `dropped_non_nyse_session_rows` 警告；避免 VIX 的
+额外日期使整个辅助 ETF 批次中止。成功的旧原始记录保持不变，新记录保留新版本元数据。
+
+如已从 CNN 页面人工核实数值，可创建本地 JSON（以下仅说明字段，数值是虚构的）：
+
+```json
+{
+  "value": 42.5,
+  "observed_at_utc": "2026-06-30T20:00:00Z",
+  "source_url": "https://www.cnn.com/markets/fear-and-greed",
+  "label": "fear"
+}
+```
+
+填写真实值及来源发布时间后执行：
+
+```bash
+.venv/bin/python -m quant_system data import-cnn /absolute/path/to/cnn.json
+```
+
+导入只追加本地事实，不发送消息、不放行交易；本地可用时间是实际导入时间，不能
+手工改写为过去。旧观测按交易日标记 stale。随后正常运行日报会读取截止时间前的
+有效观测；历史 replay 不会读取后来才导入的事实。
+
+## 按交易日回放关注池
+
+```bash
+.venv/bin/quant backtest daily-scan --start 2026-01-01 --end 2026-11-03
+```
+
+命令只读取本地数据，复用正式扫描的特征、规则和 Telegram 技术评分，不发送消息。
+每次运行写入独立的 `data/reports/backtests/<run_id>/`，包含 `report.md`、
+`daily_summary.csv`、`daily_scans.csv`、`signals.csv` 和逐日 `daily/YYYY-MM-DD.json`。
+Parquet 审计文件保留价格版本、来源元数据和特征；配置与生命周期事件保存为快照。
+
+报告分别统计“按成员生效日期”的扫描，以及“期末关注池回溯整个区间”的研究。
+后者有选股偏差，不是无偏历史股票池。假日自动跳过，关键行情缺失阻断当日信号，
+不足观察期的结果留空。技术分是 0–100 修复分；`score` 是原策略的相对收益排名值。
+
+此命令输出的未来 1/5/10 日收益，从信号后的首个交易日开盘计算到第 N 日收盘，
+仅为事后研究标签。它不模拟止损止盈、持仓、新闻和人工审核，也不将缺失的
+T+30/T+60 盘中确认视为通过。因此执行保持 no-fill，完整策略收益显示 N/A。
+不能将未来收益均值称为账户收益，也不能将 no-fill 解读为策略收益为 0%。

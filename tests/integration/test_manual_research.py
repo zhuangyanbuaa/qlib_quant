@@ -110,6 +110,8 @@ def research_context(tmp_path):
 def test_import_preserves_quant_raw_and_gate_permissions_and_is_idempotent(research_context):
     options, path, _payload, package = research_context
     repo = options["repository"]
+    parent_digest = options["package_path"].parent / "digest.json"
+    digest_before = parent_digest.read_bytes()
     before = {p: p.read_bytes() for p in repo.daily_prices_root.rglob("*.parquet")}
     source_files = {
         options["package_path"].parent / row["file"]: (
@@ -135,6 +137,13 @@ def test_import_preserves_quant_raw_and_gate_permissions_and_is_idempotent(resea
     assert fact["source"] == "manual_web_research" and "research_only" in fact["quality_flags"]
     assert all(p.read_bytes() == value for p, value in {**before, **source_files}.items())
     assert repo.read_news_coverage().num_rows == 0
+    assert parent_digest.read_bytes() == digest_before
+    revisions = [json.loads(p.read_text()) for p in options["report_root"].glob("*/*/digest.json")]
+    reviewed = [r for r in revisions if r["metadata"].get("publication_kind") == "research"]
+    assert reviewed and all(not r["entry_candidates"] for r in reviewed)
+    assert reviewed[0]["stocks"][0]["entry_status"] == "VETOED"
+    assert reviewed[0]["research"]["review"]["symbols"][0]["news_risk"] == "HIGH"
+    assert not (options["report_root"] / "latest.md").exists()  # Replay stays isolated.
 
 
 @pytest.mark.parametrize(
@@ -208,6 +217,44 @@ def test_late_import_visibility_and_missing_reviews(research_context):
     assert earlier["combined_status"] == "PENDING_MANUAL_REVIEW"
     old = json.loads(Path(earlier["report_path"]).read_text())
     assert old["observation"] is None and old["symbols"][0]["review_status"] == "NOT_REVIEWED"
+
+
+def test_partial_batch_import_does_not_erase_previously_reviewed_symbols(research_context):
+    options, path, payload, _ = research_context
+    import_manual_research(**options, result_path=path, reviewed_by="fixture")
+    payload["reviews"] = []
+    payload["evidence"] = []
+    payload["overview"] = "Another partial batch."
+    path.write_text(json.dumps(payload))
+    later = options | {"now_utc": options["now_utc"] + timedelta(minutes=1)}
+    result = import_manual_research(**later, result_path=path, reviewed_by="fixture")
+    report = json.loads(Path(result["report_path"]).read_text())
+    row = next(row for row in report["symbols"] if row["symbol"] == "AAPL")
+    assert row["review_status"] == "SEARCHED" and row["news_risk"] == "HIGH"
+    assert row["execution_eligible"] is False
+
+
+def test_legacy_v1_packages_keep_their_actual_source_version(research_context):
+    from uuid import UUID, uuid5
+
+    options, path, payload, package = research_context
+    package["prompt_version"] = "manual-news-prompt-v1"
+    package["package_id"] = str(uuid5(UUID(package["run_id"]), package["prompt_version"]))
+    package["package_sha256"] = content_hash(
+        {k: v for k, v in package.items() if k != "package_sha256"}
+    )
+    options["package_path"].write_text(json.dumps(package))
+    payload.update(
+        {key: package[key] for key in ("prompt_version", "package_id", "package_sha256")}
+    )
+    path.write_text(json.dumps(payload))
+    result = import_manual_research(**options, result_path=path, reviewed_by="fixture")
+    fact = options["repository"].read_manual_research().to_pylist()[0]
+    assert fact["source_version"].endswith(":manual-news-prompt-v1")
+    assert (
+        json.loads(Path(result["report_path"]).read_text())["metadata"]["prompt_version"]
+        == "manual-news-prompt-v1"
+    )
 
 
 def test_package_and_source_tampering_rejected(research_context):

@@ -10,7 +10,7 @@ from pydantic import AwareDatetime, Field, HttpUrl, field_validator, model_valid
 
 from quant_system.domain.models import IngestionMetadata, NonEmptyString, StrictModel, Symbol
 
-PROMPT_VERSION = "manual-news-prompt-v1"
+PROMPT_VERSION = "manual-news-prompt-v2"
 RESULT_VERSION = "manual-research-result-v1"
 PACKAGE_VERSION = "manual-research-package-v1"
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
@@ -74,7 +74,7 @@ class ManualResearchResult(UtcResearchModel):
     run_id: UUID
     signal_session: date
     price_cutoff_utc: AwareDatetime
-    prompt_version: Literal["manual-news-prompt-v1"] = PROMPT_VERSION
+    prompt_version: Literal["manual-news-prompt-v1", "manual-news-prompt-v2"] = PROMPT_VERSION
     analyst_system: NonEmptyString
     model_version: NonEmptyString
     generated_at_utc: AwareDatetime

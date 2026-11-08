@@ -1,7 +1,14 @@
+import json
 from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
-from quant_system.decision.gates import evaluate_gate_row
+import pytest
+
+from quant_system.decision.gates import (
+    current_gate_decision,
+    evaluate_gate_row,
+    run_open_gate_workflow,
+)
 from quant_system.decision.reports import (
     write_decision_table_report,
     write_premarket_report,
@@ -130,3 +137,44 @@ def test_generic_decision_report_writes_all_formats(tmp_path) -> None:
     assert artifacts.csv_path.exists()
     assert artifacts.markdown_path.exists()
     assert artifacts.html_path.exists()
+
+
+@pytest.mark.parametrize(
+    "fault", [None, "future", "expired", "wrong_run", "wrong_signal", "snapshot_missing", "preopen"]
+)
+def test_digest_gate_requires_matching_fresh_canonical_evidence(tmp_path, fault):
+    snapshot, cutoff = valid_snapshot(101, 30)
+    plan = {
+        "metadata": {
+            "run_id": str(uuid4()),
+            "signal_session": "2026-06-26",
+            "earliest_order_session": "2026-06-29",
+            "news_cutoff_utc": "2026-06-29T12:00:00+00:00",
+        },
+        "candidates": [candidate()],
+    }
+    source, quotes = tmp_path / "premarket.json", tmp_path / "quotes.json"
+    source.write_text(json.dumps(plan))
+    quotes.write_text(json.dumps([snapshot], default=str))
+    gate, _ = run_open_gate_workflow(
+        premarket_report_path=source,
+        report_root=tmp_path,
+        minutes=30,
+        snapshot_path=quotes,
+        generated_at_utc=cutoff,
+    )
+    now = cutoff
+    if fault == "future":
+        now -= timedelta(seconds=1)
+    elif fault == "expired":
+        now += timedelta(minutes=6)
+    elif fault == "wrong_run":
+        gate["metadata"]["source_run_id"] = str(uuid4())
+    elif fault == "wrong_signal":
+        gate["rows"][0]["signal_id"] = "other"
+    elif fault == "snapshot_missing":
+        quotes.unlink()
+    elif fault == "preopen":
+        gate["metadata"]["minutes_before_or_after_open"] = -10
+    result = current_gate_decision(candidate(), premarket=plan, gate_reports=[gate], now=now)
+    assert result["decision"] == ("KEEP" if fault is None else "DEFER")

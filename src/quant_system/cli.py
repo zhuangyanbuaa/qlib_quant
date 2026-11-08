@@ -12,6 +12,7 @@ import typer
 from typer.core import TyperGroup
 
 from quant_system import __version__
+from quant_system.backtest.daily_scan import run_daily_scan_research
 from quant_system.backtest.workflow import run_backtest_workflow, scan_workflow
 from quant_system.decision.gates import (
     latest_report_path,
@@ -62,6 +63,9 @@ from quant_system.models.workflow import (
 )
 from quant_system.operations.pipeline import run_daily_pipeline
 from quant_system.operations.registry import PipelineBusy, pipeline_lock
+from quant_system.operations.scheduling import load_schedule, schedule_windows, tick_daily
+from quant_system.operations.session_jobs import session_windows, tick_session_jobs
+from quant_system.operations.telegram import TelegramClient, TelegramError
 from quant_system.quality.prices import PriceDataBlocked
 from quant_system.quality.reports import PipelineStatus
 from quant_system.sentiment.coverage import load_coverage
@@ -75,7 +79,7 @@ from quant_system.strategy.leverage_overlay import (
     load_leverage_overlay_config,
     load_leverage_overlay_universe_config,
 )
-from quant_system.universe.config import load_watchlist_config
+from quant_system.universe.config import load_daily_digest_config, load_watchlist_config
 
 
 class PriceGateGroup(TyperGroup):
@@ -119,6 +123,225 @@ app.add_typer(model_app, name="model")
 app.add_typer(decision_app, name="decision")
 app.add_typer(journal_app, name="journal")
 app.add_typer(paper_app, name="paper")
+automation_app = typer.Typer(help="Exchange-calendar scheduling and Telegram notifications.")
+app.add_typer(automation_app, name="automation")
+
+DAILY_SCHEDULE_PATH = PROJECT_ROOT / "configs/operations/daily.yaml"
+
+
+@automation_app.command("tick")
+def automation_tick(
+    config: Annotated[Path, typer.Option("--config", exists=True)] = DAILY_SCHEDULE_PATH,
+):
+    try:
+        result = tick_daily(get_settings(), load_schedule(config))
+        result["session_automation"] = tick_session_jobs(get_settings(), load_schedule(config))
+    except Exception as error:
+        result = {"status": "FAILED", "error_type": type(error).__name__}
+    typer.echo(json.dumps(result, indent=2))
+    if result["status"] in {"FAILED", "BLOCKED_CONFIGURATION"} or result.get(
+        "session_automation", {}
+    ).get("status") in {"FAILED", "BLOCKED_CONFIGURATION"}:
+        raise typer.Exit(2)
+
+
+@automation_app.command("status")
+def automation_status(
+    config: Annotated[Path, typer.Option("--config", exists=True)] = DAILY_SCHEDULE_PATH,
+):
+    import sqlite3
+
+    from quant_system.operations.launchd import agent_status
+
+    settings = get_settings()
+    schedule = load_schedule(config)
+    active, upcoming = schedule_windows(schedule, datetime.now(UTC))
+    path = settings.resolved_data_dir / "db/operations.sqlite"
+    recent = []
+    deliveries = []
+    if path.exists():
+        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as db:
+            try:
+                recent = db.execute(
+                    "SELECT session,status,attempts FROM scheduled_daily_runs "
+                    "ORDER BY rowid DESC LIMIT 3"
+                ).fetchall()
+                deliveries = db.execute(
+                    "SELECT status,attempts,error_code FROM telegram_outbox "
+                    "ORDER BY rowid DESC LIMIT 5"
+                ).fetchall()
+            except sqlite3.OperationalError:
+                pass
+    typer.echo(
+        json.dumps(
+            {
+                **agent_status(),
+                "telegram_configured": settings.telegram_configured,
+                "manual_news": schedule.manual_news,
+                "trigger": schedule.trigger,
+                "next_trigger_utc": upcoming["due"].isoformat(),
+                "current_due_session": active["session"] if active else None,
+                "recent_runs": recent,
+                "recent_deliveries": deliveries,
+                "ranking_policy": schedule.ranking.model_dump(mode="json"),
+                "session_jobs": list(schedule.session_jobs),
+                "upcoming_jobs": [
+                    {"kind": w["kind"], "due_utc": w["due"].isoformat()}
+                    for w in session_windows(schedule, datetime.now(UTC))
+                    if w["due"] > datetime.now(UTC)
+                ][:8],
+            },
+            indent=2,
+        )
+    )
+
+
+@automation_app.command("install")
+def automation_install(
+    config: Annotated[Path, typer.Option("--config", exists=True)] = DAILY_SCHEDULE_PATH,
+):
+    from quant_system.operations.launchd import install_agent
+
+    typer.echo(json.dumps(install_agent(get_settings(), config), indent=2))
+
+
+@automation_app.command("uninstall")
+def automation_uninstall():
+    from quant_system.operations.launchd import uninstall_agent
+
+    typer.echo(json.dumps(uninstall_agent(), indent=2))
+
+
+@automation_app.command("collect-intraday")
+def automation_collect_intraday(
+    symbols: Annotated[str, typer.Option("--symbols", help="Comma-separated candidate symbols.")],
+    config: Annotated[Path, typer.Option("--config", exists=True)] = PROJECT_ROOT
+    / "configs/sources/intraday.yaml",
+):
+    from zoneinfo import ZoneInfo
+
+    from quant_system.ingestion.intraday import collect_intraday, load_intraday_settings
+
+    now = datetime.now(UTC)
+    session = now.astimezone(ZoneInfo("America/New_York")).date()
+    if not NyseSessionClock().calendar.is_session(session):
+        typer.echo(json.dumps({"status": "BLOCKED", "reason": "not_an_exchange_session"}))
+        raise typer.Exit(2)
+    settings = get_settings()
+    try:
+        with pipeline_lock(settings.resolved_data_dir):
+            result = collect_intraday(
+                settings,
+                load_intraday_settings(config),
+                ParquetRepository(settings.resolved_data_dir),
+                symbols=tuple(
+                    value.strip().upper() for value in symbols.split(",") if value.strip()
+                ),
+                session=session,
+            )
+    except Exception as error:
+        result = {"status": "FAILED", "error_type": type(error).__name__}
+    typer.echo(json.dumps(result, indent=2))
+    if result["status"] in {"UNAVAILABLE", "FAILED", "BLOCKED"}:
+        raise typer.Exit(2)
+
+
+@automation_app.command("weekly-review")
+def automation_weekly_review():
+    from quant_system.operations.weekly import build_weekly_review
+
+    now = datetime.now(UTC)
+    settings = get_settings()
+    with pipeline_lock(settings.resolved_data_dir):
+        result = build_weekly_review(
+            settings, session=NyseSessionClock().latest_completed_session(now), cutoff=now
+        )
+    typer.echo(json.dumps(result, indent=2))
+
+
+@automation_app.command("model-status")
+def automation_model_status(
+    config: Annotated[Path, typer.Option("--config", exists=True)] = DAILY_SCHEDULE_PATH,
+):
+    from quant_system.models.activation import resolve_daily_ranking
+
+    now = datetime.now(UTC)
+    settings = get_settings()
+    schedule = load_schedule(config)
+    _, context = resolve_daily_ranking(
+        schedule.ranking,
+        database_path=settings.resolved_data_dir / "db/operations.sqlite",
+        strategy_config=load_buy_the_dip_config(PROJECT_ROOT / "configs/strategy/buy_the_dip.yaml"),
+        session=NyseSessionClock().latest_completed_session(now),
+        cutoff=now,
+    )
+    typer.echo(json.dumps(context, indent=2))
+
+
+@automation_app.command("telegram-check")
+def telegram_check():
+    settings = get_settings()
+    if not settings.telegram_bot_token or not settings.telegram_bot_token.get_secret_value():
+        typer.echo(json.dumps({"status": "BOT_TOKEN_NOT_CONFIGURED"}))
+        raise typer.Exit(2)
+    try:
+        result = TelegramClient(settings.telegram_bot_token).check()
+        typer.echo(json.dumps(result | {"telegram_configured": settings.telegram_configured}))
+    except TelegramError as error:
+        typer.echo(json.dumps({"status": "FAILED", "reason": str(error)}))
+        raise typer.Exit(2) from None
+
+
+@automation_app.command("telegram-find-chat")
+def telegram_find_chat(
+    save: Annotated[
+        bool, typer.Option("--save", help="Save an unambiguous private chat ID to .env.")
+    ] = False,
+):
+    from dotenv import set_key
+
+    settings = get_settings()
+    if not settings.telegram_bot_token:
+        typer.echo(json.dumps({"status": "BOT_TOKEN_NOT_CONFIGURED"}))
+        raise typer.Exit(2)
+    try:
+        chats = TelegramClient(settings.telegram_bot_token).private_chats()
+    except TelegramError as error:
+        typer.echo(json.dumps({"status": "FAILED", "reason": str(error)}))
+        raise typer.Exit(2) from None
+    if save and len(chats) == 1 and not settings.telegram_chat_id:
+        set_key(str(PROJECT_ROOT / ".env"), "QUANT_TELEGRAM_CHAT_ID", chats[0], quote_mode="never")
+        (PROJECT_ROOT / ".env").chmod(0o600)
+        get_settings.cache_clear()
+    typer.echo(
+        json.dumps(
+            {
+                "status": "READY"
+                if get_settings().telegram_configured
+                else "NEEDS_CHAT_CONFIGURATION",
+                "private_chat_count": len(chats),
+                "chat_ids": chats if not save else [],
+                "telegram_configured": get_settings().telegram_configured,
+            }
+        )
+    )
+
+
+@automation_app.command("telegram-test")
+def telegram_test():
+    settings = get_settings()
+    if not settings.telegram_configured:
+        typer.echo(json.dumps({"status": "TELEGRAM_NOT_CONFIGURED"}))
+        raise typer.Exit(2)
+    try:
+        message_id = TelegramClient(settings.telegram_bot_token).send(
+            settings.telegram_chat_id,
+            "量化日报通知测试: 连接成功。人工新闻模式, 按 NYSE 实际收盘后 60 分钟运行。",
+        )
+        typer.echo(json.dumps({"status": "SENT", "message_id": message_id}))
+    except TelegramError as error:
+        typer.echo(json.dumps({"status": "FAILED", "reason": str(error)}))
+        raise typer.Exit(2) from None
 
 
 def _version_callback(value: bool) -> None:
@@ -698,6 +921,27 @@ def strategy_scan(
     typer.echo(json.dumps({"date": as_of.date().isoformat(), "signals": signals}, indent=2))
 
 
+@backtest_app.command("daily-scan")
+def backtest_daily_scan(
+    start: Annotated[datetime, typer.Option("--start", help="First date, including holidays.")],
+    end: Annotated[datetime, typer.Option("--end", help="Last completed evaluation date.")],
+) -> None:
+    """Replay all watchlists; export scores and outcome labels with conservative no-fill."""
+    settings = get_settings()
+    summary = run_daily_scan_research(
+        repository=ParquetRepository(settings.resolved_data_dir),
+        database_path=settings.resolved_data_dir / "db" / "daily_scan_research.duckdb",
+        report_root=settings.resolved_data_dir / "reports" / "backtests",
+        start=start.date(), end=end.date(),
+        strategy_config=load_buy_the_dip_config(
+            PROJECT_ROOT / "configs" / "strategy" / "buy_the_dip.yaml"
+        ),
+        digest_config=load_daily_digest_config(),
+        progress=lambda message: typer.echo(message, err=True),
+    )
+    typer.echo(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
 @backtest_app.command("run")
 def backtest_run(
     symbols: Annotated[
@@ -1195,8 +1439,32 @@ def decision_research_list(
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
+@data_app.command("import-cnn")
+def data_import_cnn(
+    source_path: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+) -> None:
+    """Append a sourced CNN transcription with actual local import availability."""
+    from quant_system.ingestion.market_context import import_manual_cnn
+
+    settings = get_settings()
+    try:
+        if source_path.stat().st_size > 100_000:
+            raise ValueError("manual CNN input exceeds 100 KB")
+        with pipeline_lock(settings.resolved_data_dir):
+            result = import_manual_cnn(
+                json.loads(source_path.read_text(encoding="utf-8")),
+                repository=ParquetRepository(settings.resolved_data_dir),
+            )
+    except (ValueError, OSError, PipelineBusy) as error:
+        raise typer.BadParameter(f"manual CNN import rejected: {type(error).__name__}") from None
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
 @decision_app.command("daily-workbench")
 def decision_daily_workbench(
+    digest_config_path: Annotated[
+        Path, typer.Option("--digest-config", exists=True, dir_okay=False)
+    ] = PROJECT_ROOT / "configs/reports/daily_digest.yaml",
     manual_news: Annotated[
         bool, typer.Option("--manual-news", help="Export manual research; keep news unverified.")
     ] = False,
@@ -1208,23 +1476,23 @@ def decision_daily_workbench(
         ),
     ] = None,
     ai_universe_path: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             "--ai-universe",
             exists=True,
             dir_okay=False,
             help="AI alpha watchlist YAML.",
         ),
-    ] = PROJECT_ROOT / "configs" / "universe" / "ai_watchlist.yaml",
+    ] = None,
     hedge_universe_path: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             "--hedge-universe",
             exists=True,
             dir_okay=False,
             help="Defensive hedge overlay YAML.",
         ),
-    ] = PROJECT_ROOT / "configs" / "universe" / "hedge_overlay.yaml",
+    ] = None,
     strategy_config_path: Annotated[
         Path,
         typer.Option(
@@ -1320,13 +1588,23 @@ def decision_daily_workbench(
     news_source_settings = load_news_source_settings(news_config_path)
     settings = get_settings()
     repository = ParquetRepository(settings.resolved_data_dir)
+    from quant_system.universe.config import load_daily_digest_config
+
+    digest_config = load_daily_digest_config(digest_config_path)
+    universe_paths = digest_config.universe_paths
+    if ai_universe_path is not None or hedge_universe_path is not None:
+        universe_paths = (
+            ai_universe_path or PROJECT_ROOT / "configs/universe/ai_watchlist.yaml",
+            hedge_universe_path or PROJECT_ROOT / "configs/universe/hedge_overlay.yaml",
+        )
     report, _artifacts = run_daily_workbench_workflow(
         repository=repository,
         database_path=settings.resolved_data_dir / "db" / "analytics.duckdb",
         operations_database_path=settings.resolved_data_dir / "db" / "operations.sqlite",
         report_root=settings.resolved_data_dir / "reports" / "daily",
         signal_session=signal_session,
-        universe_paths=(ai_universe_path, hedge_universe_path),
+        universe_paths=universe_paths,
+        digest_config=digest_config,
         strategy_config=load_buy_the_dip_config(strategy_config_path),
         include_news_risk=news_risk,
         news_lookback_hours=news_source_settings.risk.lookback_hours,
